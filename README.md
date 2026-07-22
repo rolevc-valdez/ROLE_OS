@@ -1,14 +1,15 @@
 # ROLE OS
 
 ROLE OS turns a ChatGPT conversations export into a structured, searchable
-personal knowledge base, and serves it through a small read-only API.
+personal knowledge base, and serves it through a read-only API and web
+dashboard.
 
 ## Repository layout
 
 ```
 ROLE_OS/
   builder/      # CLI tool: builds the ROLE Knowledge OS + SQLite DB from a ChatGPT export
-  dashboard/    # FastAPI app: read-only API over the generated SQLite database
+  dashboard/    # FastAPI app: read-only API + web UI over the generated SQLite database
   docs/         # Project documentation
   tests/        # Repo-level / integration tests
   scripts/      # Utility and automation scripts
@@ -35,14 +36,15 @@ ROLE_OS/
    uvicorn app.main:app --reload
    ```
 
-   See [`dashboard/README.md`](dashboard/README.md) for endpoint details.
+   Then open `http://127.0.0.1:8000/` in a browser for the dashboard UI.
+   See [`dashboard/README.md`](dashboard/README.md) for endpoint and UI details.
 
 ## Status
 
-This repository currently implements data extraction (`builder`) and a plain
-data-access API (`dashboard`). No AI/LLM features are implemented yet — the
-dashboard only reads and serves data that the builder already extracted with
-rule-based classification.
+This repository currently implements data extraction (`builder`), a plain
+data-access API, and a first usable web dashboard (`dashboard`). No AI/LLM
+features are implemented yet — the dashboard only reads and serves data that
+the builder already extracted with rule-based classification.
 
 ## Development
 

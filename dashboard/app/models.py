@@ -28,3 +28,12 @@ class KnowledgeCard(BaseModel):
     summary: str
 
     model_config = ConfigDict(extra="allow")
+
+
+class TimelineEntry(BaseModel):
+    conversation_id: str
+    title: str
+    project: str
+    date: str
+    updated: str
+

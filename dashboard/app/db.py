@@ -81,6 +81,43 @@ def search_cards(query: str, settings: Settings | None = None, limit: int = 50) 
     return [_row_to_card(row) for row in rows]
 
 
+def recent_cards(settings: Settings | None = None, limit: int = 10) -> list[dict[str, Any]]:
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            """
+            SELECT conversation_id, title, project, category, status, date, updated, summary, card_json
+            FROM knowledge_cards
+            ORDER BY date DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [_row_to_card(row) for row in rows]
+
+
+def timeline(settings: Settings | None = None, limit: int = 200) -> list[dict[str, Any]]:
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            """
+            SELECT conversation_id, title, project, date, updated
+            FROM knowledge_cards
+            ORDER BY date ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        {
+            "conversation_id": row["conversation_id"],
+            "title": row["title"],
+            "project": row["project"],
+            "date": row["date"],
+            "updated": row["updated"],
+        }
+        for row in rows
+    ]
+
+
 def get_card(conversation_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     with get_connection(settings) as conn:
         row = conn.execute(

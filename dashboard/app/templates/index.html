@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="brand">ROLE OS</span>
+      <form id="search-form" class="search-form" autocomplete="off">
+        <input
+          id="search-input"
+          type="search"
+          name="q"
+          placeholder="Search knowledge cards..."
+          aria-label="Search knowledge cards"
+        />
+        <button type="submit">Search</button>
+      </form>
+      <span class="version">v{{ app_version }}</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Projects</h2>
+      <ul id="project-list" class="project-list">
+        <li class="muted">Loading projects…</li>
+      </ul>
+    </aside>
+
+    <main class="content">
+      <section id="results-section">
+        <div class="section-header">
+          <h2 id="results-title">Recent knowledge cards</h2>
+          <button id="clear-search" class="link-btn" hidden>Clear search</button>
+        </div>
+        <ul id="card-list" class="card-list">
+          <li class="muted">Loading…</li>
+        </ul>
+      </section>
+
+      <section id="timeline-section">
+        <div class="section-header">
+          <h2>Timeline</h2>
+        </div>
+        <ol id="timeline-list" class="timeline-list">
+          <li class="muted">Loading timeline…</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+
+  <div id="detail-overlay" class="overlay" hidden>
+    <div class="detail-panel" role="dialog" aria-modal="true" aria-labelledby="detail-title">
+      <button id="detail-close" class="close-btn" aria-label="Close">&times;</button>
+      <div id="detail-body">
+        <p class="muted">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

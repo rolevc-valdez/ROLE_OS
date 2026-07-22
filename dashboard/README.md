@@ -1,10 +1,30 @@
 # ROLE OS Dashboard
 
-Read-only FastAPI service over the SQLite knowledge base produced by the
-ROLE OS Builder (`/builder`). No AI features are implemented yet — this is a
-plain data-access API.
+FastAPI service over the SQLite knowledge base produced by the ROLE OS
+Builder (`/builder`). It exposes a read-only JSON API and, as of Milestone 2,
+a server-rendered web UI for browsing the knowledge base in a browser. No AI
+features are implemented yet — everything here is plain data access.
 
-## Endpoints
+## Web UI
+
+Visiting `/` in a browser serves the ROLE OS dashboard: a single responsive
+page built with plain HTML, CSS, and JavaScript (no frontend framework).
+
+It includes:
+
+- **Global search bar** — searches knowledge cards via the existing `/search` endpoint.
+- **Project list with counts** — from `/projects`; click a project to filter the card list by it.
+- **Recent knowledge cards** — the default card list view, from `/ui/recent`.
+- **Knowledge card detail view** — click any card or timeline entry to open a
+  detail panel (summary, decisions, deliverables, to-dos, people,
+  applications, tags) fetched from `/knowledge/{id}`.
+- **Basic timeline** — chronological list of all knowledge cards, from `/ui/timeline`.
+
+The page and its assets live under `app/templates/index.html` and
+`app/static/{css,js}` and are served directly by FastAPI — no build step or
+bundler required.
+
+## API endpoints
 
 | Method | Path                 | Description                                   |
 |--------|----------------------|------------------------------------------------|
@@ -13,7 +33,15 @@ plain data-access API.
 | GET    | `/search?q=`         | Search knowledge cards by title/summary/content |
 | GET    | `/knowledge/{id}`    | Full knowledge card by `conversation_id`        |
 
-Interactive docs are available at `/docs` once the app is running.
+These four endpoints are unchanged since Milestone 1. The UI is powered by
+two small, additive endpoints used only by the page's own JavaScript:
+
+| Method | Path                    | Description                                  |
+|--------|-------------------------|-----------------------------------------------|
+| GET    | `/ui/recent?limit=`     | Most recent knowledge cards (default 10)      |
+| GET    | `/ui/timeline?limit=`   | Chronological list of knowledge cards          |
+
+Interactive API docs are available at `/docs` once the app is running.
 
 ## Setup
 
@@ -43,22 +71,29 @@ export ROLE_OS_DB_PATH="/path/to/ROLE_KNOWLEDGE_OS/00_SYSTEM/role_os.db"
 uvicorn app.main:app --reload
 ```
 
-Then visit `http://127.0.0.1:8000/health`.
+Then visit `http://127.0.0.1:8000/` for the dashboard, or
+`http://127.0.0.1:8000/health` to check the API directly.
 
 ## Project layout
 
 ```
 dashboard/
   app/
-    main.py          # FastAPI app + router registration
-    config.py         # Environment-based settings
-    db.py              # SQLite access layer
-    models.py          # Pydantic response models
+    main.py              # FastAPI app + router registration + static mount
+    config.py             # Environment-based settings (db path, static/template dirs)
+    db.py                  # SQLite access layer
+    models.py              # Pydantic response models
     routers/
       health.py
       projects.py
       search.py
       knowledge.py
-  tests/                # API tests (pytest + TestClient)
+      ui.py                  # Dashboard page route + /ui/recent, /ui/timeline
+    templates/
+      index.html               # Dashboard page (Jinja2)
+    static/
+      css/style.css             # Responsive layout, no framework
+      js/app.js                  # Search, project filter, card list, detail panel, timeline
+  tests/                    # API + UI tests (pytest + TestClient)
   requirements.txt
 ```

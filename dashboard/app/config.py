@@ -20,6 +20,9 @@ class Settings:
         ).resolve()
         self.app_name: str = "ROLE OS Dashboard"
         self.app_version: str = "0.1.0"
+        self.base_dir: Path = Path(__file__).resolve().parent
+        self.static_dir: Path = self.base_dir / "static"
+        self.templates_dir: Path = self.base_dir / "templates"
 
 
 @lru_cache
