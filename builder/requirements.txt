@@ -1,0 +1,6 @@
+# ROLE OS Builder has no third-party dependencies.
+# It relies solely on the Python standard library
+# (argparse, json, logging, shutil, sqlite3, tempfile, zipfile,
+# collections, dataclasses, datetime, pathlib, re, typing).
+#
+# Requires: Python >= 3.10
