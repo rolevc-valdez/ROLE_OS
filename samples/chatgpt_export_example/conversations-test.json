@@ -1,0 +1,24 @@
+[
+  {
+    "id": "conv-1",
+    "title": "ROLE Master Factory planning",
+    "create_time": 1700000000,
+    "update_time": 1700003600,
+    "mapping": {
+      "n1": {
+        "message": {
+          "author": {"role": "user"},
+          "create_time": 1700000000,
+          "content": {"parts": ["Quiero definir el plan para ROLE Master Factory."]}
+        }
+      },
+      "n2": {
+        "message": {
+          "author": {"role": "assistant"},
+          "create_time": 1700000100,
+          "content": {"parts": ["Decidimos usar Claude para el pipeline. Aprobado."]}
+        }
+      }
+    }
+  }
+]

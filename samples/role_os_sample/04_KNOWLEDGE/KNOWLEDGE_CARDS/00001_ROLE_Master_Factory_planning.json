@@ -1,0 +1,34 @@
+{
+  "conversation_id": "conv-1",
+  "date": "2023-11-14T22:13:20+00:00",
+  "updated": "2023-11-14T23:13:20+00:00",
+  "title": "ROLE Master Factory planning",
+  "project": "ROLE_MASTER_FACTORY",
+  "secondary_projects": [
+    "ROLE_MASTER"
+  ],
+  "category": "PROJECT",
+  "summary": "Quiero definir el plan para ROLE Master Factory.",
+  "status": "Completed",
+  "decisions": [
+    "Decidimos usar Claude para el pipeline. Aprobado."
+  ],
+  "deliverables": [],
+  "todos": [],
+  "people": [
+    "Master Factory"
+  ],
+  "applications": [
+    "Claude"
+  ],
+  "vendors": [],
+  "urls": [],
+  "prompts": [
+    "Quiero definir el plan para ROLE Master Factory."
+  ],
+  "assets": [],
+  "tags": [
+    "role-master-factory",
+    "claude"
+  ]
+}

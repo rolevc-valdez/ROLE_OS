@@ -1,0 +1,10 @@
+# Root requirements: aggregates everything needed to run the full test
+# suite and the dashboard locally. Individual components keep their own
+# requirements.txt as well:
+#   - builder/requirements.txt  (none — standard library only)
+#   - dashboard/requirements.txt (FastAPI service dependencies)
+
+-r dashboard/requirements.txt
+
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0

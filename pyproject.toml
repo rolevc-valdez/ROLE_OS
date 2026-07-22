@@ -1,0 +1,26 @@
+[project]
+name = "role-os"
+version = "0.1.0"
+description = "ROLE OS: builds and serves a personal knowledge base extracted from ChatGPT conversation exports."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Rogelio Valdez" },
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "dashboard/tests"]
+pythonpath = ["dashboard"]
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
