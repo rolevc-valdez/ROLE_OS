@@ -30,7 +30,23 @@ ROLE_OS/
   samples/      # Sample ChatGPT export + generated output for local testing
 ```
 
-## Quick start
+## Try the Alpha demo (one command)
+
+The fastest way to see ROLE OS end to end is the Alpha demo: it seeds
+seven realistic sample projects (with real Health Scores, Advisor
+recommendations, and a populated Knowledge Graph) and starts the
+dashboard, in one command.
+
+```bash
+git clone https://github.com/rolevc-valdez/ROLE_OS.git
+cd ROLE_OS
+./scripts/run_alpha.sh        # or scripts\run_alpha.bat on Windows
+```
+
+Then open `http://127.0.0.1:8000/`. See [`DEMO.md`](DEMO.md) for a full
+walkthrough, feature list, and troubleshooting.
+
+## Quick start (your own data)
 
 1. **Build the knowledge base** from a ChatGPT export:
 
@@ -76,6 +92,20 @@ rule-based, not model-based. The Advisor's `AdvisorNarrativeProvider`
 interface and the Graph Engine's plain, dependency-free query functions are
 both designed seams for a future AI provider to build on without replacing
 the deterministic core.
+
+## Screenshots
+
+| Home | Projects |
+|---|---|
+| ![Home](docs/screenshots/home.png) | ![Projects](docs/screenshots/projects.png) |
+
+| Advisor | Knowledge Graph |
+|---|---|
+| ![Advisor](docs/screenshots/advisor.png) | ![Knowledge Graph](docs/screenshots/graph.png) |
+
+| Project Detail |
+|---|
+| ![Project Detail](docs/screenshots/project_detail.png) |
 
 ## Development
 

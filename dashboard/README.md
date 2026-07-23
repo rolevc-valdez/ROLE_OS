@@ -130,8 +130,9 @@ already needed for the preview panel.
 
 ### Screenshots
 
-_Placeholder — add screenshots of the Home, Project, Graph, and Advisor
-pages here once the Command Center is running against real data._
+Real screenshots of the seeded Alpha demo (Home, Projects, Advisor, Graph,
+and Project Detail) live in [`docs/screenshots/`](../docs/screenshots/)
+and are embedded in the root [`README.md`](../README.md#screenshots).
 
 ## API endpoints
 

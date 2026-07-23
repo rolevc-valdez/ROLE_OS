@@ -37,8 +37,8 @@ class Settings:
                 "samples/role_os_sample/00_SYSTEM/role_os_advisor.db",
             )
         ).resolve()
-        self.app_name: str = "ROLE OS Dashboard"
-        self.app_version: str = "0.1.0"
+        self.app_name: str = "ROLE OS"
+        self.app_version: str = "1.0.0-alpha"
         self.base_dir: Path = Path(__file__).resolve().parent
         self.static_dir: Path = self.base_dir / "static"
         self.templates_dir: Path = self.base_dir / "templates"
