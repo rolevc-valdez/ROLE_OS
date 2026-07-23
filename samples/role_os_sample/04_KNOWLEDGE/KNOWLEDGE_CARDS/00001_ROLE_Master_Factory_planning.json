@@ -23,12 +23,14 @@
   ],
   "vendors": [],
   "urls": [],
+  "files": [],
   "prompts": [
     "Quiero definir el plan para ROLE Master Factory."
   ],
-  "assets": [],
   "tags": [
     "role-master-factory",
     "claude"
-  ]
+  ],
+  "related_conversations": [],
+  "assets": []
 }

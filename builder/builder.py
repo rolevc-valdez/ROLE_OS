@@ -11,7 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from knowledge_extractor import build_card
+from knowledge_extractor import attach_related_conversations, build_card
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOG = logging.getLogger("role-os")
@@ -80,6 +80,7 @@ def build_indices(cards: list[dict], knowledge: Path) -> None:
     projects: dict[str, list[dict]] = defaultdict(list)
     people: dict[str, list[str]] = defaultdict(list)
     apps: dict[str, list[str]] = defaultdict(list)
+    vendors: dict[str, list[str]] = defaultdict(list)
     tags: dict[str, list[str]] = defaultdict(list)
 
     for card in cards:
@@ -89,12 +90,15 @@ def build_indices(cards: list[dict], knowledge: Path) -> None:
             people[item].append(card["conversation_id"])
         for item in card["applications"]:
             apps[item].append(card["conversation_id"])
+        for item in card.get("vendors", []):
+            vendors[item].append(card["conversation_id"])
         for item in card["tags"]:
             tags[item].append(card["conversation_id"])
 
     write_json(knowledge / "PROJECTS.json", projects)
     write_json(knowledge / "PEOPLE.json", people)
     write_json(knowledge / "APPLICATIONS.json", apps)
+    write_json(knowledge / "VENDORS.json", vendors)
     write_json(knowledge / "TAGS.json", tags)
     write_json(knowledge / "TIMELINE.json", sorted([
         {"id": c["conversation_id"], "date": c["date"], "updated": c["updated"], "title": c["title"], "project": c["project"]}
@@ -143,13 +147,22 @@ def main() -> None:
     projects_root.mkdir(parents=True, exist_ok=True)
 
     conversations, keep = load_conversations(source)
-    cards: list[dict] = []
-    grouped: dict[str, list[dict]] = defaultdict(list)
 
-    for index, conversation in enumerate(conversations, start=1):
+    # Pass 1: build a KnowledgeCard for every conversation independently.
+    cards: list[dict] = []
+    for conversation in conversations:
         messages = ordered_messages(conversation)
         card = build_card(conversation, messages).to_dict()
         cards.append(card)
+
+    # Pass 2: link related conversations now that every card is classified
+    # and tagged (relatedness needs the full corpus, not a single card).
+    attach_related_conversations(cards)
+
+    # Pass 3: persist. Card files, indexes, and SQLite all reflect the fully
+    # enriched cards, including related_conversations.
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for index, card in enumerate(cards, start=1):
         grouped[card["project"]].append(card)
         write_json(cards_dir / f"{index:05d}_{safe_name(card['title'])}.json", card)
 
@@ -179,7 +192,7 @@ def main() -> None:
 
     result = {
         "status": "ok",
-        "version": "0.2",
+        "version": "0.3",
         "conversations": len(cards),
         "projects": {k: len(v) for k, v in sorted(grouped.items())},
         "knowledge_cards": len(cards),

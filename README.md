@@ -41,10 +41,10 @@ ROLE_OS/
 
 ## Status
 
-This repository currently implements data extraction (`builder`), a plain
-data-access API, and a first usable web dashboard (`dashboard`). No AI/LLM
-features are implemented yet — the dashboard only reads and serves data that
-the builder already extracted with rule-based classification.
+This repository currently implements a modular knowledge extraction engine
+(`builder/extractors/`), a plain data-access API, and a first usable web
+dashboard (`dashboard`). No AI/LLM features are implemented yet — every
+extractor is rule-based (keyword/regex matching), not model-based.
 
 ## Development
 

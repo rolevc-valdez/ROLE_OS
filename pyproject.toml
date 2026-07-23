@@ -10,8 +10,8 @@ authors = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "dashboard/tests"]
-pythonpath = ["dashboard"]
+testpaths = ["tests", "dashboard/tests", "builder/tests"]
+pythonpath = ["dashboard", "builder"]
 
 [tool.black]
 line-length = 100
