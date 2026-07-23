@@ -95,17 +95,12 @@ the deterministic core.
 
 ## Screenshots
 
-| Home | Projects |
-|---|---|
-| ![Home](docs/screenshots/home.png) | ![Projects](docs/screenshots/projects.png) |
-
-| Advisor | Knowledge Graph |
-|---|---|
-| ![Advisor](docs/screenshots/advisor.png) | ![Knowledge Graph](docs/screenshots/graph.png) |
-
-| Project Detail |
-|---|
-| ![Project Detail](docs/screenshots/project_detail.png) |
+Real screenshots of the seeded Alpha demo aren't bundled in this repo yet. To see the UI for
+yourself, run the one-command demo below and open `http://127.0.0.1:8000` — you'll land on a
+fully populated Home, Projects, Advisor, Graph, and Project Detail view with realistic seeded
+data. If you'd like to add screenshots to this README, drop PNGs into `docs/screenshots/` named
+`home.png`, `projects.png`, `advisor.png`, `graph.png`, and `project_detail.png`, then reference
+them here with standard Markdown image syntax.
 
 ## Development
 

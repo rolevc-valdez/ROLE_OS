@@ -130,9 +130,9 @@ already needed for the preview panel.
 
 ### Screenshots
 
-Real screenshots of the seeded Alpha demo (Home, Projects, Advisor, Graph,
-and Project Detail) live in [`docs/screenshots/`](../docs/screenshots/)
-and are embedded in the root [`README.md`](../README.md#screenshots).
+Screenshots aren't bundled in this repo yet. Run the Alpha demo (see the
+root [`DEMO.md`](../DEMO.md)) and open `http://127.0.0.1:8000` to see the
+live UI with seeded data.
 
 ## API endpoints
 

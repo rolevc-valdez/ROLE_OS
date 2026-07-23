@@ -108,9 +108,11 @@ them.
 
 ## Screenshots
 
-See [`docs/screenshots/`](docs/screenshots/) and the embedded previews in
-the root [`README.md`](README.md#screenshots) for Home, Projects, Advisor,
-Graph, and Project Detail.
+Screenshots aren't bundled in this repo yet. Launch the demo (see "First run"
+above) and open `http://127.0.0.1:8000` to see the real, seeded Home,
+Projects, Advisor, Graph, and Project Detail views for yourself. If you'd
+like to add screenshots, save PNGs into `docs/screenshots/` and reference
+them from the root [`README.md`](README.md#screenshots).
 
 ## Troubleshooting
 
