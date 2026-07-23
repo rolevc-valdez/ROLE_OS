@@ -279,6 +279,7 @@
     tabButtons: document.querySelectorAll(".tab-btn"),
     knowledgeTab: document.getElementById("knowledge-tab"),
     projectsTab: document.getElementById("projects-tab"),
+    advisorTab: document.getElementById("advisor-tab"),
     workspaceSelect: document.getElementById("workspace-select"),
     listView: document.getElementById("pi-list-view"),
     projectList: document.getElementById("pi-project-list"),
@@ -323,10 +324,12 @@
       piEls.knowledgeTab.hidden = tab !== "knowledge";
       piEls.knowledgeTab.classList.toggle("active", tab === "knowledge");
       piEls.projectsTab.hidden = tab !== "projects";
+      if (piEls.advisorTab) piEls.advisorTab.hidden = tab !== "advisor";
       if (tab === "projects" && !projectsInitialized) {
         projectsInitialized = true;
         initProjectsTab();
       }
+      document.dispatchEvent(new CustomEvent("roleos:tabchange", { detail: { tab } }));
     });
   });
 
@@ -562,4 +565,152 @@
     piEls.detailView.hidden = true;
     piEls.listView.hidden = false;
   });
+})();
+
+/* ROLE OS Dashboard — AI Advisor (Epic 2), plain JavaScript. */
+
+(() => {
+  "use strict";
+
+  const els = {
+    workspaceSelect: document.getElementById("advisor-workspace-select"),
+    briefGreeting: document.getElementById("daily-brief-greeting"),
+    recommendationList: document.getElementById("advisor-recommendation-list"),
+  };
+
+  if (!els.recommendationList) return; // template not present
+
+  async function fetchJSON(url, options) {
+    const resp = await fetch(url, options);
+    if (!resp.ok) {
+      let detail = resp.statusText;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch (_) {
+        /* ignore */
+      }
+      const error = new Error(detail);
+      error.status = resp.status;
+      throw error;
+    }
+    if (resp.status === 204) return null;
+    return resp.json();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+    ));
+  }
+
+  function priorityClass(score) {
+    if (score >= 70) return "health-good";
+    if (score >= 40) return "health-ok";
+    return "health-bad";
+  }
+
+  let initialized = false;
+
+  document.addEventListener("roleos:tabchange", (e) => {
+    if (e.detail.tab === "advisor" && !initialized) {
+      initialized = true;
+      init();
+    }
+  });
+
+  async function init() {
+    await loadWorkspaces();
+    await refresh();
+    els.workspaceSelect.addEventListener("change", refresh);
+  }
+
+  async function loadWorkspaces() {
+    try {
+      const workspaces = await fetchJSON("/pi/workspaces");
+      const options = workspaces.map((w) => `<option value="${escapeHtml(w.name)}">${escapeHtml(w.name)}</option>`).join("");
+      els.workspaceSelect.innerHTML = `<option value="">All workspaces</option>${options}`;
+    } catch (err) {
+      console.error("Could not load workspaces", err);
+    }
+  }
+
+  async function refresh() {
+    await Promise.all([loadDailyBrief(), loadRecommendations()]);
+  }
+
+  function workspaceParam() {
+    const value = els.workspaceSelect.value;
+    return value ? `?workspace=${encodeURIComponent(value)}` : "";
+  }
+
+  async function loadDailyBrief() {
+    els.briefGreeting.textContent = "Loading…";
+    try {
+      const brief = await fetchJSON(`/advisor/daily-brief${workspaceParam()}`);
+      els.briefGreeting.textContent = brief.greeting;
+    } catch (err) {
+      els.briefGreeting.textContent = `Could not load daily brief: ${err.message}`;
+    }
+  }
+
+  function recommendationCardHtml(rec) {
+    const evidence = (rec.evidence || []).map((e) => `<li>${escapeHtml(e)}</li>`).join("");
+    return `
+      <li class="advisor-card" data-id="${escapeHtml(rec.id)}">
+        <div class="advisor-card-header">
+          <div>
+            <div class="advisor-card-title">${escapeHtml(rec.title)}</div>
+            <div class="advisor-card-meta">
+              <span class="badge">${escapeHtml(rec.recommendation_type)}</span>
+              <span class="badge">Effort: ${escapeHtml(rec.estimated_effort)}</span>
+              <span class="priority-dot ${priorityClass(rec.priority_score)}">Priority ${rec.priority_score}</span>
+              <span class="badge">Confidence ${rec.confidence_score}</span>
+            </div>
+          </div>
+        </div>
+        <div class="advisor-card-body">
+          <p>${escapeHtml(rec.summary)}</p>
+          <p><strong>Why:</strong> ${escapeHtml(rec.reason)}</p>
+          <p><strong>Suggested action:</strong> ${escapeHtml(rec.suggested_action)}</p>
+          <p><strong>Impact:</strong> ${escapeHtml(rec.impact)}</p>
+          <ul class="advisor-evidence-list">${evidence}</ul>
+        </div>
+        <div class="advisor-card-actions">
+          <button type="button" class="dismiss-btn">Dismiss</button>
+          <button type="button" class="complete-btn">Mark completed</button>
+        </div>
+      </li>`;
+  }
+
+  async function loadRecommendations() {
+    try {
+      const recs = await fetchJSON(`/advisor/recommendations${workspaceParam()}`);
+      if (!recs.length) {
+        els.recommendationList.innerHTML = '<li class="muted">No recommendations right now — nothing needs attention.</li>';
+        return;
+      }
+      els.recommendationList.innerHTML = recs.map(recommendationCardHtml).join("");
+      els.recommendationList.querySelectorAll(".advisor-card").forEach((card) => {
+        const id = card.dataset.id;
+        card.querySelector(".dismiss-btn").addEventListener("click", () => act(id, "dismiss", card));
+        card.querySelector(".complete-btn").addEventListener("click", () => act(id, "complete", card));
+      });
+    } catch (err) {
+      els.recommendationList.innerHTML = `<li class="error-box">Could not load recommendations: ${escapeHtml(err.message)}</li>`;
+    }
+  }
+
+  async function act(id, action, card) {
+    try {
+      await fetchJSON(`/advisor/recommendations/${encodeURIComponent(id)}/${action}`, { method: "POST" });
+      card.classList.add(action === "dismiss" ? "dismissed" : "completed");
+      card.remove();
+      if (!els.recommendationList.children.length) {
+        els.recommendationList.innerHTML = '<li class="muted">No recommendations right now — nothing needs attention.</li>';
+      }
+    } catch (err) {
+      console.error(`Could not ${action} recommendation`, err);
+    }
+  }
 })();

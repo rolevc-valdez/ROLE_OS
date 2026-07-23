@@ -16,3 +16,8 @@ os.environ.setdefault(
 # isolated database rather than mutating any committed sample file.
 _PROJECTS_DB_DIR = tempfile.mkdtemp(prefix="role_os_projects_test_")
 os.environ.setdefault("ROLE_OS_PROJECTS_DB_PATH", str(Path(_PROJECTS_DB_DIR) / "role_os_projects.db"))
+
+# AI Advisor (Epic 2) also owns its own SQLite file and auto-creates its
+# schema on first use, so tests get a fresh, isolated recommendations store.
+_ADVISOR_DB_DIR = tempfile.mkdtemp(prefix="role_os_advisor_test_")
+os.environ.setdefault("ROLE_OS_ADVISOR_DB_PATH", str(Path(_ADVISOR_DB_DIR) / "role_os_advisor.db"))

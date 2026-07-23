@@ -28,6 +28,15 @@ class Settings:
                 "samples/role_os_sample/00_SYSTEM/role_os_projects.db",
             )
         ).resolve()
+        # AI Advisor (Epic 2) also owns its own SQLite file, separate from
+        # both the knowledge DB and the projects DB, so recommendation data
+        # never touches either — it only ever reads from them.
+        self.advisor_db_path: Path = Path(
+            os.environ.get(
+                "ROLE_OS_ADVISOR_DB_PATH",
+                "samples/role_os_sample/00_SYSTEM/role_os_advisor.db",
+            )
+        ).resolve()
         self.app_name: str = "ROLE OS Dashboard"
         self.app_version: str = "0.1.0"
         self.base_dir: Path = Path(__file__).resolve().parent

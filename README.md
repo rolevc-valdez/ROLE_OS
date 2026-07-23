@@ -1,10 +1,12 @@
 # ROLE OS
 
 ROLE OS turns a ChatGPT conversations export into a structured, searchable
-personal knowledge base, and is evolving from a Knowledge Browser into a
-Knowledge Operating System: a read-only knowledge API and dashboard, plus a
+personal knowledge base, and has evolved from a Knowledge Browser into a
+Knowledge Operating System: a read-only knowledge API and dashboard, a
 first-class Project Intelligence layer (workspaces, projects, capabilities,
-dependencies, and a Health Score engine).
+dependencies, a Health Score engine), and — as of Epic 2 — an explainable
+AI Advisor that recommends what to work on next, with no external AI API
+required.
 
 ## Repository layout
 
@@ -45,11 +47,15 @@ ROLE_OS/
 
 This repository currently implements a modular knowledge extraction engine
 (`builder/extractors/`), a plain data-access API and web dashboard
-(`dashboard`), and a Project Intelligence layer (`dashboard/app/projects/`):
-first-class Workspaces, Projects, Capabilities, and Dependencies, with a
-modular Health Score engine (`dashboard/app/projects/health/`). No AI/LLM
-features are implemented yet — every extractor and scoring signal is
-rule-based, not model-based.
+(`dashboard`), a Project Intelligence layer (`dashboard/app/projects/`) with
+first-class Workspaces, Projects, Capabilities, Dependencies, and a modular
+Health Score engine, and an explainable AI Advisor
+(`dashboard/app/advisor/`) built from eight independent, deterministic
+rules plus a shared scoring toolkit. No AI/LLM API is called anywhere —
+every extractor, health signal, and advisor rule is rule-based, not
+model-based. The Advisor's `AdvisorNarrativeProvider` interface is the
+designed seam for a future LLM-backed provider to improve wording without
+replacing the deterministic rule engine.
 
 ## Development
 

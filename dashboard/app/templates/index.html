@@ -28,6 +28,7 @@
     <div class="tabs-inner">
       <button type="button" class="tab-btn active" data-tab="knowledge">Knowledge</button>
       <button type="button" class="tab-btn" data-tab="projects">Projects</button>
+      <button type="button" class="tab-btn" data-tab="advisor">Advisor</button>
     </div>
   </nav>
 
@@ -84,6 +85,33 @@
           <p class="muted">Loading…</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div id="advisor-tab" class="tab-panel" hidden>
+    <div class="advisor-layout">
+      <div class="pi-toolbar">
+        <label for="advisor-workspace-select">Workspace</label>
+        <select id="advisor-workspace-select">
+          <option value="">All workspaces</option>
+        </select>
+      </div>
+
+      <section id="daily-brief" class="advisor-section">
+        <div class="section-header">
+          <h2>Daily Brief</h2>
+        </div>
+        <pre id="daily-brief-greeting" class="brief-greeting">Loading…</pre>
+      </section>
+
+      <section class="advisor-section">
+        <div class="section-header">
+          <h2>Recommendations</h2>
+        </div>
+        <ul id="advisor-recommendation-list" class="advisor-recommendation-list">
+          <li class="muted">Loading recommendations…</li>
+        </ul>
+      </section>
     </div>
   </div>
 

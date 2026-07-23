@@ -36,10 +36,14 @@ def make_project(**overrides) -> dict:
 
 
 def test_list_workspaces_includes_defaults():
+    # Asserts the defaults are present, not that the set is exactly these six:
+    # other tests (in this file and others, e.g. test_advisor_api.py) legitimately
+    # create additional ad-hoc workspaces against the same shared session DB, and
+    # test execution order across files is not something to depend on here.
     resp = client.get("/pi/workspaces")
     assert resp.status_code == 200
     names = {w["name"] for w in resp.json()}
-    assert names == {"Personal", "Kontoor", "Unger", "Products", "Ideas", "Library"}
+    assert {"Personal", "Kontoor", "Unger", "Products", "Ideas", "Library"}.issubset(names)
 
 
 def test_create_workspace_and_get_it():

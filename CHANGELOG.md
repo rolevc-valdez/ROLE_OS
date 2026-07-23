@@ -6,6 +6,71 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Epic 2: explainable AI Advisor. ROLE OS analyzes Projects, Knowledge
+  Cards, Capabilities, Dependencies, Health Scores, TODOs, Deliverables,
+  and Decisions to recommend what to do next — deterministic by default,
+  fully explainable, and requiring no external AI API.
+  - New domain under `dashboard/app/advisor/`:
+    - Eight independent, single-responsibility rules under `rules/`:
+      `stale_project`, `near_completion`, `blocked_dependency`,
+      `critical_health`, `overdue_todos`, `missing_deliverables`,
+      `inactive_high_priority`, `capability_opportunity`. Each is a pure
+      function `evaluate(project, context) -> list[RecommendationCandidate]`.
+      `critical_health` dynamically picks `review_risk` or
+      `review_decision` depending on which Health Score signal is weakest.
+    - `scoring.py`: a shared, deterministic toolkit (priority weighting,
+      staleness, completion ratio, confidence-from-availability,
+      weighted-signal-combination with graceful renormalization over
+      missing signals) used by every rule. No randomness anywhere.
+    - `engine.py`: orchestrates all eight rules across every Project,
+      refreshing each project's Health Score first so cross-project checks
+      (e.g. `blocked_dependency`) always use current data; merges
+      same-key candidates (even from two different rules) before
+      persisting, so duplicates never reach the database.
+    - `narrative.py`: `AdvisorNarrativeProvider` interface (AI-ready seam
+      for a future LLM-backed implementation) plus
+      `DeterministicNarrativeProvider`, the only implementation used in
+      this Epic — builds every string from the rule engine's own
+      structured output, no network calls, fully reproducible.
+    - `db.py`: recommendations persisted in their own SQLite database
+      (`ROLE_OS_ADVISOR_DB_PATH`), separate from both the knowledge DB and
+      the Project Intelligence DB, which the Advisor only ever reads.
+      Deduplicated by `(project_id, recommendation_type)`: a new row is
+      only inserted if none is still "live" (unexpired); dismissed and
+      completed rows keep their state forever and continue to suppress
+      regeneration until they expire, at which point a fresh
+      recommendation may be generated if the condition still holds.
+  - Every `Recommendation` includes: `id`, `project_id`, `workspace`,
+    `title`, `summary`, `recommendation_type`, `priority_score`,
+    `confidence_score`, `reason`, `evidence`, `suggested_action`,
+    `estimated_effort`, `impact`, `created_at`, `expires_at`, `dismissed`,
+    `completed` — the `reason`/`evidence`/`impact` fields make every
+    recommendation self-explaining.
+  - New Advisor API, entirely additive and namespaced under `/advisor`:
+    `GET /advisor/recommendations` (filterable by workspace, project_id,
+    recommendation_type, minimum_priority_score, include_dismissed),
+    `GET /advisor/recommendations/{id}`, `GET /advisor/daily-brief`,
+    `POST /advisor/recommendations/{id}/dismiss`,
+    `POST /advisor/recommendations/{id}/complete`.
+  - Daily Brief: top 3 recommended projects, critical risks, blocked
+    projects, near-completion projects, stale high-priority projects, and
+    capability reuse opportunities, each with a short explanation.
+  - Dashboard UI: a new "Advisor" tab (plain HTML/CSS/JS, no framework)
+    with a workspace filter, the Daily Brief, and recommendation cards
+    showing priority, estimated effort, impact, full evidence/explanation,
+    and Dismiss/Mark completed buttons.
+  - The four Milestone 1 API endpoints, the Milestone 2 UI, and the full
+    Epic 1 `/pi/*` API and UI are completely unchanged; only new, additive
+    endpoints and UI elements were introduced.
+  - 65 new tests: unit tests for every rule and every scoring function,
+    persistence/duplicate-prevention tests, engine-level tests (including
+    cross-rule dedup and Daily Brief structure), API tests for every
+    `/advisor/*` endpoint, and a regression test confirming every previous
+    API and UI surface is unaffected. 177/177 passing repo-wide.
+  - Updated `dashboard/README.md` and root `README.md` explaining rule
+    generation, scoring, explainability, and the AI-ready narrative
+    provider seam.
+
 - Epic 1: Project Intelligence layer. ROLE OS gains first-class Projects,
   Workspaces, Capabilities, Dependencies, and a modular Health Score engine.
   - New domain model under `dashboard/app/projects/`:
