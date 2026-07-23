@@ -269,3 +269,297 @@
   loadRecent();
   loadTimeline();
 })();
+
+/* ROLE OS Dashboard — Project Intelligence (Epic 1), plain JavaScript. */
+
+(() => {
+  "use strict";
+
+  const piEls = {
+    tabButtons: document.querySelectorAll(".tab-btn"),
+    knowledgeTab: document.getElementById("knowledge-tab"),
+    projectsTab: document.getElementById("projects-tab"),
+    workspaceSelect: document.getElementById("workspace-select"),
+    listView: document.getElementById("pi-list-view"),
+    projectList: document.getElementById("pi-project-list"),
+    detailView: document.getElementById("pi-detail-view"),
+    detailBody: document.getElementById("pi-detail-body"),
+    backBtn: document.getElementById("pi-back-btn"),
+  };
+
+  if (!piEls.projectsTab) return; // template not present (shouldn't happen)
+
+  async function fetchJSON(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      let detail = resp.statusText;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch (_) {
+        /* ignore */
+      }
+      const error = new Error(detail);
+      error.status = resp.status;
+      throw error;
+    }
+    return resp.json();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+    ));
+  }
+
+  // ---- Tabs -----------------------------------------------------------
+
+  let projectsInitialized = false;
+
+  piEls.tabButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      piEls.tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+      piEls.knowledgeTab.hidden = tab !== "knowledge";
+      piEls.knowledgeTab.classList.toggle("active", tab === "knowledge");
+      piEls.projectsTab.hidden = tab !== "projects";
+      if (tab === "projects" && !projectsInitialized) {
+        projectsInitialized = true;
+        initProjectsTab();
+      }
+    });
+  });
+
+  // ---- Workspace selector + project list --------------------------------
+
+  async function initProjectsTab() {
+    await loadWorkspaces();
+    await loadProjectList();
+    piEls.workspaceSelect.addEventListener("change", loadProjectList);
+  }
+
+  async function loadWorkspaces() {
+    try {
+      const workspaces = await fetchJSON("/pi/workspaces");
+      const options = workspaces
+        .map((w) => `<option value="${escapeHtml(w.name)}">${escapeHtml(w.name)} (${w.project_count})</option>`)
+        .join("");
+      piEls.workspaceSelect.innerHTML = `<option value="">All workspaces</option>${options}`;
+    } catch (err) {
+      // Non-fatal: leave just "All workspaces" if this fails.
+      console.error("Could not load workspaces", err);
+    }
+  }
+
+  function healthClass(score) {
+    if (score >= 70) return "health-good";
+    if (score >= 40) return "health-ok";
+    return "health-bad";
+  }
+
+  function projectCardHtml(project) {
+    return `
+      <li class="pi-project-card" data-id="${escapeHtml(project.id)}" tabindex="0">
+        <div class="pi-project-card-header">
+          <div>
+            <div class="pi-project-name">${escapeHtml(project.name)}</div>
+            <div class="pi-project-meta">
+              <span class="badge">${escapeHtml(project.workspace)}</span>
+              <span class="badge">${escapeHtml(project.status)}</span>
+              <span class="badge">${escapeHtml(project.priority)}</span>
+            </div>
+          </div>
+          <div class="health-ring ${healthClass(project.health_score)}" title="Health score">${project.health_score}</div>
+        </div>
+        <div class="pi-project-desc">${escapeHtml(project.description || "No description yet.")}</div>
+      </li>`;
+  }
+
+  async function loadProjectList() {
+    const workspace = piEls.workspaceSelect.value;
+    const url = workspace ? `/pi/projects?workspace=${encodeURIComponent(workspace)}` : "/pi/projects";
+    try {
+      const projects = await fetchJSON(url);
+      if (!projects.length) {
+        piEls.projectList.innerHTML = '<li class="muted">No projects yet in this workspace.</li>';
+        return;
+      }
+      piEls.projectList.innerHTML = projects.map(projectCardHtml).join("");
+      piEls.projectList.querySelectorAll(".pi-project-card").forEach((card) => {
+        card.addEventListener("click", () => openProjectDetail(card.dataset.id));
+        card.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openProjectDetail(card.dataset.id);
+          }
+        });
+      });
+    } catch (err) {
+      piEls.projectList.innerHTML = `<li class="error-box">Could not load projects: ${escapeHtml(err.message)}</li>`;
+    }
+  }
+
+  // ---- Project detail page ------------------------------------------------
+
+  function healthBreakdownHtml(breakdown) {
+    const labels = {
+      recent_activity: "Recent activity",
+      open_todos: "Open to-dos",
+      unresolved_decisions: "Unresolved decisions",
+      missing_deliverables: "Deliverables delivered",
+      recent_conversations: "Recent conversations",
+      recent_commits: "Recent commits",
+    };
+    return Object.entries(breakdown)
+      .map(
+        ([key, value]) => `
+          <div class="pi-health-signal">
+            <span class="pi-health-signal-name">${escapeHtml(labels[key] || key)}</span>
+            <span class="pi-health-bar-track"><span class="pi-health-bar-fill" style="width:${value}%"></span></span>
+            <span>${value}</span>
+          </div>`
+      )
+      .join("");
+  }
+
+  function listOrEmpty(items, render, emptyText) {
+    if (!items || !items.length) return `<li class="muted">${escapeHtml(emptyText)}</li>`;
+    return items.map(render).join("");
+  }
+
+  function collectionSectionHtml(title, items, renderItem, emptyText) {
+    return `
+      <div class="pi-subsection">
+        <h4>${escapeHtml(title)} (${items ? items.length : 0})</h4>
+        <ul>${listOrEmpty(items, renderItem, emptyText)}</ul>
+      </div>`;
+  }
+
+  async function openProjectDetail(projectId) {
+    piEls.listView.hidden = true;
+    piEls.detailView.hidden = false;
+    piEls.detailBody.innerHTML = '<p class="muted">Loading…</p>';
+
+    try {
+      const [project, health, capabilities, consumed, dependencies, dependents] = await Promise.all([
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}`),
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}/health`),
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}/capabilities`),
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}/capabilities/consumed`),
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}/dependencies`),
+        fetchJSON(`/pi/projects/${encodeURIComponent(projectId)}/dependents`),
+      ]);
+
+      piEls.detailBody.innerHTML = `
+        <div class="pi-detail-header">
+          <div class="pi-detail-title-block">
+            <h2>${escapeHtml(project.name)}</h2>
+            <div class="pi-badges">
+              <span class="badge">${escapeHtml(project.workspace)}</span>
+              <span class="badge">${escapeHtml(project.status)}</span>
+              <span class="badge">${escapeHtml(project.priority)}</span>
+              ${project.owner ? `<span class="badge">Owner: ${escapeHtml(project.owner)}</span>` : ""}
+              ${project.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
+            </div>
+          </div>
+          <div class="health-ring ${healthClass(health.score)}" title="Health score">${health.score}</div>
+        </div>
+
+        <div class="pi-section">
+          <h3>Description</h3>
+          <p>${escapeHtml(project.description || "No description yet.")}</p>
+        </div>
+
+        <div class="pi-section">
+          <h3>Health Score breakdown</h3>
+          <div class="pi-health-breakdown">${healthBreakdownHtml(health.breakdown)}</div>
+        </div>
+
+        <div class="pi-section pi-two-col">
+          <div class="pi-subsection">
+            <h4>Capabilities provided (${capabilities.length})</h4>
+            <ul>${listOrEmpty(
+              capabilities,
+              (c) => `<li><strong>${escapeHtml(c.name)}</strong>${c.description ? " — " + escapeHtml(c.description) : ""}</li>`,
+              "This project doesn't expose any capabilities yet."
+            )}</ul>
+          </div>
+          <div class="pi-subsection">
+            <h4>Capabilities consumed (${consumed.length})</h4>
+            <ul>${listOrEmpty(
+              consumed,
+              (c) => `<li><strong>${escapeHtml(c.name)}</strong> from ${escapeHtml(c.provider_project_name)}</li>`,
+              "This project doesn't consume any capabilities yet."
+            )}</ul>
+          </div>
+        </div>
+
+        <div class="pi-section pi-two-col">
+          <div class="pi-subsection">
+            <h4>Depends on (${dependencies.length})</h4>
+            <ul>${listOrEmpty(
+              dependencies,
+              (d) => `<li>${escapeHtml(d.depends_on_project_name)}${d.note ? " — " + escapeHtml(d.note) : ""}</li>`,
+              "No dependencies recorded."
+            )}</ul>
+          </div>
+          <div class="pi-subsection">
+            <h4>Depended on by (${dependents.length})</h4>
+            <ul>${listOrEmpty(
+              dependents,
+              (d) => `<li>${escapeHtml(d.dependent_project_name)}</li>`,
+              "No other project depends on this one yet."
+            )}</ul>
+          </div>
+        </div>
+
+        <div class="pi-section">
+          <h3>Collections</h3>
+          <div class="pi-collections-grid">
+            ${collectionSectionHtml("Notes", project.notes, (n) => `<li>${escapeHtml(n.text)}</li>`, "No notes yet.")}
+            ${collectionSectionHtml(
+              "Decisions",
+              project.decisions,
+              (d) => `<li>${escapeHtml(d.text)} <span class="badge">${escapeHtml(d.status || "resolved")}</span></li>`,
+              "No decisions logged yet."
+            )}
+            ${collectionSectionHtml(
+              "Open TODOs",
+              project.todos,
+              (t) => `<li>${escapeHtml(t.text)} <span class="badge">${escapeHtml(t.status || "open")}</span></li>`,
+              "No to-dos yet."
+            )}
+            ${collectionSectionHtml(
+              "Deliverables",
+              project.deliverables,
+              (d) => `<li>${escapeHtml(d.text)} <span class="badge">${escapeHtml(d.status || "planned")}</span></li>`,
+              "No deliverables tracked yet."
+            )}
+            ${collectionSectionHtml("Assets", project.assets, (a) => `<li>${escapeHtml(a.name || a.text || "Untitled asset")}</li>`, "No assets yet.")}
+            ${collectionSectionHtml("Prompts", project.prompts, (p) => `<li>${escapeHtml(p.text)}</li>`, "No prompts captured yet.")}
+            ${collectionSectionHtml(
+              "Conversations",
+              project.conversations,
+              (c) => `<li>${escapeHtml(c)}</li>`,
+              "No conversations linked yet."
+            )}
+            ${collectionSectionHtml(
+              "Related projects",
+              project.related_projects,
+              (p) => `<li>${escapeHtml(p)}</li>`,
+              "No related projects linked yet."
+            )}
+          </div>
+        </div>
+      `;
+    } catch (err) {
+      const message = err.status === 404 ? "Project not found." : `Could not load project: ${err.message}`;
+      piEls.detailBody.innerHTML = `<p class="error-box">${escapeHtml(message)}</p>`;
+    }
+  }
+
+  piEls.backBtn.addEventListener("click", () => {
+    piEls.detailView.hidden = true;
+    piEls.listView.hidden = false;
+  });
+})();

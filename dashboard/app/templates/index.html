@@ -24,9 +24,17 @@
     </div>
   </header>
 
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <button type="button" class="tab-btn active" data-tab="knowledge">Knowledge</button>
+      <button type="button" class="tab-btn" data-tab="projects">Projects</button>
+    </div>
+  </nav>
+
+  <div id="knowledge-tab" class="tab-panel active">
   <div class="layout">
     <aside class="sidebar">
-      <h2>Projects</h2>
+      <h2>Knowledge Areas</h2>
       <ul id="project-list" class="project-list">
         <li class="muted">Loading projects…</li>
       </ul>
@@ -52,6 +60,31 @@
         </ol>
       </section>
     </main>
+  </div>
+  </div>
+
+  <div id="projects-tab" class="tab-panel" hidden>
+    <div class="pi-layout">
+      <div class="pi-toolbar">
+        <label for="workspace-select">Workspace</label>
+        <select id="workspace-select">
+          <option value="">All workspaces</option>
+        </select>
+      </div>
+
+      <div id="pi-list-view">
+        <ul id="pi-project-list" class="pi-project-list">
+          <li class="muted">Loading projects…</li>
+        </ul>
+      </div>
+
+      <div id="pi-detail-view" hidden>
+        <button id="pi-back-btn" class="link-btn">&larr; Back to projects</button>
+        <div id="pi-detail-body">
+          <p class="muted">Loading…</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="detail-overlay" class="overlay" hidden>

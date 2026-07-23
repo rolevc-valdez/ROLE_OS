@@ -79,3 +79,27 @@ def test_existing_api_routes_unchanged():
     assert client.get("/search", params={"q": "Master"}).status_code == 200
     assert client.get("/knowledge/conv-1").status_code == 200
     assert client.get("/knowledge/does-not-exist").status_code == 404
+
+
+def test_dashboard_page_includes_project_intelligence_tab():
+    """Epic 1: the dashboard page must include the Projects tab UI (workspace
+    selector, project list, project detail view) alongside the existing
+    Knowledge tab, without removing any of the Milestone 2 elements."""
+    resp = client.get("/")
+    assert resp.status_code == 200
+    body = resp.text
+
+    # New Epic 1 elements.
+    assert 'data-tab="knowledge"' in body
+    assert 'data-tab="projects"' in body
+    assert 'id="workspace-select"' in body
+    assert 'id="pi-project-list"' in body
+    assert 'id="pi-detail-view"' in body
+    assert 'id="pi-back-btn"' in body
+
+    # Milestone 2 elements must still be present and untouched.
+    assert 'id="search-input"' in body
+    assert 'id="project-list"' in body
+    assert 'id="card-list"' in body
+    assert 'id="timeline-list"' in body
+    assert 'id="detail-overlay"' in body

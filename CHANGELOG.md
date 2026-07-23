@@ -6,6 +6,52 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Epic 1: Project Intelligence layer. ROLE OS gains first-class Projects,
+  Workspaces, Capabilities, Dependencies, and a modular Health Score engine.
+  - New domain model under `dashboard/app/projects/`:
+    - `db.py` — dashboard-owned SQLite persistence (separate database file,
+      `ROLE_OS_PROJECTS_DB_PATH`, from the builder-generated knowledge DB),
+      with automatic idempotent schema creation and default-workspace
+      seeding (`Personal`, `Kontoor`, `Unger`, `Products`, `Ideas`,
+      `Library`) on first use.
+    - Every Project has: `id`, `workspace`, `name`, `description`, `status`,
+      `health_score`, `priority`, `tags`, `owner`, `created_at`,
+      `updated_at`, and collections: `notes`, `decisions`, `todos`,
+      `deliverables`, `assets`, `prompts`, `conversations` (linked
+      knowledge-base conversation ids), `related_projects`, `capabilities`,
+      and `dependencies`.
+    - Capabilities: a project may expose reusable capabilities that other
+      projects can consume (e.g. `ROLE Master` exposing "Brand Identity",
+      consumed by `SUPER FACIL`).
+    - Dependencies: projects may depend on one another, fully queryable in
+      both directions (`/pi/projects/{id}/dependencies` and
+      `/pi/projects/{id}/dependents`).
+  - New modular Health Score engine under
+    `dashboard/app/projects/health/`: one independent, pure-function signal
+    per file (`activity.py`, `todos.py`, `decisions.py`, `deliverables.py`,
+    `conversations.py`, `commits.py`), combined by `__init__.py` into a
+    weighted 0-100 score that gracefully renormalizes when a signal (e.g.
+    commits, with no git integration yet) is unavailable.
+  - New Project Intelligence API, entirely additive and namespaced under
+    `/pi` to avoid any collision with the existing `/projects` endpoint:
+    workspaces, projects (CRUD + filtering), the six collection types,
+    conversation/related-project links, capabilities (expose/consume/list),
+    dependencies (add/remove/list/reverse-lookup), and health score
+    (recompute + persist, single project or bulk).
+  - Dashboard UI: a new "Projects" tab alongside the existing "Knowledge"
+    tab (plain HTML/CSS/JS, no framework) with a workspace selector, a
+    project list with color-coded Health Score indicators, and a project
+    detail page showing the health breakdown, capability section
+    (provided/consumed), dependency section (depends on/dependents), and
+    all collections.
+  - The four Milestone 1 API endpoints and the Milestone 2 UI are
+    completely unchanged; only new, additive endpoints and UI elements
+    were introduced.
+  - 61 new tests (unit tests for every health signal and every `db.py`
+    function; integration tests for every new `/pi/*` endpoint; a UI test
+    for the new Projects tab), for 103/103 passing repo-wide.
+  - Updated `dashboard/README.md` and root `README.md`.
+
 - Milestone 3: Knowledge Engine 2.0 — a modular knowledge extraction
   pipeline under `builder/extractors/` that enriches every Knowledge Card.
   - New extractors, one responsibility each: `summary.py`, `decisions.py`
