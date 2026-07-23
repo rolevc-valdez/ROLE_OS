@@ -30,6 +30,20 @@ ROLE_OS/
   samples/      # Sample ChatGPT export + generated output for local testing
 ```
 
+## Documentation
+
+- **Architecture** (`docs/architecture/`):
+  [Vision](docs/architecture/01_VISION.md) ·
+  [Principles](docs/architecture/02_PRINCIPLES.md) ·
+  [Architecture](docs/architecture/03_ARCHITECTURE.md) ·
+  [Data Model](docs/architecture/04_DATA_MODEL.md) ·
+  [UI Guidelines](docs/architecture/05_UI_GUIDELINES.md) ·
+  [Development Rules](docs/architecture/06_DEVELOPMENT_RULES.md) ·
+  [Roadmap](docs/architecture/07_ROADMAP.md)
+- **Product** (`docs/product/`):
+  [Decisions](docs/product/DECISIONS.md) ·
+  [Product Changelog](docs/product/CHANGELOG_PRODUCT.md)
+
 ## Try the Alpha demo (one command)
 
 The fastest way to see ROLE OS end to end is the Alpha demo: it seeds
