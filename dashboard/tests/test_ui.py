@@ -1,9 +1,15 @@
-"""Tests for the server-rendered UI routes added in Milestone 2.
+"""Tests for the server-rendered UI shell and its additive `/ui/*` JSON
+endpoints.
 
-Verifies the dashboard page renders, static assets are served, and the
-small additive `/ui/*` JSON endpoints work — without touching the existing
-`/health`, `/projects`, `/search`, and `/knowledge/{id}` API tests in
-test_api.py.
+Epic 4 replaced the Milestone 2/3 tab-based page with a Command Center
+shell (persistent sidebar + header, client-side hash routing rendered by
+app.js) — the old `data-tab="..."` panels and their fixed-content ids
+(`#project-list`, `#card-list`, `#pi-project-list`, `#graph-tab`, ...) no
+longer exist server-side because that content is now rendered dynamically
+by JavaScript after the page loads. What this file still verifies, and
+must keep verifying regardless of UI redesigns: the page renders, the
+static assets are served, the `/ui/*` endpoints work, and every existing
+API route is unaffected.
 """
 
 from __future__ import annotations
@@ -21,18 +27,16 @@ def test_dashboard_page_renders():
     assert "text/html" in resp.headers["content-type"]
     body = resp.text
     assert "ROLE OS" in body
-    assert 'id="search-input"' in body
-    assert 'id="project-list"' in body
-    assert 'id="card-list"' in body
-    assert 'id="timeline-list"' in body
+    assert 'id="app-shell"' in body
+    assert 'id="view-root"' in body
     assert 'id="detail-overlay"' in body
 
 
 def test_dashboard_page_links_static_assets():
     resp = client.get("/")
     assert resp.status_code == 200
-    assert '/static/css/style.css' in resp.text
-    assert '/static/js/app.js' in resp.text
+    assert "/static/css/style.css" in resp.text
+    assert "/static/js/app.js" in resp.text
 
 
 def test_static_css_served():
@@ -45,6 +49,21 @@ def test_static_js_served():
     resp = client.get("/static/js/app.js")
     assert resp.status_code == 200
     assert "javascript" in resp.headers["content-type"]
+
+
+def test_design_system_css_files_served():
+    """Epic 4: the reusable design system is split into colors/layout/
+    components/animations, each independently servable, and pulled in by
+    style.css via @import."""
+    for name in ("colors.css", "layout.css", "components.css", "animations.css"):
+        resp = client.get(f"/static/css/{name}")
+        assert resp.status_code == 200, name
+        assert "text/css" in resp.headers["content-type"]
+
+    style_resp = client.get("/static/css/style.css")
+    body = style_resp.text
+    for name in ("colors.css", "layout.css", "components.css", "animations.css"):
+        assert name in body
 
 
 def test_ui_recent_returns_cards():
@@ -81,60 +100,51 @@ def test_existing_api_routes_unchanged():
     assert client.get("/knowledge/does-not-exist").status_code == 404
 
 
-def test_dashboard_page_includes_project_intelligence_tab():
-    """Epic 1: the dashboard page must include the Projects tab UI (workspace
-    selector, project list, project detail view) alongside the existing
-    Knowledge tab, without removing any of the Milestone 2 elements."""
+def test_dashboard_page_includes_command_center_sidebar():
+    """Epic 4: a persistent sidebar with an icon per section replaces the
+    old tab bar."""
     resp = client.get("/")
     assert resp.status_code == 200
     body = resp.text
 
-    # New Epic 1 elements.
-    assert 'data-tab="knowledge"' in body
-    assert 'data-tab="projects"' in body
-    assert 'id="workspace-select"' in body
-    assert 'id="pi-project-list"' in body
-    assert 'id="pi-detail-view"' in body
-    assert 'id="pi-back-btn"' in body
-
-    # Milestone 2 elements must still be present and untouched.
-    assert 'id="search-input"' in body
-    assert 'id="project-list"' in body
-    assert 'id="card-list"' in body
-    assert 'id="timeline-list"' in body
-    assert 'id="detail-overlay"' in body
+    assert 'id="sidebar"' in body
+    for nav in ("home", "projects", "knowledge", "advisor", "graph", "assets", "settings"):
+        assert f'data-nav="{nav}"' in body, nav
 
 
-def test_dashboard_page_includes_knowledge_graph_tab():
-    """Epic 3: the dashboard page must include the Knowledge Graph tab UI
-    (canvas, detail panel, search, filters) alongside the existing tabs,
-    without removing any prior elements."""
+def test_dashboard_page_includes_command_center_header():
+    """Epic 4: header has global search, workspace selector, a live
+    date/time element, and quick actions."""
     resp = client.get("/")
     assert resp.status_code == 200
     body = resp.text
 
-    # New Epic 3 elements.
-    assert 'data-tab="graph"' in body
-    assert 'id="graph-tab"' in body
-    assert 'id="graph-canvas"' in body
-    assert 'id="graph-detail-panel"' in body
-    assert 'id="graph-search-input"' in body
-    assert 'id="graph-node-type-select"' in body
-    assert 'id="graph-workspace-select"' in body
-    assert 'id="graph-relationship-select"' in body
-    assert 'id="graph-highlight-dependencies"' in body
-    assert 'id="graph-highlight-capabilities"' in body
-
-    # Prior tabs must still be present and untouched.
-    assert 'data-tab="knowledge"' in body
-    assert 'data-tab="projects"' in body
-    assert 'data-tab="advisor"' in body
-    assert 'id="daily-brief"' in body
+    assert 'id="global-search-input"' in body
+    assert 'id="header-workspace-select"' in body
+    assert 'id="header-datetime"' in body
+    assert 'class="quick-actions"' in body
 
 
-def test_static_js_includes_graph_logic():
+def test_static_js_implements_command_center_router_and_views():
+    """Epic 4: app.js now drives a hash-based router with dedicated view
+    renderers for every page in the spec, and still talks to the same
+    Graph API introduced in Epic 3 (no backend change)."""
     resp = client.get("/static/js/app.js")
     assert resp.status_code == 200
-    assert "roleos:tabchange" in resp.text
-    assert "/graph/neighbors/" in resp.text
-    assert "/graph/path" in resp.text
+    body = resp.text
+
+    assert "hashchange" in body
+    assert "renderHome" in body
+    assert "renderProjectsList" in body
+    assert "renderProjectDetail" in body
+    assert "renderAdvisorPage" in body
+    assert "renderGraphPage" in body
+    assert "renderAssetsPage" in body
+    assert "renderSettingsPage" in body
+
+    # Still built entirely on the existing, unmodified APIs.
+    assert "/graph/neighbors/" in body
+    assert "/graph/path" in body
+    assert "/graph/impact/" in body
+    assert "/advisor/recommendations" in body
+    assert "/pi/projects" in body

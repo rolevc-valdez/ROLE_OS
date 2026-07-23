@@ -9,75 +9,129 @@ into one unified, queryable relationship graph. No external AI/LLM API is
 called anywhere: the Advisor's rule engine, every scoring signal, and the
 Graph's relationship computation are all deterministic and rule-based.
 
-## Web UI
+## Web UI — ROLE OS Command Center (Epic 4)
 
-Visiting `/` in a browser serves the ROLE OS dashboard: a single responsive
-page built with plain HTML, CSS, and JavaScript (no frontend framework),
-with four tabs.
+Visiting `/` in a browser serves the ROLE OS Command Center: a single-page
+app shell built with plain HTML, CSS, and vanilla JavaScript (no frontend
+framework, no build step). A persistent sidebar and header stay on screen
+at all times; a small hash-based client-side router (`#/home`,
+`#/projects`, `#/project/{id}`, `#/knowledge`, `#/advisor`, `#/graph`,
+`#/assets`, `#/settings`) swaps pages in and out of one content area. This
+is a UI-only layer: every page below is built entirely from the existing
+API described in the next section — no new backend endpoint, database, or
+business logic was introduced for Epic 4.
 
-### Knowledge tab (Milestone 2)
+### Design system
 
-- **Global search bar** — searches knowledge cards via the existing `/search` endpoint.
-- **Knowledge Areas list with counts** — from `/projects`; click one to filter the card list.
-- **Recent knowledge cards** — the default card list view, from `/ui/recent`.
-- **Knowledge card detail view** — click any card or timeline entry to open a
-  detail panel (summary, decisions, deliverables, to-dos, people,
-  applications, tags) fetched from `/knowledge/{id}`.
-- **Basic timeline** — chronological list of all knowledge cards, from `/ui/timeline`.
+`app/static/css/` is a small reusable design system, imported in this
+order by `style.css`:
 
-### Projects tab (Epic 1)
+- `colors.css` — every color as a CSS custom property (dark theme,
+  status colors, priority colors, and one color per Knowledge Graph node
+  type), so no other file hard-codes a hex value.
+- `layout.css` — structural grid only: the app shell (sidebar + header +
+  content), page containers, and responsive breakpoints.
+- `components.css` — nav items, buttons, inputs, badges, cards, the
+  health ring, the search dropdown, and the graph detail panel.
+- `animations.css` — subtle transitions only (fade/rise-in on cards and
+  sidebar items, a hover lift, health-ring transitions), and honors
+  `prefers-reduced-motion`.
 
-- **Workspace selector** — filters the project list by workspace, from `/pi/workspaces`.
-- **Project list** — cards showing name, workspace, status, priority, and a
-  color-coded Health Score ring, from `/pi/projects`.
-- **Project page** — click a project to open its detail view: description,
-  tags, owner, and a live-recomputed **Health Score indicator** with a
-  per-signal breakdown.
-- **Capability section** — capabilities the project provides, and
-  capabilities it consumes from other projects.
-- **Dependency section** — what the project depends on, and what depends on it.
-- **Collections** — notes, decisions, open to-dos, deliverables, assets,
-  prompts, linked conversations, and related projects.
+No inline styles are used in the generated markup, with two narrowly
+scoped exceptions that are inherently per-instance runtime values: a
+health ring's live conic-gradient percentage, and a graph node's live
+type-based fill color.
 
-### Advisor tab (Epic 2)
+### Sidebar navigation
 
-- **Workspace filter** — scopes the Daily Brief and recommendation list to one workspace.
-- **Daily Brief** — a short, structured morning brief (top recommended
-  projects, critical risks, blocked projects, near-completion projects,
-  stale high-priority projects, capability reuse opportunities), from
-  `/advisor/daily-brief`.
-- **Recommendation cards** — each shows a priority indicator, estimated
-  effort, expected impact, and the full explanation/evidence behind it, from
+Persistent icons for: **Home**, **Projects**, **Knowledge**, **Advisor**,
+**Graph**, **Assets**, **Settings**.
+
+### Home
+
+- **Header**: global search (instant, grouped results), a workspace
+  selector, a live date/time display, and quick actions (jump to the
+  Daily Brief or the full Graph page).
+- **Today's Focus** — the top 3 Advisor recommendations
+  (`/advisor/recommendations`), each showing the project, its Health
+  Score ring, priority, estimated effort, expected impact, suggested
+  action, and an *Open Project* button.
+- **Workspace Overview** — one card per workspace (`/pi/workspaces`)
+  showing its projects split into healthy / warning / critical buckets
+  by Health Score, computed client-side from `/pi/projects` (no per-
+  project health recompute call — see Performance below).
+- **Health Dashboard** — animated count-up indicators for Projects,
+  Knowledge Cards, Advisor Recommendations, Graph Nodes, and Graph
+  Relationships, sourced from `/pi/projects`, `/graph`, and
   `/advisor/recommendations`.
-- **Dismiss / Mark completed buttons** — call the corresponding
-  `/advisor/recommendations/{id}/dismiss` and `.../complete` endpoints and
-  remove the card from view immediately.
+- **Recent Activity** — a timeline, recent decisions, recent
+  deliverables, and recent conversations, from `/ui/timeline` and each
+  project's own collections.
+- **Knowledge Graph Preview** — a small, non-interactive render of the
+  Project subgraph; clicking it opens the full Graph page.
+- **Quick Search** — an instant search box whose results
+  (`/graph/search`) are grouped by Projects, Knowledge Cards, People,
+  Applications, Vendors, and Assets — the same six node types the
+  Knowledge Graph already models, so no new grouping endpoint was needed.
 
-### Knowledge Graph tab (Epic 3)
+### Project page
 
-- **Interactive graph** — a hand-rolled SVG view (no external JS graph
-  library, no CDN) showing Projects, Workspaces, Capabilities, and
-  whatever else has been loaded or expanded into view.
-- **Click a node** — opens a detail panel with its type, full data, and
-  every relationship touching it.
-- **Expand neighbors / Collapse to selection** — pull in a node's
-  immediate neighbors from `/graph/neighbors/{id}`, or collapse the view
-  back down to one node and its direct connections.
-- **Search** — free-text node search via `/graph/search`.
-- **Filters** — by node type, workspace, and relationship type, re-fetched
-  from `/graph` with the matching query parameters.
-- **Highlight toggles** — shortest path between two nodes you pick from
-  the detail panel (`/graph/path`), all dependency edges
-  (`DEPENDS_ON`/`UNBLOCKS`), or all capability edges
-  (`IMPLEMENTS`/`USES`/`SHARES_CAPABILITY`).
-- The visualization is entirely optional presentation over the standalone
-  `/graph/*` API — every one of these interactions is just a fetch call,
-  and the Graph Engine (`app/graph/engine.py`, `queries.py`) is fully
-  usable and tested with zero dependency on this tab or on any browser.
+Redesigned into a three-column layout:
 
-The page and its assets live under `app/templates/index.html` and
-`app/static/{css,js}` and are served directly by FastAPI — no build step or
-bundler required.
+- **Left** — Health Ring, Status, Workspace, Priority, and an Advisor
+  Summary.
+- **Center** — Overview, Notes, Recent Decisions, Open TODOs, and
+  Deliverables.
+- **Right** — Capabilities (provided/consumed), Dependencies (both
+  directions), Related Projects, this project's live Advisor
+  recommendations, and a Knowledge Graph Preview that opens the full
+  Graph page focused on this project.
+
+### Graph page
+
+Promoted to a dedicated full-screen page. Beyond Epic 3's click / expand /
+collapse / search / filter (node type, workspace, relationship) /
+highlight-dependencies / highlight-capabilities, it adds:
+
+- **Zoom** (mouse wheel) and **pan** (click-drag), implemented as an SVG
+  viewport transform.
+- **Impact analysis** — a button wired to `GET /graph/impact/{id}`,
+  highlighting every affected node in its own color and listing affected
+  counts by type plus any live Advisor recommendations for affected
+  projects.
+
+The graph rendering code lives in one reusable `createGraphView()`
+factory in `app.js`, shared by the Home preview, the Project page
+preview, and this full page — so a bug fix or a new interaction only has
+to be written once.
+
+### Advisor page
+
+Daily Brief at the top (`/advisor/daily-brief`), then recommendation
+cards grouped by workspace, each with evidence, impact, estimated effort,
+and Dismiss / Mark completed actions (`/advisor/recommendations`).
+
+### Assets and Settings
+
+- **Assets** lists every `Asset` node from the Knowledge Graph
+  (`/graph?node_type=Asset`).
+- **Settings** shows read-only system status (app name, version, database
+  connectivity) from the existing `/health` endpoint.
+
+### Performance
+
+The Home page and project lists read each project's already-persisted
+`health_score` field (from `/pi/projects`) rather than calling
+`/pi/projects/{id}/health` once per project, so rendering a workspace
+overview never fans out into N+1 requests. The Graph page only fetches
+graph data when the user navigates to it or expands/searches within it —
+nothing graph-related loads on Home beyond the one small preview subgraph
+already needed for the preview panel.
+
+### Screenshots
+
+_Placeholder — add screenshots of the Home, Project, Graph, and Advisor
+pages here once the Command Center is running against real data._
 
 ## API endpoints
 
@@ -466,10 +520,14 @@ dashboard/
       advisor.py                                               # Advisor API, namespaced /advisor
       graph.py                                                  # Knowledge Graph API, namespaced /graph
     templates/
-      index.html               # Dashboard page (Jinja2): Knowledge, Projects, Advisor, and Knowledge Graph tabs
+      index.html               # Command Center app shell (Jinja2): sidebar + header + #view-root
     static/
-      css/style.css             # Responsive layout, no framework
-      js/app.js                  # Knowledge, Project Intelligence, Advisor, and Knowledge Graph tab JS
+      css/
+        style.css                 # 4-line @import entry point
+        colors.css, layout.css,
+        components.css, animations.css   # Design system (Epic 4)
+      js/app.js                  # Hash router + every view (Home, Projects, Project detail,
+                                    # Knowledge, Advisor, Graph, Assets, Settings) + createGraphView()
   tests/                    # API, UI, Health Score, Projects DB, Advisor, and Graph tests (pytest + TestClient)
   requirements.txt
 ```

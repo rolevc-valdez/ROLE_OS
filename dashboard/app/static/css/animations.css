@@ -1,0 +1,102 @@
+/*
+ * ROLE OS Command Center — Design System: Animations (Epic 4)
+ *
+ * Subtle only, per spec: short durations, small movement, no flashing or
+ * looping attention-grabbers. Health rings, cards, sidebar, and graph
+ * transitions all draw from this file rather than defining their own
+ * keyframes inline.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ring-grow {
+  from { --ring-value: 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.card,
+.rec-card,
+.workspace-card {
+  animation: fade-in-up 0.28s ease-out both;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.card:hover,
+.rec-card:hover,
+.workspace-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+}
+
+.health-ring {
+  transition: --ring-value 0.6s ease, background 0.6s ease;
+}
+
+.health-ring-value {
+  animation: fade-in 0.4s ease-out both;
+}
+
+.nav-item {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-nav .nav-item {
+  animation: fade-in-up 0.2s ease-out both;
+}
+
+.overlay .detail-panel {
+  animation: fade-in-up 0.2s ease-out both;
+}
+
+.graph-node {
+  transition: opacity 0.2s ease;
+}
+
+.graph-node.graph-node-entering {
+  animation: fade-in 0.3s ease-out both;
+}
+
+.graph-edge {
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.search-results-panel {
+  animation: fade-in-up 0.15s ease-out both;
+}
+
+.loading-pulse {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+
+button, .badge, .count-pill {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+
+.btn:active, button.btn-primary:active {
+  transform: scale(0.98);
+}
+
+@property --ring-value {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}

@@ -189,8 +189,11 @@ def test_all_previous_endpoints_still_work():
 
 
 def test_dashboard_page_includes_advisor_tab():
+    """Epic 4 redesigned the page into a Command Center shell with a
+    persistent sidebar (no more tab bar) and client-side hash routing --
+    the Advisor is now a sidebar nav item + a dedicated `#/advisor` page
+    rendered by app.js, rather than a `data-tab="advisor"` panel."""
     resp = client.get("/")
     assert resp.status_code == 200
     body = resp.text
-    assert 'data-tab="advisor"' in body
-    assert 'id="daily-brief"' in body or 'id="advisor-daily-brief"' in body
+    assert 'data-nav="advisor"' in body

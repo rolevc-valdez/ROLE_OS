@@ -6,6 +6,80 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Epic 4: ROLE OS Command Center — a full UX/UI redesign of the
+  dashboard. **UI-only**: no API, database, or backend logic was touched;
+  every view is built entirely on the existing Milestone 1 knowledge API,
+  Epic 1 `/pi/*`, Epic 2 `/advisor/*`, and Epic 3 `/graph/*` endpoints.
+  - New reusable design system under `dashboard/app/static/css/`:
+    `colors.css` (every color as a custom property, including a palette
+    entry per Knowledge Graph node type), `layout.css` (the app shell
+    grid, page containers, responsive breakpoints), `components.css`
+    (nav items, buttons, cards, badges, the health ring, the search
+    dropdown, the graph detail panel), and `animations.css` (subtle
+    fade/rise-in, hover lift, and health-ring transitions, respecting
+    `prefers-reduced-motion`). `style.css` is now a four-line `@import`
+    entry point — no inline styles anywhere in the generated markup
+    except the health ring's live score gradient and each graph node's
+    live type color, which are inherently per-instance runtime values.
+  - Replaced the Milestone 2/3 tab-based page with a single-page Command
+    Center shell: a persistent icon sidebar (Home, Projects, Knowledge,
+    Advisor, Graph, Assets, Settings) and a header (global search,
+    workspace selector, live date/time, quick actions), with a small
+    hash-based client-side router (`#/home`, `#/projects`,
+    `#/project/{id}`, `#/knowledge`, `#/advisor`, `#/graph`, `#/assets`,
+    `#/settings`) swapping pages in and out of one `#view-root` — no new
+    server route was added for any of these pages.
+  - **Home**: Today's Focus (top 3 Advisor recommendations with project,
+    health ring, priority, estimated effort, expected impact, suggested
+    action, and an Open Project button), Workspace Overview (a card per
+    workspace with healthy/warning/critical project counts), an animated
+    Health Dashboard (Projects, Knowledge Cards, Advisor Recommendations,
+    Graph Nodes, Graph Relationships, each counting up on load), Recent
+    Activity (timeline, recent decisions, recent deliverables, recent
+    conversations), a Knowledge Graph Preview (a small non-interactive
+    render of the Project subgraph that opens the full Graph page on
+    click), and a Quick Search box whose results are grouped into
+    Projects / Knowledge Cards / People / Applications / Vendors / Assets
+    — all six of which map directly onto existing Knowledge Graph node
+    types, so grouping is one `/graph/search` call away with no new
+    endpoint required.
+  - **Project page**: redesigned into a three-column layout — left
+    (health ring, status, workspace, priority, Advisor summary), center
+    (overview, notes, recent decisions, open to-dos, deliverables), right
+    (capabilities provided/consumed, dependencies both directions,
+    related projects, the project's live Advisor recommendations, and a
+    Knowledge Graph preview that jumps into the full Graph page focused
+    on this project).
+  - **Graph page**: promoted to a dedicated full-screen page with mouse
+    wheel zoom and click-drag pan (via an SVG viewport transform) added
+    on top of Epic 3's existing click / expand / collapse / search /
+    filter-by-type-workspace-relationship / highlight-dependencies /
+    highlight-capabilities interactions, plus a new impact-analysis
+    action wired to `GET /graph/impact/{id}` with its own highlight
+    color. The graph rendering code was refactored into a reusable
+    `createGraphView()` factory so the same engine now powers the Home
+    preview, the Project page preview, and the full Graph page.
+  - **Advisor page**: Daily Brief at the top, recommendation cards
+    grouped by workspace (each showing evidence, impact, estimated
+    effort, and Dismiss/Mark completed actions) — the same
+    `/advisor/daily-brief` and `/advisor/recommendations` endpoints as
+    before.
+  - **Assets** and **Settings** pages added to round out the sidebar:
+    Assets lists every `Asset` graph node; Settings shows read-only
+    system status from the existing `/health` endpoint.
+  - Regression: `dashboard/tests/test_ui.py` and
+    `test_advisor_api.py::test_dashboard_page_includes_advisor_tab` were
+    updated to check for the new sidebar/router markup instead of the
+    retired `data-tab="..."` panels (the old assertions were testing DOM
+    structure the spec explicitly requires replacing, not backend
+    behavior); every Builder, Knowledge, Project Intelligence, Advisor,
+    and Knowledge Graph API test is unchanged and still passing. New
+    tests confirm the sidebar, header, and all four design-system CSS
+    files are served, and that app.js's router/views still call only the
+    pre-existing API surface. 226/226 passing repo-wide.
+  - Updated root `README.md` and `dashboard/README.md` with the Command
+    Center UI description and a screenshots placeholder section.
+
 - Epic 3: Knowledge Graph engine. ROLE OS gains a first-class,
   explainable relationship engine — not just a visualization — built on
   top of the existing Builder, Project Intelligence, and Advisor

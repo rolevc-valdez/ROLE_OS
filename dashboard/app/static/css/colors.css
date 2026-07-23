@@ -1,0 +1,68 @@
+/*
+ * ROLE OS Command Center — Design System: Colors (Epic 4)
+ *
+ * A single source of truth for every color used across the dashboard.
+ * layout.css, components.css, and animations.css only ever reference these
+ * custom properties -- no hex codes should appear outside this file.
+ */
+
+:root {
+  /* Surfaces */
+  --bg-app: #0b0d12;
+  --bg-sidebar: #0e1016;
+  --bg-header: #12141c;
+  --bg-surface: #161923;
+  --bg-surface-raised: #1c202c;
+  --bg-surface-hover: #21263380;
+  --bg-overlay: rgba(6, 7, 10, 0.72);
+
+  /* Borders */
+  --border-subtle: #262b38;
+  --border-strong: #343b4a;
+
+  /* Text */
+  --text-primary: #eef1f7;
+  --text-secondary: #a7aec2;
+  --text-muted: #6d7488;
+  --text-inverse: #0b0d12;
+
+  /* Brand */
+  --brand-primary: #6c8bff;
+  --brand-primary-strong: #8fa4ff;
+  --brand-primary-soft: rgba(108, 139, 255, 0.16);
+
+  /* Status */
+  --status-healthy: #34d399;
+  --status-healthy-soft: rgba(52, 211, 153, 0.16);
+  --status-warning: #fbbf24;
+  --status-warning-soft: rgba(251, 191, 36, 0.16);
+  --status-critical: #fb6f6f;
+  --status-critical-soft: rgba(251, 111, 111, 0.16);
+  --status-info: #4fd1ff;
+  --status-info-soft: rgba(79, 209, 255, 0.14);
+
+  /* Priority */
+  --priority-critical: #fb6f6f;
+  --priority-high: #ff9b52;
+  --priority-medium: #ffd166;
+  --priority-low: #8fd3ff;
+
+  /* Graph node palette (kept in sync with the 12 Knowledge Graph node types) */
+  --node-project: #6c8bff;
+  --node-knowledgecard: #b18aff;
+  --node-person: #ff9b6e;
+  --node-application: #34d1bd;
+  --node-vendor: #d68aff;
+  --node-capability: #ffcc66;
+  --node-workspace: #9aa5b8;
+  --node-decision: #5fd8ff;
+  --node-deliverable: #6dffa8;
+  --node-prompt: #ff6ea8;
+  --node-asset: #d9de6d;
+  --node-conversation: #7d95ff;
+
+  /* Shadows */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--brand-primary);
+}

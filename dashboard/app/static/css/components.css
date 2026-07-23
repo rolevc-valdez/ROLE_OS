@@ -1,0 +1,482 @@
+/*
+ * ROLE OS Command Center — Design System: Components (Epic 4)
+ *
+ * Reusable, self-contained UI pieces: nav items, buttons, inputs, badges,
+ * cards, health rings, the search dropdown, and the graph detail panel.
+ * Every rule here should be usable from any view without modification.
+ */
+
+/* ---- Sidebar nav item states ---------------------------------------------- */
+
+.sidebar {
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.sidebar-brand {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+
+.nav-item {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-item:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary-strong);
+}
+
+.nav-icon {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+}
+
+/* ---- Header ---------------------------------------------------------------- */
+
+.app-header {
+  background: var(--bg-header);
+}
+
+.header-search input,
+input[type="search"],
+input[type="text"],
+select,
+textarea {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.header-search input:focus,
+input:focus,
+select:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.header-datetime {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ---- Buttons ----------------------------------------------------------------- */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface-raised);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.btn:hover {
+  border-color: var(--brand-primary);
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--text-inverse);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--brand-primary-strong);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* ---- Cards --------------------------------------------------------------------- */
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.card-muted {
+  color: var(--text-muted);
+}
+
+/* ---- Badges / pills -------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-surface-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+.badge-healthy { background: var(--status-healthy-soft); color: var(--status-healthy); border-color: transparent; }
+.badge-warning { background: var(--status-warning-soft); color: var(--status-warning); border-color: transparent; }
+.badge-critical { background: var(--status-critical-soft); color: var(--status-critical); border-color: transparent; }
+.badge-info { background: var(--status-info-soft); color: var(--status-info); border-color: transparent; }
+
+.badge-priority-critical { color: var(--priority-critical); }
+.badge-priority-high { color: var(--priority-high); }
+.badge-priority-medium { color: var(--priority-medium); }
+.badge-priority-low { color: var(--priority-low); }
+
+/* ---- Health ring ------------------------------------------------------------------- */
+
+.health-ring {
+  --ring-size: 84px;
+  --ring-value: 0;
+  width: var(--ring-size);
+  height: var(--ring-size);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  background: conic-gradient(var(--ring-color, var(--status-healthy)) calc(var(--ring-value) * 1%), var(--bg-surface-raised) 0);
+}
+
+.health-ring::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+}
+
+.health-ring-value {
+  position: relative;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.health-ring-sm {
+  --ring-size: 48px;
+}
+
+.health-ring-sm .health-ring-value {
+  font-size: 13px;
+}
+
+/* ---- Recommendation / project / workspace cards -------------------------------------- */
+
+.rec-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rec-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rec-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.rec-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rec-card-body p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.rec-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.workspace-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.workspace-card-counts {
+  display: flex;
+  gap: 8px;
+}
+
+.count-pill {
+  flex: 1;
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.count-pill strong {
+  display: block;
+  font-size: 16px;
+}
+
+/* ---- Search dropdown ------------------------------------------------------------------ */
+
+.search-results-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-overlay);
+  max-height: 420px;
+  overflow-y: auto;
+  z-index: 40;
+}
+
+.search-results-group {
+  padding: 8px 12px;
+}
+
+.search-results-group h4 {
+  margin: 4px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.search-result-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.search-result-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.quick-search-box {
+  padding: 20px;
+}
+
+.quick-search-box input {
+  width: 100%;
+  font-size: 15px;
+  padding: 12px 14px;
+}
+
+/* ---- Timeline -------------------------------------------------------------------------- */
+
+.timeline-list, .activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-list li, .activity-list li {
+  padding: 8px 12px;
+  border-left: 2px solid var(--border-strong);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ---- Overlay / modal --------------------------------------------------------------------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.detail-panel {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 640px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-overlay);
+  position: relative;
+}
+
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+/* ---- Graph page components --------------------------------------------------------------- */
+
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+#graph-canvas, #home-graph-canvas {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.graph-node-label {
+  fill: var(--text-secondary);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.graph-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.graph-edge-highlight-path { stroke: var(--status-warning); stroke-width: 3; }
+.graph-edge-highlight-deps { stroke: var(--status-critical); stroke-width: 2.5; }
+.graph-edge-highlight-caps { stroke: var(--status-healthy); stroke-width: 2.5; }
+.graph-edge-highlight-impact { stroke: var(--status-info); stroke-width: 2.5; }
+
+.graph-detail-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.graph-detail-table {
+  width: 100%;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.graph-detail-table th {
+  text-align: left;
+  color: var(--text-muted);
+  padding-right: 8px;
+  vertical-align: top;
+}
+
+.graph-detail-edges {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.graph-detail-edges li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.graph-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* ---- Misc utility ---------------------------------------------------------------------------- */
+
+.muted { color: var(--text-muted); }
+.error-box { color: var(--status-critical); font-size: 13px; }
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--brand-primary-strong);
+  font-size: 13px;
+  padding: 0;
+}
+.link-btn:hover { text-decoration: underline; }
+
+table.kv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.kv-table th { text-align: left; color: var(--text-muted); padding: 4px 8px 4px 0; width: 40%; vertical-align: top; }
+table.kv-table td { padding: 4px 0; }
+
+/* ---- Small layout utilities (used instead of inline styles in app.js) --------------------- */
+
+.u-text-center { text-align: center; }
+.u-clickable { cursor: pointer; }
+.u-flex-between { display: flex; justify-content: space-between; align-items: flex-start; }
+.u-mt-1 { margin-top: 6px; }
+.u-mt-2 { margin-top: 8px; }
+.u-mt-3 { margin-top: 10px; }
+.u-mt-4 { margin-top: 16px; }
+.u-mb-2 { margin-bottom: 8px; }
+.u-mb-3 { margin-bottom: 12px; }
+.u-fs-12 { font-size: 12px; }
+.u-fs-26 { font-size: 26px; font-weight: 700; }
+.u-pre-wrap { white-space: pre-wrap; font-family: inherit; }
+.u-max-w-480 { max-width: 480px; }
+.u-full-width { width: 100%; }
+.u-pad-sm { padding: 8px 12px; }

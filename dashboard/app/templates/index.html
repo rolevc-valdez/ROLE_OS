@@ -7,147 +7,60 @@
   <link rel="stylesheet" href="/static/css/style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <span class="brand">ROLE OS</span>
-      <form id="search-form" class="search-form" autocomplete="off">
-        <input
-          id="search-input"
-          type="search"
-          name="q"
-          placeholder="Search knowledge cards..."
-          aria-label="Search knowledge cards"
-        />
-        <button type="submit">Search</button>
-      </form>
-      <span class="version">v{{ app_version }}</span>
-    </div>
-  </header>
-
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <button type="button" class="tab-btn active" data-tab="knowledge">Knowledge</button>
-      <button type="button" class="tab-btn" data-tab="projects">Projects</button>
-      <button type="button" class="tab-btn" data-tab="advisor">Advisor</button>
-      <button type="button" class="tab-btn" data-tab="graph">Knowledge Graph</button>
-    </div>
-  </nav>
-
-  <div id="knowledge-tab" class="tab-panel active">
-  <div class="layout">
-    <aside class="sidebar">
-      <h2>Knowledge Areas</h2>
-      <ul id="project-list" class="project-list">
-        <li class="muted">Loading projects…</li>
+  <div id="app-shell">
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-brand" data-nav="home">ROLE OS</div>
+      <ul class="sidebar-nav">
+        <li class="nav-item active" data-nav="home">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v9h14v-9"/></svg>
+          <span>Home</span>
+        </li>
+        <li class="nav-item" data-nav="projects">
+          <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
+          <span>Projects</span>
+        </li>
+        <li class="nav-item" data-nav="knowledge">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 5c4-2 8-2 8 0v14c0-2-4-2-8 0z"/><path d="M20 5c-4-2-8-2-8 0v14c0-2 4-2 8 0z"/></svg>
+          <span>Knowledge</span>
+        </li>
+        <li class="nav-item" data-nav="advisor">
+          <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5l3 2"/></svg>
+          <span>Advisor</span>
+        </li>
+        <li class="nav-item" data-nav="graph">
+          <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M8 7l6 9M16 7l-6 9M8.4 6h7.2"/></svg>
+          <span>Graph</span>
+        </li>
+        <li class="nav-item" data-nav="assets">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>
+          <span>Assets</span>
+        </li>
+        <li class="nav-item" data-nav="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.2a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.2a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.2a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.2a1.7 1.7 0 00-1.5 1z"/></svg>
+          <span>Settings</span>
+        </li>
       </ul>
-    </aside>
+    </nav>
 
-    <main class="content">
-      <section id="results-section">
-        <div class="section-header">
-          <h2 id="results-title">Recent knowledge cards</h2>
-          <button id="clear-search" class="link-btn" hidden>Clear search</button>
+    <div class="app-main">
+      <header class="app-header">
+        <div class="header-search">
+          <input id="global-search-input" type="search" placeholder="Search ROLE OS..." aria-label="Global search" autocomplete="off" />
+          <div id="global-search-results" class="search-results-panel" hidden></div>
         </div>
-        <ul id="card-list" class="card-list">
-          <li class="muted">Loading…</li>
-        </ul>
-      </section>
-
-      <section id="timeline-section">
-        <div class="section-header">
-          <h2>Timeline</h2>
-        </div>
-        <ol id="timeline-list" class="timeline-list">
-          <li class="muted">Loading timeline…</li>
-        </ol>
-      </section>
-    </main>
-  </div>
-  </div>
-
-  <div id="projects-tab" class="tab-panel" hidden>
-    <div class="pi-layout">
-      <div class="pi-toolbar">
-        <label for="workspace-select">Workspace</label>
-        <select id="workspace-select">
+        <select id="header-workspace-select" aria-label="Workspace">
           <option value="">All workspaces</option>
         </select>
-      </div>
-
-      <div id="pi-list-view">
-        <ul id="pi-project-list" class="pi-project-list">
-          <li class="muted">Loading projects…</li>
-        </ul>
-      </div>
-
-      <div id="pi-detail-view" hidden>
-        <button id="pi-back-btn" class="link-btn">&larr; Back to projects</button>
-        <div id="pi-detail-body">
-          <p class="muted">Loading…</p>
+        <span id="header-datetime" class="header-datetime"></span>
+        <div class="quick-actions">
+          <button type="button" class="btn btn-sm" data-nav="advisor">Daily Brief</button>
+          <button type="button" class="btn btn-sm btn-primary" data-nav="graph">Open Graph</button>
         </div>
-      </div>
-    </div>
-  </div>
+      </header>
 
-  <div id="advisor-tab" class="tab-panel" hidden>
-    <div class="advisor-layout">
-      <div class="pi-toolbar">
-        <label for="advisor-workspace-select">Workspace</label>
-        <select id="advisor-workspace-select">
-          <option value="">All workspaces</option>
-        </select>
-      </div>
-
-      <section id="daily-brief" class="advisor-section">
-        <div class="section-header">
-          <h2>Daily Brief</h2>
-        </div>
-        <pre id="daily-brief-greeting" class="brief-greeting">Loading…</pre>
-      </section>
-
-      <section class="advisor-section">
-        <div class="section-header">
-          <h2>Recommendations</h2>
-        </div>
-        <ul id="advisor-recommendation-list" class="advisor-recommendation-list">
-          <li class="muted">Loading recommendations…</li>
-        </ul>
-      </section>
-    </div>
-  </div>
-
-  <div id="graph-tab" class="tab-panel" hidden>
-    <div class="graph-layout">
-      <div class="graph-toolbar">
-        <input id="graph-search-input" type="search" placeholder="Search nodes..." aria-label="Search graph nodes" />
-        <select id="graph-node-type-select">
-          <option value="">All node types</option>
-        </select>
-        <select id="graph-workspace-select">
-          <option value="">All workspaces</option>
-        </select>
-        <select id="graph-relationship-select">
-          <option value="">All relationships</option>
-        </select>
-        <button id="graph-highlight-dependencies" type="button" class="link-btn">Highlight dependencies</button>
-        <button id="graph-highlight-capabilities" type="button" class="link-btn">Highlight capabilities</button>
-        <button id="graph-reset-btn" type="button" class="link-btn">Reset view</button>
-      </div>
-
-      <div class="graph-body">
-        <div id="graph-canvas-wrap">
-          <svg id="graph-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
-          <p id="graph-empty-msg" class="muted" hidden>No graph data yet. Create some Projects to see them here.</p>
-        </div>
-
-        <aside id="graph-detail-panel" class="graph-detail-panel">
-          <p class="muted">Click a node to see its details, expand its neighbors, or use it as a path endpoint.</p>
-        </aside>
-      </div>
-
-      <div id="graph-path-bar" class="graph-path-bar">
-        <span id="graph-path-status" class="muted">Pick a source and target node (via the detail panel) to highlight the shortest path between them.</span>
-      </div>
+      <main id="view-root" aria-live="polite">
+        <p class="muted">Loading...</p>
+      </main>
     </div>
   </div>
 

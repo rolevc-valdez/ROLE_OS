@@ -5,12 +5,18 @@ personal knowledge base, and has evolved from a Knowledge Browser into a
 Knowledge Operating System: a read-only knowledge API and dashboard, a
 first-class Project Intelligence layer (workspaces, projects, capabilities,
 dependencies, a Health Score engine), an explainable AI Advisor that
-recommends what to work on next (Epic 2), and — as of Epic 3 — a Knowledge
-Graph engine that connects Projects, Knowledge Cards, People, Applications,
-Vendors, Capabilities, Workspaces, Decisions, Deliverables, Prompts,
-Assets, and Conversations into one queryable relationship graph, computed
-on demand with no separate graph database. No external AI API is required
-anywhere in the system.
+recommends what to work on next (Epic 2), a Knowledge Graph engine that
+connects Projects, Knowledge Cards, People, Applications, Vendors,
+Capabilities, Workspaces, Decisions, Deliverables, Prompts, Assets, and
+Conversations into one queryable relationship graph computed on demand
+with no separate graph database (Epic 3), and — as of Epic 4 — a
+redesigned **Command Center** UI: a persistent sidebar, a Home page
+(Today's Focus, Workspace Overview, an animated Health Dashboard, Recent
+Activity, a Knowledge Graph preview, and grouped Quick Search), a
+redesigned Project page, a full-screen Graph page with zoom/pan/impact
+analysis, and an Advisor page — built entirely in plain HTML/CSS/vanilla
+JS on top of the existing API, with no backend changes. No external AI API
+is required anywhere in the system.
 
 ## Repository layout
 
@@ -50,16 +56,22 @@ ROLE_OS/
 ## Status
 
 This repository currently implements a modular knowledge extraction engine
-(`builder/extractors/`), a plain data-access API and web dashboard
-(`dashboard`), a Project Intelligence layer (`dashboard/app/projects/`) with
-first-class Workspaces, Projects, Capabilities, Dependencies, and a modular
-Health Score engine, an explainable AI Advisor (`dashboard/app/advisor/`)
-built from eight independent, deterministic rules plus a shared scoring
-toolkit, and a Knowledge Graph engine (`dashboard/app/graph/`) that
-consumes the Builder, Project Intelligence, and Advisor databases read-only
-to compute 12 node types and 12 relationship types on demand — no data is
-duplicated into a new store. No AI/LLM API is called anywhere — every
-extractor, health signal, advisor rule, and graph relationship is
+(`builder/extractors/`), a plain data-access API (`dashboard`), a Project
+Intelligence layer (`dashboard/app/projects/`) with first-class
+Workspaces, Projects, Capabilities, Dependencies, and a modular Health
+Score engine, an explainable AI Advisor (`dashboard/app/advisor/`) built
+from eight independent, deterministic rules plus a shared scoring toolkit,
+a Knowledge Graph engine (`dashboard/app/graph/`) that consumes the
+Builder, Project Intelligence, and Advisor databases read-only to compute
+12 node types and 12 relationship types on demand — no data is duplicated
+into a new store — and a Command Center web UI (`dashboard/app/static/`,
+`dashboard/app/templates/index.html`) that is a pure presentation layer
+over all of the above: a persistent sidebar, hash-routed pages (Home,
+Projects, Project detail, Knowledge, Advisor, Graph, Assets, Settings),
+and a small reusable design system (`colors.css`, `layout.css`,
+`components.css`, `animations.css`), with zero new API surface, database,
+or backend logic introduced for it. No AI/LLM API is called anywhere —
+every extractor, health signal, advisor rule, and graph relationship is
 rule-based, not model-based. The Advisor's `AdvisorNarrativeProvider`
 interface and the Graph Engine's plain, dependency-free query functions are
 both designed seams for a future AI provider to build on without replacing
