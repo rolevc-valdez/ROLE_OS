@@ -4,9 +4,13 @@ ROLE OS turns a ChatGPT conversations export into a structured, searchable
 personal knowledge base, and has evolved from a Knowledge Browser into a
 Knowledge Operating System: a read-only knowledge API and dashboard, a
 first-class Project Intelligence layer (workspaces, projects, capabilities,
-dependencies, a Health Score engine), and — as of Epic 2 — an explainable
-AI Advisor that recommends what to work on next, with no external AI API
-required.
+dependencies, a Health Score engine), an explainable AI Advisor that
+recommends what to work on next (Epic 2), and — as of Epic 3 — a Knowledge
+Graph engine that connects Projects, Knowledge Cards, People, Applications,
+Vendors, Capabilities, Workspaces, Decisions, Deliverables, Prompts,
+Assets, and Conversations into one queryable relationship graph, computed
+on demand with no separate graph database. No external AI API is required
+anywhere in the system.
 
 ## Repository layout
 
@@ -49,13 +53,17 @@ This repository currently implements a modular knowledge extraction engine
 (`builder/extractors/`), a plain data-access API and web dashboard
 (`dashboard`), a Project Intelligence layer (`dashboard/app/projects/`) with
 first-class Workspaces, Projects, Capabilities, Dependencies, and a modular
-Health Score engine, and an explainable AI Advisor
-(`dashboard/app/advisor/`) built from eight independent, deterministic
-rules plus a shared scoring toolkit. No AI/LLM API is called anywhere —
-every extractor, health signal, and advisor rule is rule-based, not
-model-based. The Advisor's `AdvisorNarrativeProvider` interface is the
-designed seam for a future LLM-backed provider to improve wording without
-replacing the deterministic rule engine.
+Health Score engine, an explainable AI Advisor (`dashboard/app/advisor/`)
+built from eight independent, deterministic rules plus a shared scoring
+toolkit, and a Knowledge Graph engine (`dashboard/app/graph/`) that
+consumes the Builder, Project Intelligence, and Advisor databases read-only
+to compute 12 node types and 12 relationship types on demand — no data is
+duplicated into a new store. No AI/LLM API is called anywhere — every
+extractor, health signal, advisor rule, and graph relationship is
+rule-based, not model-based. The Advisor's `AdvisorNarrativeProvider`
+interface and the Graph Engine's plain, dependency-free query functions are
+both designed seams for a future AI provider to build on without replacing
+the deterministic core.
 
 ## Development
 

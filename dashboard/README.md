@@ -3,15 +3,17 @@
 FastAPI service over the SQLite knowledge base produced by the ROLE OS
 Builder (`/builder`), a first-class **Project Intelligence** layer (Epic 1:
 Workspaces, Projects, Capabilities, Dependencies, a Health Score engine),
-and — as of Epic 2 — an explainable **AI Advisor** that recommends what to
-do next. No external AI/LLM API is called anywhere: the Advisor's rule
-engine and every scoring signal are deterministic and rule-based.
+an explainable **AI Advisor** (Epic 2) that recommends what to do next, and
+— as of Epic 3 — a **Knowledge Graph** engine that turns all of the above
+into one unified, queryable relationship graph. No external AI/LLM API is
+called anywhere: the Advisor's rule engine, every scoring signal, and the
+Graph's relationship computation are all deterministic and rule-based.
 
 ## Web UI
 
 Visiting `/` in a browser serves the ROLE OS dashboard: a single responsive
 page built with plain HTML, CSS, and JavaScript (no frontend framework),
-with three tabs.
+with four tabs.
 
 ### Knowledge tab (Milestone 2)
 
@@ -50,6 +52,28 @@ with three tabs.
 - **Dismiss / Mark completed buttons** — call the corresponding
   `/advisor/recommendations/{id}/dismiss` and `.../complete` endpoints and
   remove the card from view immediately.
+
+### Knowledge Graph tab (Epic 3)
+
+- **Interactive graph** — a hand-rolled SVG view (no external JS graph
+  library, no CDN) showing Projects, Workspaces, Capabilities, and
+  whatever else has been loaded or expanded into view.
+- **Click a node** — opens a detail panel with its type, full data, and
+  every relationship touching it.
+- **Expand neighbors / Collapse to selection** — pull in a node's
+  immediate neighbors from `/graph/neighbors/{id}`, or collapse the view
+  back down to one node and its direct connections.
+- **Search** — free-text node search via `/graph/search`.
+- **Filters** — by node type, workspace, and relationship type, re-fetched
+  from `/graph` with the matching query parameters.
+- **Highlight toggles** — shortest path between two nodes you pick from
+  the detail panel (`/graph/path`), all dependency edges
+  (`DEPENDS_ON`/`UNBLOCKS`), or all capability edges
+  (`IMPLEMENTS`/`USES`/`SHARES_CAPABILITY`).
+- The visualization is entirely optional presentation over the standalone
+  `/graph/*` API — every one of these interactions is just a fetch call,
+  and the Graph Engine (`app/graph/engine.py`, `queries.py`) is fully
+  usable and tested with zero dependency on this tab or on any browser.
 
 The page and its assets live under `app/templates/index.html` and
 `app/static/{css,js}` and are served directly by FastAPI — no build step or
@@ -121,6 +145,23 @@ Entirely additive; introduces no change to any route above.
 the recommendation engine for the requested scope before reading — so the
 data is always current without a separate "generate" endpoint, the same
 pattern Epic 1 uses for `GET /pi/projects/{id}/health`.
+
+### Knowledge Graph API (Epic 3 — new, namespaced under `/graph`)
+
+Entirely additive; introduces no change to any route above. The graph is
+rebuilt fresh from the three existing databases on every request — there
+is no dedicated graph database.
+
+| Method | Path                                              | Description |
+|--------|----------------------------------------------------|--------------|
+| GET    | `/graph?node_type=&workspace=`                        | Full graph, optionally filtered |
+| GET    | `/graph/project/{id}?depth=`                            | Subgraph centered on one Project |
+| GET    | `/graph/node/{id}`                                        | One node plus every edge touching it |
+| GET    | `/graph/neighbors/{id}?direction=&edge_type=&node_type=&depth=` | Filterable BFS neighbor lookup |
+| GET    | `/graph/path?source=&target=&max_depth=`                    | Unweighted shortest path between two nodes |
+| GET    | `/graph/impact/{id}?max_depth=`                                | Impact analysis: cascading traversal grouped by node type, plus live Advisor recommendations for every affected Project |
+| GET    | `/graph/search?q=&node_type=&workspace=`                          | Free-text node search |
+| GET    | `/graph/meta/types`                                                 | The fixed node type / relationship type vocabularies |
 
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
@@ -267,6 +308,82 @@ of truth for *what* to recommend and *why*; a narrative provider only ever
 affects *how it reads*. **This Epic does not call OpenAI, Claude, or any
 external API.**
 
+## Knowledge Graph domain (Epic 3)
+
+The Knowledge Graph turns everything already in the other three domains
+into one relationship graph. It is a **read/compute layer, not a fourth
+database**: `app/graph/engine.py`'s `build_graph()` reads the Builder
+database, the Project Intelligence database, and the Advisor database
+every time it is called and assembles a fresh in-memory graph — nothing
+about a project, card, capability, or recommendation is duplicated into a
+new store.
+
+### Node types (12)
+
+`Project`, `KnowledgeCard`, `Person`, `Application`, `Vendor`,
+`Capability`, `Workspace`, `Decision`, `Deliverable`, `Prompt`, `Asset`,
+`Conversation`.
+
+Every node has a stable, globally unique id of the form `<type>:<raw-id>`
+(e.g. `project:1a2b3c`). Entity nodes referenced only by name — `Person`,
+`Application`, `Vendor` — are deduplicated by a slugified version of the
+name, so "Microsoft" mentioned across ten different conversations still
+resolves to one node.
+
+### Relationship types (12)
+
+| Type | Meaning | Produced by |
+|------|---------|-------------|
+| `DEPENDS_ON` | Project depends on Project | `dependency_graph.py`, from the Project Intelligence `dependencies` table |
+| `UNBLOCKS` | The reverse of `DEPENDS_ON` — precomputed so "what does finishing this unlock?" is a single hop | `dependency_graph.py` |
+| `IMPLEMENTS` | Project exposes/implements a Capability | `capability_graph.py` |
+| `USES` | Project consumes a Capability, or uses an Application/Vendor (aggregated from its linked conversations) | `capability_graph.py`, `application_graph.py`, `vendor_graph.py` |
+| `SHARES_CAPABILITY` | Consumer Project <-> provider Project, precomputed convenience edge | `capability_graph.py` |
+| `PROVIDES` | Vendor provides an Application — a deterministic co-occurrence signal (vendor and application mentioned together in the same card) | `vendor_graph.py` |
+| `REFERENCES` | Project references its own Decision/Deliverable/Prompt/Asset; KnowledgeCard references an Asset (a mentioned file) | `project_graph.py`, `knowledge_graph.py` |
+| `RELATED_TO` | Project <-> related Project; KnowledgeCard <-> KnowledgeCard via Milestone 3's `related_conversations` | `project_graph.py`, `knowledge_graph.py` |
+| `BELONGS_TO` | Project belongs to a Workspace; KnowledgeCard belongs to a Project (when linked via `project.conversations`) | `project_graph.py`, `knowledge_graph.py` |
+| `CREATED_BY` | Project created by/owned by a Person | `people_graph.py` |
+| `MENTIONS` | KnowledgeCard mentions a Person/Application/Vendor | `people_graph.py`, `application_graph.py`, `vendor_graph.py` |
+| `GENERATED_FROM` | KnowledgeCard was generated from a Conversation | `knowledge_graph.py` |
+
+### How the graph is generated
+
+`build_graph()` loads projects, workspaces, capabilities and their
+consumers, and dependencies from the Project Intelligence database; every
+knowledge card from the Builder database (via the new internal
+`app.db.list_all_cards()` — not a new public endpoint); nothing eagerly
+from the Advisor database (that's only queried on demand, during impact
+analysis). Each of the seven `builders/*.py` modules contributes
+`(nodes, edges)` from its own slice of that data; `engine.py` merges every
+builder's nodes first, then every builder's edges, so an edge from one
+builder pointing at a node contributed by a *different* builder (e.g.
+`vendor_graph.py`'s `PROVIDES` edges pointing at `application_graph.py`'s
+Application nodes) is never silently dropped.
+
+### Impact analysis
+
+`app/graph/queries.py`'s `impact_analysis(graph, node_id, max_depth=4)`
+answers "if this changes, what's affected?" — it does a breadth-first
+traversal outward (both directions) up to `max_depth` hops, groups every
+reached node by type, and then looks up live Advisor recommendations for
+every affected Project. This directly matches the Epic 3 example: *if ROLE
+MASTER changes → which Projects are affected → which Assets → which
+Conversations → which Capabilities → which Advisor recommendations exist
+for them.*
+
+### Query Engine
+
+Besides the generic `neighbors()`/`shortest_path()`/`search_nodes()`
+primitives, `queries.py` exposes named convenience functions matching the
+Epic 3 example questions directly — `projects_related_to()`,
+`capabilities_used_by()`, `applications_connected_to()`,
+`conversations_mentioning()`, `people_involved_in()`,
+`projects_blocked_by()`, and `projects_unlocked_by_finishing()`. All of
+these are pure functions over an already-built `Graph`, so they're usable
+headlessly (from tests, a script, or a future AI provider) with no
+dependency on the API or dashboard.
+
 ## Setup
 
 ```bash
@@ -331,6 +448,15 @@ dashboard/
         stale_project.py, near_completion.py, blocked_dependency.py,
         critical_health.py, overdue_todos.py, missing_deliverables.py,
         inactive_high_priority.py, capability_opportunity.py
+    graph/                        # Knowledge Graph domain (Epic 3)
+      models.py                     # Node/Edge/Graph data structures + the 12 node/12 relationship types
+      engine.py                      # build_graph(): reads all 3 DBs, merges every builder's output
+      queries.py                      # neighbors/shortest_path/impact_analysis/search + named example queries
+      api_models.py                    # Pydantic response schemas for /graph/*
+      builders/                          # One pure build(...) -> (nodes, edges) function per relationship family
+        project_graph.py, dependency_graph.py, capability_graph.py,
+        knowledge_graph.py, people_graph.py, application_graph.py,
+        vendor_graph.py
     routers/
       health.py, projects.py, search.py, knowledge.py   # Milestone 1 API (unchanged)
       ui.py                                                # Dashboard page + /ui/recent, /ui/timeline
@@ -338,11 +464,12 @@ dashboard/
         workspaces.py, projects.py, collections.py,
         capabilities.py, dependencies.py, health.py
       advisor.py                                               # Advisor API, namespaced /advisor
+      graph.py                                                  # Knowledge Graph API, namespaced /graph
     templates/
-      index.html               # Dashboard page (Jinja2): Knowledge, Projects, and Advisor tabs
+      index.html               # Dashboard page (Jinja2): Knowledge, Projects, Advisor, and Knowledge Graph tabs
     static/
       css/style.css             # Responsive layout, no framework
-      js/app.js                  # Knowledge, Project Intelligence, and Advisor tab JS
-  tests/                    # API, UI, Health Score, Projects DB, and Advisor tests (pytest + TestClient)
+      js/app.js                  # Knowledge, Project Intelligence, Advisor, and Knowledge Graph tab JS
+  tests/                    # API, UI, Health Score, Projects DB, Advisor, and Graph tests (pytest + TestClient)
   requirements.txt
 ```

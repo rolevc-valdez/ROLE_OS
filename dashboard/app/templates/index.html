@@ -29,6 +29,7 @@
       <button type="button" class="tab-btn active" data-tab="knowledge">Knowledge</button>
       <button type="button" class="tab-btn" data-tab="projects">Projects</button>
       <button type="button" class="tab-btn" data-tab="advisor">Advisor</button>
+      <button type="button" class="tab-btn" data-tab="graph">Knowledge Graph</button>
     </div>
   </nav>
 
@@ -112,6 +113,41 @@
           <li class="muted">Loading recommendations…</li>
         </ul>
       </section>
+    </div>
+  </div>
+
+  <div id="graph-tab" class="tab-panel" hidden>
+    <div class="graph-layout">
+      <div class="graph-toolbar">
+        <input id="graph-search-input" type="search" placeholder="Search nodes..." aria-label="Search graph nodes" />
+        <select id="graph-node-type-select">
+          <option value="">All node types</option>
+        </select>
+        <select id="graph-workspace-select">
+          <option value="">All workspaces</option>
+        </select>
+        <select id="graph-relationship-select">
+          <option value="">All relationships</option>
+        </select>
+        <button id="graph-highlight-dependencies" type="button" class="link-btn">Highlight dependencies</button>
+        <button id="graph-highlight-capabilities" type="button" class="link-btn">Highlight capabilities</button>
+        <button id="graph-reset-btn" type="button" class="link-btn">Reset view</button>
+      </div>
+
+      <div class="graph-body">
+        <div id="graph-canvas-wrap">
+          <svg id="graph-canvas" xmlns="http://www.w3.org/2000/svg"></svg>
+          <p id="graph-empty-msg" class="muted" hidden>No graph data yet. Create some Projects to see them here.</p>
+        </div>
+
+        <aside id="graph-detail-panel" class="graph-detail-panel">
+          <p class="muted">Click a node to see its details, expand its neighbors, or use it as a path endpoint.</p>
+        </aside>
+      </div>
+
+      <div id="graph-path-bar" class="graph-path-bar">
+        <span id="graph-path-status" class="muted">Pick a source and target node (via the detail panel) to highlight the shortest path between them.</span>
+      </div>
     </div>
   </div>
 

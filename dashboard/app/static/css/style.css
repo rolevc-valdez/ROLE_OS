@@ -804,3 +804,133 @@ h2 {
 .advisor-card.completed {
   opacity: 0.5;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Knowledge Graph (Epic 3)                                                   */
+/* -------------------------------------------------------------------------- */
+
+.graph-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.graph-toolbar input,
+.graph-toolbar select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #333);
+  background: var(--surface, #1c1c22);
+  color: inherit;
+}
+
+.graph-body {
+  display: flex;
+  gap: 16px;
+}
+
+#graph-canvas-wrap {
+  position: relative;
+  flex: 3;
+  min-height: 480px;
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  background: var(--surface, #14141a);
+}
+
+#graph-canvas {
+  width: 100%;
+  height: 480px;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node-label {
+  font-size: 11px;
+  fill: currentColor;
+  pointer-events: none;
+}
+
+.graph-edge {
+  stroke: rgba(150, 150, 160, 0.5);
+  stroke-width: 1;
+}
+
+.graph-edge-highlight-path {
+  stroke: #ffcc4f;
+  stroke-width: 3;
+}
+
+.graph-edge-highlight-deps {
+  stroke: #ff4f4f;
+  stroke-width: 2.5;
+}
+
+.graph-edge-highlight-caps {
+  stroke: #4fff8a;
+  stroke-width: 2.5;
+}
+
+.graph-detail-panel {
+  flex: 2;
+  min-width: 260px;
+  max-height: 480px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #333);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.graph-detail-table {
+  width: 100%;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.graph-detail-table th {
+  text-align: left;
+  color: var(--muted, #999);
+  padding-right: 8px;
+  vertical-align: top;
+}
+
+.graph-detail-edges {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.graph-detail-edges li {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border, #2a2a30);
+}
+
+.graph-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.graph-detail-actions button {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.graph-path-bar {
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+}

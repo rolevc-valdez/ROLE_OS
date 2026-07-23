@@ -118,6 +118,26 @@ def timeline(settings: Settings | None = None, limit: int = 200) -> list[dict[st
     ]
 
 
+def list_all_cards(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Return every knowledge card, fully parsed.
+
+    Internal helper for cross-cutting consumers (currently the Knowledge
+    Graph engine, Epic 3) that need to build a full picture of the
+    knowledge base rather than a single search/lookup. Not exposed as its
+    own public API endpoint -- existing /knowledge/{id}, /search, and
+    /projects routes are unchanged.
+    """
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            """
+            SELECT conversation_id, title, project, category, status, date, updated, summary, card_json
+            FROM knowledge_cards
+            ORDER BY date ASC
+            """
+        ).fetchall()
+    return [_row_to_card(row) for row in rows]
+
+
 def get_card(conversation_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     with get_connection(settings) as conn:
         row = conn.execute(

@@ -286,6 +286,7 @@
     detailView: document.getElementById("pi-detail-view"),
     detailBody: document.getElementById("pi-detail-body"),
     backBtn: document.getElementById("pi-back-btn"),
+    graphTab: document.getElementById("graph-tab"),
   };
 
   if (!piEls.projectsTab) return; // template not present (shouldn't happen)
@@ -325,6 +326,7 @@
       piEls.knowledgeTab.classList.toggle("active", tab === "knowledge");
       piEls.projectsTab.hidden = tab !== "projects";
       if (piEls.advisorTab) piEls.advisorTab.hidden = tab !== "advisor";
+      if (piEls.graphTab) piEls.graphTab.hidden = tab !== "graph";
       if (tab === "projects" && !projectsInitialized) {
         projectsInitialized = true;
         initProjectsTab();
@@ -712,5 +714,411 @@
     } catch (err) {
       console.error(`Could not ${action} recommendation`, err);
     }
+  }
+})();
+
+// ---------------------------------------------------------------------------
+// Knowledge Graph tab (Epic 3)
+//
+// Hand-rolled SVG rendering with zero external dependencies -- deliberately
+// not using a CDN graph library so the dashboard keeps working fully offline
+// and "no frontend framework" stays trivially true. This is presentation
+// only: every piece of data it shows comes from the standalone /graph/* API,
+// which works completely independently of this file (see
+// dashboard/app/graph/engine.py and queries.py).
+// ---------------------------------------------------------------------------
+(function () {
+  const svg = document.getElementById("graph-canvas");
+  if (!svg) return; // template not present (shouldn't happen)
+
+  const els = {
+    svg,
+    wrap: document.getElementById("graph-canvas-wrap"),
+    emptyMsg: document.getElementById("graph-empty-msg"),
+    detailPanel: document.getElementById("graph-detail-panel"),
+    searchInput: document.getElementById("graph-search-input"),
+    nodeTypeSelect: document.getElementById("graph-node-type-select"),
+    workspaceSelect: document.getElementById("graph-workspace-select"),
+    relationshipSelect: document.getElementById("graph-relationship-select"),
+    highlightDepsBtn: document.getElementById("graph-highlight-dependencies"),
+    highlightCapsBtn: document.getElementById("graph-highlight-capabilities"),
+    resetBtn: document.getElementById("graph-reset-btn"),
+    pathStatus: document.getElementById("graph-path-status"),
+  };
+
+  const NS = "http://www.w3.org/2000/svg";
+  const WIDTH = 900;
+  const HEIGHT = 560;
+
+  // Rendered subgraph state -- a subset of the full graph, built up via the
+  // initial load plus any "expand neighbors" actions. Kept entirely
+  // client-side; every mutation re-fetches from the read-only /graph/* API.
+  let renderNodes = new Map(); // id -> { node, x, y, expandedFrom: id|null }
+  let renderEdges = []; // { source, target, type }
+  let pathSource = null;
+  let pathTarget = null;
+  let highlightMode = null; // null | "dependencies" | "capabilities" | "path"
+  let highlightPathEdgeKeys = new Set();
+
+  async function fetchJSON(url) {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      let detail = resp.statusText;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch (_) {
+        /* ignore */
+      }
+      throw new Error(detail);
+    }
+    return resp.json();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
+    ));
+  }
+
+  function edgeKey(edge) {
+    return `${edge.source}|${edge.target}|${edge.type}`;
+  }
+
+  // ---- Layout: simple deterministic circle-by-type layout ----------------
+  // No physics simulation -- positions are computed once per render from
+  // node order, which keeps the view stable and the code simple to test.
+
+  function layout() {
+    const ids = Array.from(renderNodes.keys());
+    const n = ids.length || 1;
+    const cx = WIDTH / 2;
+    const cy = HEIGHT / 2;
+    const radius = Math.min(WIDTH, HEIGHT) / 2 - 60;
+    ids.forEach((id, i) => {
+      const angle = (2 * Math.PI * i) / n;
+      const entry = renderNodes.get(id);
+      entry.x = cx + radius * Math.cos(angle);
+      entry.y = cy + radius * Math.sin(angle);
+    });
+  }
+
+  const NODE_COLORS = {
+    Project: "#4f7cff",
+    KnowledgeCard: "#8a6dff",
+    Person: "#ff8a4f",
+    Application: "#22b8a0",
+    Vendor: "#c74fff",
+    Capability: "#ffb84f",
+    Workspace: "#9aa5b1",
+    Decision: "#4fd1ff",
+    Deliverable: "#4fff8a",
+    Prompt: "#ff4f9e",
+    Asset: "#d1d64f",
+    Conversation: "#6d8aff",
+  };
+
+  function render() {
+    svg.setAttribute("viewBox", `0 0 ${WIDTH} ${HEIGHT}`);
+    svg.innerHTML = "";
+    els.emptyMsg.hidden = renderNodes.size > 0;
+    if (!renderNodes.size) return;
+
+    layout();
+
+    // Edges first so nodes draw on top.
+    renderEdges.forEach((edge) => {
+      const a = renderNodes.get(edge.source);
+      const b = renderNodes.get(edge.target);
+      if (!a || !b) return;
+      const line = document.createElementNS(NS, "line");
+      line.setAttribute("x1", a.x);
+      line.setAttribute("y1", a.y);
+      line.setAttribute("x2", b.x);
+      line.setAttribute("y2", b.y);
+      let cls = "graph-edge";
+      if (highlightMode === "path" && highlightPathEdgeKeys.has(edgeKey(edge))) {
+        cls += " graph-edge-highlight-path";
+      } else if (highlightMode === "dependencies" && (edge.type === "DEPENDS_ON" || edge.type === "UNBLOCKS")) {
+        cls += " graph-edge-highlight-deps";
+      } else if (
+        highlightMode === "capabilities" &&
+        (edge.type === "IMPLEMENTS" || edge.type === "USES" || edge.type === "SHARES_CAPABILITY")
+      ) {
+        cls += " graph-edge-highlight-caps";
+      }
+      line.setAttribute("class", cls);
+      line.dataset.type = edge.type;
+      svg.appendChild(line);
+    });
+
+    renderNodes.forEach((entry, id) => {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "graph-node");
+      g.setAttribute("transform", `translate(${entry.x}, ${entry.y})`);
+      g.dataset.id = id;
+
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("r", id === pathSource || id === pathTarget ? 12 : 9);
+      circle.setAttribute("fill", NODE_COLORS[entry.node.type] || "#999");
+      if (id === pathSource || id === pathTarget) {
+        circle.setAttribute("stroke", "#fff");
+        circle.setAttribute("stroke-width", "2");
+      }
+      g.appendChild(circle);
+
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("x", 12);
+      text.setAttribute("y", 4);
+      text.setAttribute("class", "graph-node-label");
+      text.textContent = entry.node.label;
+      g.appendChild(text);
+
+      g.addEventListener("click", () => selectNode(id));
+      svg.appendChild(g);
+    });
+  }
+
+  function setNodes(nodes, edges) {
+    renderNodes = new Map(nodes.map((n) => [n.id, { node: n, x: 0, y: 0 }]));
+    renderEdges = edges.map((e) => ({ source: e.source, target: e.target, type: e.type }));
+    render();
+  }
+
+  function addNodes(nodes, edges) {
+    nodes.forEach((n) => {
+      if (!renderNodes.has(n.id)) renderNodes.set(n.id, { node: n, x: 0, y: 0 });
+    });
+    const existing = new Set(renderEdges.map(edgeKey));
+    edges.forEach((e) => {
+      const key = edgeKey(e);
+      if (!existing.has(key)) {
+        existing.add(key);
+        renderEdges.push({ source: e.source, target: e.target, type: e.type });
+      }
+    });
+    render();
+  }
+
+  // ---- Detail panel --------------------------------------------------------
+
+  async function selectNode(id) {
+    try {
+      const data = await fetchJSON(`/graph/node/${encodeURIComponent(id)}`);
+      renderDetailPanel(data.node, data.edges, id);
+    } catch (err) {
+      els.detailPanel.innerHTML = `<p class="error-box">Could not load node: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function renderDetailPanel(node, edges, id) {
+    const dataRows = Object.entries(node.data || {})
+      .map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(JSON.stringify(v))}</td></tr>`)
+      .join("");
+    const edgeRows = edges
+      .map((e) => {
+        const otherId = e.source === id ? e.target : e.source;
+        const otherNode = renderNodes.get(otherId);
+        const label = otherNode ? otherNode.node.label : otherId;
+        const arrow = e.source === id ? "&rarr;" : "&larr;";
+        return `<li>${escapeHtml(e.type)} ${arrow} ${escapeHtml(label)}</li>`;
+      })
+      .join("");
+
+    els.detailPanel.innerHTML = `
+      <h3>${escapeHtml(node.label)}</h3>
+      <p class="badge">${escapeHtml(node.type)}</p>
+      <table class="graph-detail-table">${dataRows}</table>
+      <h4>Relationships (${edges.length})</h4>
+      <ul class="graph-detail-edges">${edgeRows || '<li class="muted">None</li>'}</ul>
+      <div class="graph-detail-actions">
+        <button type="button" id="graph-expand-btn">Expand neighbors</button>
+        <button type="button" id="graph-collapse-btn">Collapse to selection</button>
+        <button type="button" id="graph-set-source-btn">Set as path source</button>
+        <button type="button" id="graph-set-target-btn">Set as path target</button>
+      </div>
+    `;
+
+    document.getElementById("graph-expand-btn").addEventListener("click", () => expandNode(id));
+    document.getElementById("graph-collapse-btn").addEventListener("click", () => collapseToNode(id));
+    document.getElementById("graph-set-source-btn").addEventListener("click", () => {
+      pathSource = id;
+      updatePathStatus();
+      maybeComputePath();
+    });
+    document.getElementById("graph-set-target-btn").addEventListener("click", () => {
+      pathTarget = id;
+      updatePathStatus();
+      maybeComputePath();
+    });
+  }
+
+  async function expandNode(id) {
+    try {
+      const entries = await fetchJSON(`/graph/neighbors/${encodeURIComponent(id)}?depth=1`);
+      const nodes = entries.map((e) => e.node);
+      const edges = entries.map((e) => e.edge);
+      addNodes(nodes, edges);
+    } catch (err) {
+      console.error("Could not expand node", err);
+    }
+  }
+
+  function collapseToNode(id) {
+    const keep = new Set([id]);
+    renderEdges.forEach((e) => {
+      if (e.source === id) keep.add(e.target);
+      if (e.target === id) keep.add(e.source);
+    });
+    renderNodes.forEach((_v, nodeId) => {
+      if (!keep.has(nodeId)) renderNodes.delete(nodeId);
+    });
+    renderEdges = renderEdges.filter((e) => keep.has(e.source) && keep.has(e.target));
+    render();
+  }
+
+  function updatePathStatus() {
+    const sourceLabel = pathSource && renderNodes.get(pathSource) ? renderNodes.get(pathSource).node.label : "(none)";
+    const targetLabel = pathTarget && renderNodes.get(pathTarget) ? renderNodes.get(pathTarget).node.label : "(none)";
+    els.pathStatus.textContent = `Source: ${sourceLabel} — Target: ${targetLabel}`;
+  }
+
+  async function maybeComputePath() {
+    if (!pathSource || !pathTarget) return;
+    try {
+      const result = await fetchJSON(
+        `/graph/path?source=${encodeURIComponent(pathSource)}&target=${encodeURIComponent(pathTarget)}`
+      );
+      if (!result.found) {
+        els.pathStatus.textContent += " — no path found within range.";
+        return;
+      }
+      addNodes(result.nodes, result.edges);
+      highlightMode = "path";
+      highlightPathEdgeKeys = new Set(result.edges.map(edgeKey));
+      els.pathStatus.textContent += ` — path length ${result.edges.length} hop(s), highlighted.`;
+      render();
+    } catch (err) {
+      console.error("Could not compute path", err);
+    }
+  }
+
+  // ---- Filters + search ----------------------------------------------------
+
+  async function loadMetaTypes() {
+    try {
+      const meta = await fetchJSON("/graph/meta/types");
+      els.nodeTypeSelect.innerHTML =
+        '<option value="">All node types</option>' +
+        meta.node_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+      els.relationshipSelect.innerHTML =
+        '<option value="">All relationships</option>' +
+        meta.relationship_types.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("");
+    } catch (err) {
+      console.error("Could not load graph meta types", err);
+    }
+  }
+
+  async function loadWorkspaceOptions() {
+    try {
+      const workspaceNodes = await fetchJSON("/graph?node_type=Workspace");
+      els.workspaceSelect.innerHTML =
+        '<option value="">All workspaces</option>' +
+        workspaceNodes.nodes.map((n) => `<option value="${escapeHtml(n.label)}">${escapeHtml(n.label)}</option>`).join("");
+    } catch (err) {
+      console.error("Could not load workspace options", err);
+    }
+  }
+
+  async function loadFilteredView() {
+    const params = new URLSearchParams();
+    if (els.nodeTypeSelect.value) params.set("node_type", els.nodeTypeSelect.value);
+    if (els.workspaceSelect.value) params.set("workspace", els.workspaceSelect.value);
+    try {
+      const data = await fetchJSON(`/graph?${params.toString()}`);
+      let edges = data.edges;
+      if (els.relationshipSelect.value) {
+        edges = edges.filter((e) => e.type === els.relationshipSelect.value);
+      }
+      setNodes(data.nodes, edges);
+    } catch (err) {
+      els.detailPanel.innerHTML = `<p class="error-box">Could not load graph: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  let searchDebounce = null;
+  function onSearchInput() {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(async () => {
+      const q = els.searchInput.value.trim();
+      if (!q) return;
+      try {
+        const results = await fetchJSON(`/graph/search?q=${encodeURIComponent(q)}`);
+        els.detailPanel.innerHTML =
+          "<h3>Search results</h3><ul class=\"graph-detail-edges\">" +
+          results
+            .map((n) => `<li><a href="#" data-id="${escapeHtml(n.id)}">${escapeHtml(n.label)} <span class="badge">${escapeHtml(n.type)}</span></a></li>`)
+            .join("") +
+          "</ul>";
+        els.detailPanel.querySelectorAll("a[data-id]").forEach((a) => {
+          a.addEventListener("click", async (ev) => {
+            ev.preventDefault();
+            const id = a.dataset.id;
+            const entries = await fetchJSON(`/graph/neighbors/${encodeURIComponent(id)}?depth=1`);
+            addNodes([...entries.map((e2) => e2.node)], entries.map((e2) => e2.edge));
+            if (!renderNodes.has(id)) {
+              const single = await fetchJSON(`/graph/node/${encodeURIComponent(id)}`);
+              addNodes([single.node], []);
+            }
+            selectNode(id);
+          });
+        });
+      } catch (err) {
+        console.error("Graph search failed", err);
+      }
+    }, 250);
+  }
+
+  function resetView() {
+    pathSource = null;
+    pathTarget = null;
+    highlightMode = null;
+    highlightPathEdgeKeys = new Set();
+    els.pathStatus.textContent =
+      "Pick a source and target node (via the detail panel) to highlight the shortest path between them.";
+    els.detailPanel.innerHTML =
+      '<p class="muted">Click a node to see its details, expand its neighbors, or use it as a path endpoint.</p>';
+    els.nodeTypeSelect.value = "";
+    els.workspaceSelect.value = "";
+    els.relationshipSelect.value = "";
+    loadFilteredView();
+  }
+
+  let initialized = false;
+
+  document.addEventListener("roleos:tabchange", (e) => {
+    if (e.detail.tab === "graph" && !initialized) {
+      initialized = true;
+      init();
+    }
+  });
+
+  async function init() {
+    await loadMetaTypes();
+    await loadWorkspaceOptions();
+    await loadFilteredView();
+    els.nodeTypeSelect.addEventListener("change", loadFilteredView);
+    els.workspaceSelect.addEventListener("change", loadFilteredView);
+    els.relationshipSelect.addEventListener("change", loadFilteredView);
+    els.searchInput.addEventListener("input", onSearchInput);
+    els.resetBtn.addEventListener("click", resetView);
+    els.highlightDepsBtn.addEventListener("click", () => {
+      highlightMode = highlightMode === "dependencies" ? null : "dependencies";
+      render();
+    });
+    els.highlightCapsBtn.addEventListener("click", () => {
+      highlightMode = highlightMode === "capabilities" ? null : "capabilities";
+      render();
+    });
   }
 })();

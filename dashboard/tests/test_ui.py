@@ -103,3 +103,38 @@ def test_dashboard_page_includes_project_intelligence_tab():
     assert 'id="card-list"' in body
     assert 'id="timeline-list"' in body
     assert 'id="detail-overlay"' in body
+
+
+def test_dashboard_page_includes_knowledge_graph_tab():
+    """Epic 3: the dashboard page must include the Knowledge Graph tab UI
+    (canvas, detail panel, search, filters) alongside the existing tabs,
+    without removing any prior elements."""
+    resp = client.get("/")
+    assert resp.status_code == 200
+    body = resp.text
+
+    # New Epic 3 elements.
+    assert 'data-tab="graph"' in body
+    assert 'id="graph-tab"' in body
+    assert 'id="graph-canvas"' in body
+    assert 'id="graph-detail-panel"' in body
+    assert 'id="graph-search-input"' in body
+    assert 'id="graph-node-type-select"' in body
+    assert 'id="graph-workspace-select"' in body
+    assert 'id="graph-relationship-select"' in body
+    assert 'id="graph-highlight-dependencies"' in body
+    assert 'id="graph-highlight-capabilities"' in body
+
+    # Prior tabs must still be present and untouched.
+    assert 'data-tab="knowledge"' in body
+    assert 'data-tab="projects"' in body
+    assert 'data-tab="advisor"' in body
+    assert 'id="daily-brief"' in body
+
+
+def test_static_js_includes_graph_logic():
+    resp = client.get("/static/js/app.js")
+    assert resp.status_code == 200
+    assert "roleos:tabchange" in resp.text
+    assert "/graph/neighbors/" in resp.text
+    assert "/graph/path" in resp.text

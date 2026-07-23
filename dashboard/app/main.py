@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import advisor, health, knowledge, projects, search, ui
+from app.routers import advisor, graph, health, knowledge, projects, search, ui
 from app.routers.pi import capabilities as pi_capabilities
 from app.routers.pi import dependencies as pi_dependencies
 from app.routers.pi import health as pi_health
@@ -46,5 +46,10 @@ app.include_router(pi_health.router)
 
 # AI Advisor (Epic 2) — additive only, namespaced under /advisor.
 app.include_router(advisor.router)
+
+# Knowledge Graph (Epic 3) — additive only, namespaced under /graph. The
+# graph is computed on demand from the Builder, Project Intelligence, and
+# Advisor databases -- it introduces no new persisted store of its own.
+app.include_router(graph.router)
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")

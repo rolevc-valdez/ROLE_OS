@@ -6,6 +6,79 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Epic 3: Knowledge Graph engine. ROLE OS gains a first-class,
+  explainable relationship engine — not just a visualization — built on
+  top of the existing Builder, Project Intelligence, and Advisor
+  databases with **no data duplication**: the graph is recomputed from
+  those three databases on every call, the same recompute-on-read pattern
+  the Advisor (Epic 2) uses for recommendations.
+  - New domain under `dashboard/app/graph/`:
+    - `models.py` — dependency-free `Node`/`Edge`/`Graph` data structures.
+      Exactly 12 node types (`Project`, `KnowledgeCard`, `Person`,
+      `Application`, `Vendor`, `Capability`, `Workspace`, `Decision`,
+      `Deliverable`, `Prompt`, `Asset`, `Conversation`) and exactly 12
+      relationship types (`DEPENDS_ON`, `PROVIDES`, `USES`, `REFERENCES`,
+      `RELATED_TO`, `BELONGS_TO`, `CREATED_BY`, `MENTIONS`,
+      `GENERATED_FROM`, `UNBLOCKS`, `IMPLEMENTS`, `SHARES_CAPABILITY`).
+    - `builders/` — one file per relationship family, each a pure
+      `build(...) -> (nodes, edges)` function: `project_graph.py`
+      (Projects, Workspaces, and a project's own Decisions/Deliverables/
+      Prompts/Assets), `dependency_graph.py` (`DEPENDS_ON` + the
+      precomputed reverse `UNBLOCKS`), `capability_graph.py`
+      (`IMPLEMENTS`/`USES`/`SHARES_CAPABILITY`), `knowledge_graph.py`
+      (KnowledgeCard/Conversation nodes, `GENERATED_FROM`, `RELATED_TO`
+      via Milestone 3's `related_conversations`, `BELONGS_TO` a linked
+      Project), `people_graph.py`, `application_graph.py`, and
+      `vendor_graph.py` (Person/Application/Vendor nodes deduplicated by
+      slugified name, `MENTIONS`, aggregated `USES`, and a deterministic
+      co-occurrence-based `PROVIDES` from Vendor to Application).
+    - `engine.py`: `build_graph()` reads the Builder DB
+      (`app.db.list_all_cards`, a new internal-only function — no new
+      public API endpoint), the Project Intelligence DB, and the Advisor
+      DB, runs every builder, and merges the results into one `Graph`
+      (all nodes added before any edges, so cross-builder edges are never
+      dropped for referencing a node contributed by a different builder).
+    - `queries.py`: the Query Engine — `neighbors()` (filterable BFS),
+      `shortest_path()` (unweighted BFS pathfinding), `impact_analysis()`
+      (cascading traversal grouped by node type, e.g. "if ROLE MASTER
+      changes → which Projects/Assets/Conversations/Capabilities are
+      affected, and which Advisor recommendations exist for them"),
+      `search_nodes()`, and named convenience wrappers matching the Epic's
+      example questions (`projects_related_to`, `capabilities_used_by`,
+      `applications_connected_to`, `conversations_mentioning`,
+      `people_involved_in`, `projects_blocked_by`,
+      `projects_unlocked_by_finishing`). All pure functions over an
+      already-built `Graph` — no I/O beyond an optional Advisor lookup, so
+      any future AI provider can reason over the graph headlessly.
+  - New Graph API, entirely additive and namespaced under `/graph`:
+    `GET /graph` (optionally filtered by node_type/workspace),
+    `GET /graph/project/{id}`, `GET /graph/node/{id}`,
+    `GET /graph/neighbors/{id}` (direction/edge_type/node_type/depth
+    filters), `GET /graph/path` (shortest path between two nodes),
+    `GET /graph/impact/{id}` (impact analysis), `GET /graph/search`, and
+    `GET /graph/meta/types` (the fixed node/relationship vocabularies, for
+    the dashboard's filter dropdowns).
+  - Dashboard UI: a new "Knowledge Graph" tab (plain HTML/CSS/JS, no
+    frontend framework, no CDN dependency) with a hand-rolled SVG graph
+    view, a click-to-open detail panel, expand/collapse neighbors, search,
+    filters by node type/workspace/relationship, and highlight toggles for
+    the shortest path, dependencies, and capabilities. The visualization
+    is entirely optional presentation over the standalone `/graph/*` API —
+    the Graph Engine works completely independently of it.
+  - The four Milestone 1 API endpoints, the Milestone 2 UI, and the full
+    Epic 1 `/pi/*` and Epic 2 `/advisor/*` APIs and UI are completely
+    unchanged; only new, additive endpoints and UI elements were
+    introduced.
+  - 48 new tests: unit tests for the `Node`/`Edge`/`Graph` primitives and
+    every builder, integration tests for `build_graph()` against real
+    Project Intelligence and knowledge databases (including graceful
+    degradation when the knowledge DB is missing), traversal/pathfinding/
+    impact-analysis tests, API tests for every `/graph/*` endpoint, and
+    dashboard/regression tests confirming every previous API and UI
+    surface is unaffected. 225/225 passing repo-wide.
+  - Updated `dashboard/README.md` and root `README.md` documenting node
+    types, relationship types, graph generation, and impact analysis.
+
 - Epic 2: explainable AI Advisor. ROLE OS analyzes Projects, Knowledge
   Cards, Capabilities, Dependencies, Health Scores, TODOs, Deliverables,
   and Decisions to recommend what to do next — deterministic by default,
