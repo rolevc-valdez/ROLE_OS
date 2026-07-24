@@ -37,6 +37,16 @@ class Settings:
                 "samples/role_os_sample/00_SYSTEM/role_os_advisor.db",
             )
         ).resolve()
+        # ChatGPT Conversation Importer (Sprint B1) also owns its own SQLite
+        # file, separate from every other domain's store. It only holds
+        # normalized conversation metadata/content and import run history —
+        # no AI extraction, project matching, or graph data lives here.
+        self.imports_db_path: Path = Path(
+            os.environ.get(
+                "ROLE_OS_IMPORTS_DB_PATH",
+                "samples/role_os_sample/00_SYSTEM/role_os_imports.db",
+            )
+        ).resolve()
         self.app_name: str = "ROLE OS"
         self.app_version: str = "1.0.0-alpha"
         self.base_dir: Path = Path(__file__).resolve().parent

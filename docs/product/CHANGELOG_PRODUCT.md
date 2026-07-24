@@ -5,6 +5,19 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## ChatGPT Conversation Importer (Sprint B1)
+
+You can now bring ChatGPT conversations into ROLE OS directly — via the
+Knowledge page, the API, or a CLI command — without regenerating the whole
+knowledge base offline. It validates the export, normalizes each
+conversation's metadata and content, and reports exactly what happened:
+imported, updated, skipped (duplicate), or invalid. Re-running the same
+import never creates duplicates. This sprint deliberately does not do any
+AI knowledge extraction, project matching, or graph linking for imported
+conversations — that stays the Builder's job; see
+[`dashboard/README.md`](../../dashboard/README.md#chatgpt-conversation-importer-domain-sprint-b1)
+for the supported format, deduplication behavior, and known limitations.
+
 ## Alpha — one-command demo
 
 You can now go from a fresh clone to a fully working, seeded instance of

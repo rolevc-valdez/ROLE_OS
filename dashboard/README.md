@@ -218,6 +218,38 @@ is no dedicated graph database.
 | GET    | `/graph/search?q=&node_type=&workspace=`                          | Free-text node search |
 | GET    | `/graph/meta/types`                                                 | The fixed node type / relationship type vocabularies |
 
+### ChatGPT Conversation Importer API (Sprint B1 — new, namespaced under `/import`)
+
+Entirely additive; introduces no change to any route above. Normalizes and
+persists raw conversation metadata/content only — no AI knowledge
+extraction, project matching, capability matching, advisor generation, or
+graph inference happens here (that remains the Builder's job).
+
+| Method | Path                  | Description |
+|--------|------------------------|--------------|
+| POST   | `/import/chatgpt`      | Upload a ChatGPT export file (`multipart/form-data`, field `file`); returns a structured import summary |
+| GET    | `/import/history`      | Recent import runs, most recent first |
+| GET    | `/import/conversations`| Imported conversations (normalized metadata + content, no import-run wrapper) |
+
+`POST /import/chatgpt` response shape:
+
+```json
+{
+  "id": "…",
+  "status": "completed",
+  "source_filename": "conversations.json",
+  "source_fingerprint": "…",
+  "total_found": 100,
+  "imported": 80,
+  "updated": 5,
+  "skipped": 12,
+  "invalid": 3,
+  "errors": [{"index": 42, "reason": "no id, title, or extractable content"}],
+  "started_at": "…",
+  "completed_at": "…"
+}
+```
+
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
 
@@ -439,6 +471,69 @@ these are pure functions over an already-built `Graph`, so they're usable
 headlessly (from tests, a script, or a future AI provider) with no
 dependency on the API or dashboard.
 
+## ChatGPT Conversation Importer domain (Sprint B1)
+
+A lightweight, dashboard-owned importer for bringing ChatGPT conversations
+into ROLE OS without regenerating the whole Builder-generated knowledge
+base. It lives entirely under `app/imports/` (`parser.py`, `db.py`,
+`service.py`, `models.py`) and owns its own SQLite file, same pattern as
+Project Intelligence and the Advisor.
+
+**What it does:** validates the export, normalizes each conversation
+(source, external id, title, created/updated timestamps, message count,
+participant roles, content, import timestamp, source file/fingerprint),
+deduplicates, and persists — plus a run history record per import.
+
+**What it intentionally does not do:** no summarization, tagging,
+classification, project/capability matching, advisor generation, or graph
+inference. Those all remain the Builder's job (`builder/knowledge_extractor.py`),
+which this package never imports or calls.
+
+### Supported input format
+
+The ChatGPT export's `conversations.json` shape — a JSON array of
+conversation objects, each with `id`, `title`, `create_time`, `update_time`,
+and a `mapping` of node-id -> `{"message": {...}}` (same shape as
+`samples/chatgpt_export_example/conversations-test.json`, and the format
+`builder.py` already consumes). A malformed/non-JSON file, or a top-level
+value that isn't a JSON array, fails the whole import with a clear error.
+An individual malformed conversation record within an otherwise-valid file
+is skipped and counted as `invalid` — it does not abort the rest of the
+import.
+
+### Deduplication behavior
+
+Each normalized conversation gets a stable fingerprint: `id:<external_id>`
+when the export provides one, otherwise a deterministic
+`hash:<sha256 of title+timestamps+content>` fallback. On import:
+
+- **no existing row for that fingerprint** -> inserted, counted `imported`
+- **existing row, content changed** -> row updated in place, counted `updated`
+- **existing row, content unchanged** -> left as-is (only `last_seen_at`
+  bumped), counted `skipped`
+
+Re-importing the same export file therefore never creates duplicate rows.
+
+### How to run an import
+
+- **UI** — Knowledge page, "Import ChatGPT conversations" panel: pick a
+  file, click Import, see a live summary (imported/updated/skipped/invalid).
+- **API** — `POST /import/chatgpt` (see [API endpoints](#api-endpoints) above).
+- **CLI** — `python scripts/import_chatgpt.py <path-to-conversations.json>`,
+  which calls the same `app.imports.service.run_import` the API route
+  calls, so the two can never drift.
+
+### Known limitations
+
+- No background/continuous sync — every import is a one-shot, user-initiated run.
+- The whole file is parsed into memory at once (no streaming parser); very
+  large exports will use memory proportional to file size.
+- Content-change detection is a fingerprint of the full normalized content,
+  not a diff — an update replaces the whole stored conversation, it doesn't merge.
+- Imported conversations are not (yet) linked to Project Intelligence
+  projects, surfaced in the Knowledge Graph, or scored by the Advisor —
+  that linkage is a natural next step, not part of this sprint.
+
 ## Setup
 
 ```bash
@@ -455,6 +550,7 @@ pip install -r requirements.txt
 | `ROLE_OS_DB_PATH`               | `samples/role_os_sample/00_SYSTEM/role_os.db`                 | Builder-generated knowledge database (read-only from the dashboard's perspective; regenerated by `builder.py`) |
 | `ROLE_OS_PROJECTS_DB_PATH`       | `samples/role_os_sample/00_SYSTEM/role_os_projects.db`         | Project Intelligence database (dashboard-owned; schema and default workspaces are created automatically on first use) |
 | `ROLE_OS_ADVISOR_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_advisor.db`           | AI Advisor recommendations database (dashboard-owned; schema created automatically on first use) |
+| `ROLE_OS_IMPORTS_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_imports.db`           | ChatGPT Conversation Importer database (dashboard-owned; schema created automatically on first use) |
 
 To point the dashboard at a real ROLE Knowledge OS generated by the builder:
 
@@ -462,11 +558,12 @@ To point the dashboard at a real ROLE Knowledge OS generated by the builder:
 export ROLE_OS_DB_PATH="/path/to/ROLE_KNOWLEDGE_OS/00_SYSTEM/role_os.db"
 ```
 
-All three databases are intentionally separate: the knowledge DB is
+All four databases are intentionally separate: the knowledge DB is
 regenerated wholesale each time `builder.py` runs; the projects DB is
 mutated incrementally through the `/pi/*` API; the advisor DB is written
-only by the recommendation engine. None of the three is ever clobbered by
-changes to another.
+only by the recommendation engine; the imports DB is written only by the
+`/import/*` API and CLI. None of the four is ever clobbered by changes to
+another.
 
 ## Run
 

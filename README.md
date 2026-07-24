@@ -83,6 +83,18 @@ walkthrough, feature list, and troubleshooting.
    Then open `http://127.0.0.1:8000/` in a browser for the dashboard UI.
    See [`dashboard/README.md`](dashboard/README.md) for endpoint and UI details.
 
+## Import ChatGPT conversations (Sprint B1)
+
+In addition to the offline Builder pipeline above, the dashboard has a
+lightweight, dashboard-owned **ChatGPT conversation importer** for bringing
+conversations in without regenerating the whole knowledge base. It only
+normalizes and stores conversation metadata/content (title, timestamps,
+message count, participant roles, raw content) — it does not summarize,
+tag, classify, or match conversations to projects; that remains the
+Builder's job. See [`docs/product/CHANGELOG_PRODUCT.md`](docs/product/CHANGELOG_PRODUCT.md)
+for the supported input format, how to run an import via the API, CLI, or
+UI, deduplication behavior, and known limitations.
+
 ## Status
 
 This repository currently implements a modular knowledge extraction engine

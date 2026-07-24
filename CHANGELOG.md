@@ -6,6 +6,44 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint B1: ChatGPT Conversation Importer — a dashboard-owned pipeline for
+  importing ChatGPT conversation exports without regenerating the whole
+  Builder-generated knowledge base. **Additive only**: no existing
+  endpoint, table, or UI behavior changed.
+  - New `dashboard/app/imports/` package: `parser.py` (validates the
+    export, normalizes each conversation — title, timestamps, message
+    count, participant roles, content — ignoring individually malformed
+    records without aborting the import), `db.py` (owns its own SQLite
+    file, `role_os_imports.db`, with `imported_conversations` and
+    `import_runs` tables, schema auto-created on first use, same pattern
+    as Epic 1/2), `service.py` (`run_import()`: parse -> normalize ->
+    deduplicate -> persist -> report; shared by both the API route and the
+    CLI so they can't drift), `models.py` (pydantic schemas).
+  - Deduplication: each conversation is fingerprinted by
+    `id:<external_id>` when the export provides one, otherwise a
+    deterministic `hash:<sha256>` of title/timestamps/content. Re-imports
+    are classified `imported` / `updated` (content changed) / `skipped`
+    (unchanged) / `invalid` (malformed record) — never silently
+    duplicated.
+  - New API: `POST /import/chatgpt` (multipart upload, returns a
+    structured `ImportRun` summary), `GET /import/history`,
+    `GET /import/conversations` — namespaced under `/import`, new
+    `python-multipart` dependency for file upload support.
+  - New CLI: `python scripts/import_chatgpt.py <path>`, following the
+    `scripts/seed_alpha_demo.py` sys.path pattern, calling the same
+    `run_import()` the API uses.
+  - New UI: an "Import ChatGPT conversations" panel on the Knowledge page
+    (file picker, Import button, loading state, success/error summary) —
+    calls the existing `/import/chatgpt` endpoint only, no new backend
+    surface introduced for it.
+  - Explicitly out of scope for this sprint (by design): AI knowledge
+    extraction, project/capability matching, Advisor recommendations, and
+    Knowledge Graph linking for imported conversations — those remain the
+    Builder's job.
+  - 27 new tests across `dashboard/tests/test_import_parser.py`,
+    `test_import_service.py`, `test_import_api.py`, and repo-level
+    `tests/test_import_chatgpt_cli.py`; 253/253 passing repo-wide.
+
 - Epic 4: ROLE OS Command Center — a full UX/UI redesign of the
   dashboard. **UI-only**: no API, database, or backend logic was touched;
   every view is built entirely on the existing Milestone 1 knowledge API,

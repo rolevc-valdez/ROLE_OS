@@ -17,6 +17,7 @@ source of truth.
 | Epic 3 | Knowledge Graph | 12 node types, 12 relationship types, computed on demand from the other three databases — no new database. New `/graph/*` API and Graph UI tab with SVG visualization. |
 | Epic 4 | Command Center | Full UI redesign: persistent sidebar/header, hash router, Home/Project/Graph/Advisor/Assets/Settings pages, reusable design system, `createGraphView()` factory. UI-only — zero new backend surface. |
 | Alpha | Alpha demo | `scripts/run_alpha.sh` / `.bat` one-command setup + seed script (`scripts/seed_alpha_demo.py`) populating seven realistic demo projects across five workspaces, so the whole system is explorable without bringing real data first. |
+| B1 | ChatGPT Conversation Importer | Dashboard-owned import pipeline (`dashboard/app/imports/`) for bringing ChatGPT exports in directly — parse, normalize, deduplicate, persist, report — without regenerating the Builder-generated knowledge base. New `/import/*` API, `scripts/import_chatgpt.py` CLI, and a Knowledge page import panel. No AI extraction, project matching, or graph linking. |
 
 Each entry after M1 was additive: every prior API endpoint and UI surface
 was left unchanged, confirmed by a regression test in that entry's own

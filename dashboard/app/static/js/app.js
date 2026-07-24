@@ -681,6 +681,15 @@
   async function renderKnowledge() {
     viewRoot.innerHTML = `
       <div class="section-heading"><h2>Knowledge</h2></div>
+      <div class="card page-section" id="import-panel">
+        <p class="card-title">Import ChatGPT conversations</p>
+        <p class="muted">Upload a ChatGPT export (<code>conversations.json</code> or the export ZIP) to bring conversations into ROLE OS. Re-importing the same file will not create duplicates.</p>
+        <form id="import-form">
+          <input type="file" id="import-file-input" accept=".json,.zip" required />
+          <button type="submit" class="btn btn-sm" id="import-submit-btn">Import</button>
+        </form>
+        <div id="import-status" class="u-mt-4"></div>
+      </div>
       <div class="home-grid">
         <div>
           <div class="card">
@@ -718,6 +727,53 @@
     document.getElementById("knowledge-timeline-list").innerHTML = timeline
       .map((t) => `<li data-open-card="${escapeHtml(t.conversation_id)}" class="u-clickable">${escapeHtml(t.date || "")} — ${escapeHtml(t.title)}</li>`)
       .join("") || '<li class="muted">No entries yet.</li>';
+
+    wireImportPanel();
+  }
+
+  // =======================================================================
+  // CHATGPT CONVERSATION IMPORTER (Sprint B1)
+  // =======================================================================
+
+  function wireImportPanel() {
+    const form = document.getElementById("import-form");
+    const fileInput = document.getElementById("import-file-input");
+    const submitBtn = document.getElementById("import-submit-btn");
+    const statusEl = document.getElementById("import-status");
+    if (!form) return;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Importing…";
+      statusEl.innerHTML = '<p class="muted loading-pulse">Importing conversations…</p>';
+
+      const body = new FormData();
+      body.append("file", file);
+
+      try {
+        const result = await fetchJSON("/import/chatgpt", { method: "POST", body });
+        statusEl.innerHTML = `
+          <p class="u-mt-0"><strong>Import completed</strong> — ${escapeHtml(file.name)}</p>
+          <table class="kv-table">
+            <tr><th>Total found</th><td>${result.total_found}</td></tr>
+            <tr><th>Imported</th><td>${result.imported}</td></tr>
+            <tr><th>Updated</th><td>${result.updated}</td></tr>
+            <tr><th>Skipped (duplicates)</th><td>${result.skipped}</td></tr>
+            <tr><th>Invalid</th><td>${result.invalid}</td></tr>
+          </table>
+        `;
+      } catch (err) {
+        statusEl.innerHTML = `<p class="error-box">Import failed: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Import";
+        form.reset();
+      }
+    });
   }
 
   // =======================================================================

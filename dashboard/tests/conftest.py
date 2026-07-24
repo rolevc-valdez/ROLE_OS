@@ -21,3 +21,9 @@ os.environ.setdefault("ROLE_OS_PROJECTS_DB_PATH", str(Path(_PROJECTS_DB_DIR) / "
 # schema on first use, so tests get a fresh, isolated recommendations store.
 _ADVISOR_DB_DIR = tempfile.mkdtemp(prefix="role_os_advisor_test_")
 os.environ.setdefault("ROLE_OS_ADVISOR_DB_PATH", str(Path(_ADVISOR_DB_DIR) / "role_os_advisor.db"))
+
+# ChatGPT Conversation Importer (Sprint B1) also owns its own SQLite file and
+# auto-creates its schema on first use, so tests get a fresh, isolated store
+# rather than mutating any committed sample database.
+_IMPORTS_DB_DIR = tempfile.mkdtemp(prefix="role_os_imports_test_")
+os.environ.setdefault("ROLE_OS_IMPORTS_DB_PATH", str(Path(_IMPORTS_DB_DIR) / "role_os_imports.db"))
