@@ -91,8 +91,9 @@ def test_import_conversations_lists_imported_records():
     upload([conversation(cid)])
     resp = client.get("/import/conversations")
     assert resp.status_code == 200
-    conversations = resp.json()
-    assert any(c["external_id"] == cid for c in conversations)
+    body = resp.json()
+    assert "items" in body and "total" in body
+    assert any(c["external_id"] == cid for c in body["items"])
 
 
 def test_reimport_same_file_reports_skipped_not_duplicated():

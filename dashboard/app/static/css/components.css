@@ -446,6 +446,59 @@ button {
   margin-top: 12px;
 }
 
+/* ---- Conversation Explorer (Sprint B1.5) ------------------------------------------------------ */
+
+table.explorer-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.explorer-table th {
+  text-align: left;
+  color: var(--text-muted);
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+table.explorer-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+table.explorer-table tbody tr:hover { background: var(--bg-surface-raised); }
+
+.explorer-pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.message-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message-item {
+  padding: 8px 12px;
+  border-left: 3px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-surface);
+}
+.message-item.role-user { border-left-color: var(--status-info); }
+.message-item.role-assistant { border-left-color: var(--status-healthy); }
+.message-item.role-system { border-left-color: var(--status-warning); }
+
+.message-item-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.message-item-text { font-size: 13px; white-space: pre-wrap; }
+
 /* ---- Misc utility ---------------------------------------------------------------------------- */
 
 .muted { color: var(--text-muted); }

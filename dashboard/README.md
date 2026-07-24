@@ -15,11 +15,13 @@ Visiting `/` in a browser serves the ROLE OS Command Center: a single-page
 app shell built with plain HTML, CSS, and vanilla JavaScript (no frontend
 framework, no build step). A persistent sidebar and header stay on screen
 at all times; a small hash-based client-side router (`#/home`,
-`#/projects`, `#/project/{id}`, `#/knowledge`, `#/advisor`, `#/graph`,
-`#/assets`, `#/settings`) swaps pages in and out of one content area. This
-is a UI-only layer: every page below is built entirely from the existing
-API described in the next section — no new backend endpoint, database, or
-business logic was introduced for Epic 4.
+`#/projects`, `#/project/{id}`, `#/knowledge`, `#/explorer`, `#/advisor`,
+`#/graph`, `#/assets`, `#/settings`) swaps pages in and out of one content
+area. This is a UI-only layer: every page below is built entirely from the
+existing API described in the next section — no new backend endpoint,
+database, or business logic was introduced for Epic 4 (the Explorer page,
+added in Sprint B1.5, is the one later exception — it's a UI-only
+consumer of the `/import/*` API added alongside it, not of Epic 4 itself).
 
 ### Design system
 
@@ -44,8 +46,8 @@ type-based fill color.
 
 ### Sidebar navigation
 
-Persistent icons for: **Home**, **Projects**, **Knowledge**, **Advisor**,
-**Graph**, **Assets**, **Settings**.
+Persistent icons for: **Home**, **Projects**, **Knowledge**, **Explorer**,
+**Advisor**, **Graph**, **Assets**, **Settings**.
 
 ### Home
 
@@ -86,6 +88,36 @@ Redesigned into a three-column layout:
   directions), Related Projects, this project's live Advisor
   recommendations, and a Knowledge Graph Preview that opens the full
   Graph page focused on this project.
+
+### Explorer page (Sprint B1.5)
+
+A dedicated page for browsing, searching, filtering, and managing the
+conversations the ChatGPT importer has persisted — strictly an inspection
+and management view over imported data, with no AI, extraction, project
+matching, or graph inference of its own:
+
+- A metrics strip (reusing the Home page's `health-dashboard-grid` /
+  `animateCount()` pattern) showing Imported Conversations plus six
+  metrics that are `0` today because the pipelines behind them
+  (processing, knowledge extraction, project/decision/asset linking)
+  don't exist yet.
+- A search/filter/sort toolbar: free-text search (title, message content,
+  source, conversation id), source and status dropdowns populated from
+  `GET /import/facets` (so a future provider like Claude or Gmail shows up
+  automatically once something from it is imported, no redesign needed),
+  an "imported today/this week/this month" preset, and a sort control
+  (import date, conversation date, title, message count).
+- A paginated table (`GET /import/conversations`) with View / Export /
+  Delete actions per row.
+- A **conversation detail** view reusing the same shared overlay as the
+  Knowledge page's card detail (`#detail-overlay`): a chronological
+  message timeline with USER/ASSISTANT/SYSTEM roles visually
+  distinguished and per-message timestamps, a search-within-conversation
+  box, a metadata panel (id, fingerprint, import run, dates, roles,
+  source file, message count), and Copy / Export JSON / Delete actions.
+  Message content is rendered exactly as imported — never summarized or
+  modified.
+- Delete requires an explicit confirm dialog and is irreversible.
 
 ### Graph page
 
@@ -218,7 +250,7 @@ is no dedicated graph database.
 | GET    | `/graph/search?q=&node_type=&workspace=`                          | Free-text node search |
 | GET    | `/graph/meta/types`                                                 | The fixed node type / relationship type vocabularies |
 
-### ChatGPT Conversation Importer API (Sprint B1 — new, namespaced under `/import`)
+### ChatGPT Conversation Importer + Conversation Explorer API (Sprint B1 / B1.5 — new, namespaced under `/import`)
 
 Entirely additive; introduces no change to any route above. Normalizes and
 persists raw conversation metadata/content only — no AI knowledge
@@ -229,7 +261,35 @@ graph inference happens here (that remains the Builder's job).
 |--------|------------------------|--------------|
 | POST   | `/import/chatgpt`      | Upload a ChatGPT export file (`multipart/form-data`, field `file`); returns a structured import summary |
 | GET    | `/import/history`      | Recent import runs, most recent first |
-| GET    | `/import/conversations`| Imported conversations (normalized metadata + content, no import-run wrapper) |
+| GET    | `/import/conversations?page=&page_size=&sort_by=&sort_dir=&q=&source=&status=&imported_after=&imported_before=` | Search/filter/sort/paginate imported conversations (Sprint B1.5) |
+| GET    | `/import/conversations/{id}`         | Full conversation detail, including content, for the Explorer's detail view |
+| GET    | `/import/conversations/{id}/export`  | Download the full normalized conversation as a JSON file |
+| DELETE | `/import/conversations/{id}`         | Delete an imported conversation |
+| GET    | `/import/facets`                     | Distinct `source`/`status` values actually present, for building filter dropdowns without hard-coding provider names |
+| GET    | `/import/metrics`                    | Explorer dashboard metrics (see below) |
+
+`sort_by` accepts `imported_at` (default), `created_at`, `title`, or
+`message_count`; `sort_dir` accepts `asc`/`desc`. `q` matches against title,
+message content, source, and conversation id. `GET /import/conversations`
+returns `{"items": [...], "total": N, "page": N, "page_size": N}` rather
+than a bare list, so the Explorer can render page counts.
+
+`GET /import/metrics` response shape — only `imported_conversations`
+reflects a real, implemented feature; every other figure is `0` on purpose,
+since this sprint adds no extraction, project matching, or graph linking
+for imported conversations:
+
+```json
+{
+  "imported_conversations": 42,
+  "pending_processing": 0,
+  "processed": 0,
+  "knowledge_objects": 0,
+  "projects": 0,
+  "decisions": 0,
+  "assets": 0
+}
+```
 
 `POST /import/chatgpt` response shape:
 
@@ -471,7 +531,7 @@ these are pure functions over an already-built `Graph`, so they're usable
 headlessly (from tests, a script, or a future AI provider) with no
 dependency on the API or dashboard.
 
-## ChatGPT Conversation Importer domain (Sprint B1)
+## ChatGPT Conversation Importer + Conversation Explorer domain (Sprint B1 / B1.5)
 
 A lightweight, dashboard-owned importer for bringing ChatGPT conversations
 into ROLE OS without regenerating the whole Builder-generated knowledge
@@ -523,6 +583,24 @@ Re-importing the same export file therefore never creates duplicate rows.
   which calls the same `app.imports.service.run_import` the API route
   calls, so the two can never drift.
 
+### Conversation Explorer (Sprint B1.5)
+
+A browse/search/inspect/manage UI over what the importer persisted —
+Explorer sidebar page, backed by additions to the same `/import/*` API
+(`GET /import/conversations` now search/filter/sort/paginate, plus
+`GET /import/conversations/{id}`, `GET /import/conversations/{id}/export`,
+`DELETE /import/conversations/{id}`, `GET /import/facets`,
+`GET /import/metrics`). See [Explorer page](#explorer-page-sprint-b15)
+above for the UI walkthrough. Two behaviors worth calling out:
+
+- **Search** matches title, message content, source, and conversation id
+  in one query (`q=`) — a single search box, not per-field inputs.
+- **Filters** are deliberately data-driven, not hard-coded: the Explorer
+  asks `GET /import/facets` for the distinct `source`/`status` values that
+  actually exist and builds its dropdowns from that, so a future provider
+  (Claude, Gemini, Gmail, ...) appears as a filter option automatically
+  the first time something from it is imported — no UI change required.
+
 ### Known limitations
 
 - No background/continuous sync — every import is a one-shot, user-initiated run.
@@ -533,6 +611,14 @@ Re-importing the same export file therefore never creates duplicate rows.
 - Imported conversations are not (yet) linked to Project Intelligence
   projects, surfaced in the Knowledge Graph, or scored by the Advisor —
   that linkage is a natural next step, not part of this sprint.
+- Explorer's `status` column only ever holds `"imported"` today — there is
+  no processing pipeline yet, so the Status filter has exactly one option
+  until a later sprint adds one.
+- Explorer search matches with a plain SQL `LIKE` scan over the stored
+  content — fine at the scale of a personal knowledge base, but not a full
+  text index; it will not scale to a very large corpus.
+- Delete is permanent (no undo/trash) — the confirm dialog is the only
+  safety net.
 
 ## Setup
 

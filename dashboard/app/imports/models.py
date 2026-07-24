@@ -1,4 +1,5 @@
-"""Pydantic request/response schemas for the ChatGPT conversation importer."""
+"""Pydantic request/response schemas for the ChatGPT conversation importer
+and the Conversation Explorer (Sprint B1.5)."""
 
 from __future__ import annotations
 
@@ -42,3 +43,37 @@ class ImportedConversation(BaseModel):
     last_seen_at: str
     source_file: str
     source_fingerprint: str
+    status: str
+    import_run_id: str | None
+
+
+class ConversationMessage(BaseModel):
+    role: str
+    text: str
+    created_at: str | None
+
+
+class ConversationDetail(ImportedConversation):
+    content: list[ConversationMessage]
+
+
+class ConversationListResponse(BaseModel):
+    items: list[ImportedConversation]
+    total: int
+    page: int
+    page_size: int
+
+
+class ImportFacets(BaseModel):
+    sources: list[str]
+    statuses: list[str]
+
+
+class ExplorerMetrics(BaseModel):
+    imported_conversations: int
+    pending_processing: int
+    processed: int
+    knowledge_objects: int
+    projects: int
+    decisions: int
+    assets: int

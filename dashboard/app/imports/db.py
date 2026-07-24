@@ -56,6 +56,17 @@ CREATE TABLE IF NOT EXISTS import_runs (
 CREATE INDEX IF NOT EXISTS idx_import_runs_started_at ON import_runs(started_at);
 """
 
+# Sprint B1.5 (Conversation Explorer) added two columns to a table that may
+# already exist from Sprint B1 installs. CREATE TABLE IF NOT EXISTS won't
+# retrofit those onto an existing table, so migrate them in explicitly.
+# `status` only ever holds "imported" today -- there is no processing
+# pipeline yet -- but exists as a real column (not a placeholder) so a
+# future stage (e.g. "processed") can be introduced without a schema change.
+_MIGRATIONS = (
+    "ALTER TABLE imported_conversations ADD COLUMN status TEXT NOT NULL DEFAULT 'imported'",
+    "ALTER TABLE imported_conversations ADD COLUMN import_run_id TEXT",
+)
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -67,6 +78,11 @@ def new_id() -> str:
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    for migration in _MIGRATIONS:
+        try:
+            conn.execute(migration)
+        except sqlite3.OperationalError:
+            pass  # column already exists
     conn.commit()
 
 
@@ -98,8 +114,8 @@ def insert_conversation(record: dict[str, Any], conn: sqlite3.Connection) -> Non
         INSERT INTO imported_conversations (
             id, source, external_id, fingerprint, title, created_at, updated_at,
             message_count, roles, content, content_hash, imported_at, last_seen_at,
-            source_file, source_fingerprint
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            source_file, source_fingerprint, status, import_run_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             new_id(),
@@ -117,6 +133,8 @@ def insert_conversation(record: dict[str, Any], conn: sqlite3.Connection) -> Non
             ts,
             record["source_file"],
             record["source_fingerprint"],
+            record.get("status", "imported"),
+            record.get("import_run_id"),
         ),
     )
     conn.commit()
@@ -128,7 +146,7 @@ def update_conversation(existing_id: str, record: dict[str, Any], conn: sqlite3.
         UPDATE imported_conversations
         SET title = ?, created_at = ?, updated_at = ?, message_count = ?,
             roles = ?, content = ?, content_hash = ?, last_seen_at = ?,
-            source_file = ?, source_fingerprint = ?
+            source_file = ?, source_fingerprint = ?, import_run_id = ?
         WHERE id = ?
         """,
         (
@@ -142,10 +160,18 @@ def update_conversation(existing_id: str, record: dict[str, Any], conn: sqlite3.
             now_iso(),
             record["source_file"],
             record["source_fingerprint"],
+            record.get("import_run_id"),
             existing_id,
         ),
     )
     conn.commit()
+
+
+def delete_conversation(conversation_id: str, settings: Settings | None = None) -> bool:
+    with get_connection(settings) as conn:
+        cur = conn.execute("DELETE FROM imported_conversations WHERE id = ?", (conversation_id,))
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def touch_conversation(existing_id: str, conn: sqlite3.Connection) -> None:
@@ -157,8 +183,8 @@ def touch_conversation(existing_id: str, conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _row_to_conversation(row: sqlite3.Row) -> dict[str, Any]:
-    return {
+def _row_to_conversation(row: sqlite3.Row, include_content: bool = False) -> dict[str, Any]:
+    record = {
         "id": row["id"],
         "source": row["source"],
         "external_id": row["external_id"],
@@ -172,7 +198,12 @@ def _row_to_conversation(row: sqlite3.Row) -> dict[str, Any]:
         "last_seen_at": row["last_seen_at"],
         "source_file": row["source_file"],
         "source_fingerprint": row["source_fingerprint"],
+        "status": row["status"],
+        "import_run_id": row["import_run_id"],
     }
+    if include_content:
+        record["content"] = json.loads(row["content"])
+    return record
 
 
 def list_conversations(settings: Settings | None = None, limit: int = 200) -> list[dict[str, Any]]:
@@ -184,8 +215,97 @@ def list_conversations(settings: Settings | None = None, limit: int = 200) -> li
     return [_row_to_conversation(row) for row in rows]
 
 
-def record_run(summary: dict[str, Any], settings: Settings | None = None) -> dict[str, Any]:
-    run_id = new_id()
+SORTABLE_COLUMNS = {
+    "imported_at": "imported_at",
+    "created_at": "created_at",
+    "title": "title",
+    "message_count": "message_count",
+}
+
+
+def list_conversations_page(
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    sort_by: str = "imported_at",
+    sort_dir: str = "desc",
+    q: str | None = None,
+    source: str | None = None,
+    status: str | None = None,
+    imported_after: str | None = None,
+    imported_before: str | None = None,
+    settings: Settings | None = None,
+) -> tuple[list[dict[str, Any]], int]:
+    """Search/filter/sort/paginate imported conversations.
+
+    Returns (items, total_matching) -- total_matching is the count under the
+    same filters, before pagination, so the caller can render page counts.
+    """
+    column = SORTABLE_COLUMNS.get(sort_by, "imported_at")
+    direction = "ASC" if sort_dir.lower() == "asc" else "DESC"
+    page = max(1, page)
+    page_size = max(1, min(page_size, 200))
+
+    clauses: list[str] = []
+    params: list[Any] = []
+
+    if q:
+        like = f"%{q}%"
+        clauses.append("(title LIKE ? OR content LIKE ? OR source LIKE ? OR external_id LIKE ? OR id LIKE ?)")
+        params.extend([like, like, like, like, like])
+    if source:
+        clauses.append("source = ?")
+        params.append(source)
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if imported_after:
+        clauses.append("imported_at >= ?")
+        params.append(imported_after)
+    if imported_before:
+        clauses.append("imported_at <= ?")
+        params.append(imported_before)
+
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+
+    with get_connection(settings) as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM imported_conversations {where}", params
+        ).fetchone()[0]
+        rows = conn.execute(
+            f"""
+            SELECT * FROM imported_conversations {where}
+            ORDER BY {column} {direction}
+            LIMIT ? OFFSET ?
+            """,
+            [*params, page_size, (page - 1) * page_size],
+        ).fetchall()
+
+    return [_row_to_conversation(row) for row in rows], total
+
+
+def get_conversation(conversation_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
+    with get_connection(settings) as conn:
+        row = conn.execute(
+            "SELECT * FROM imported_conversations WHERE id = ?", (conversation_id,)
+        ).fetchone()
+    return _row_to_conversation(row, include_content=True) if row else None
+
+
+def list_facets(settings: Settings | None = None) -> dict[str, list[str]]:
+    with get_connection(settings) as conn:
+        sources = [r[0] for r in conn.execute("SELECT DISTINCT source FROM imported_conversations ORDER BY source")]
+        statuses = [r[0] for r in conn.execute("SELECT DISTINCT status FROM imported_conversations ORDER BY status")]
+    return {"sources": sources, "statuses": statuses}
+
+
+def count_conversations(settings: Settings | None = None) -> int:
+    with get_connection(settings) as conn:
+        return conn.execute("SELECT COUNT(*) FROM imported_conversations").fetchone()[0]
+
+
+def record_run(summary: dict[str, Any], settings: Settings | None = None, run_id: str | None = None) -> dict[str, Any]:
+    run_id = run_id or new_id()
     with get_connection(settings) as conn:
         conn.execute(
             """

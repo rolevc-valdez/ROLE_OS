@@ -18,6 +18,7 @@ source of truth.
 | Epic 4 | Command Center | Full UI redesign: persistent sidebar/header, hash router, Home/Project/Graph/Advisor/Assets/Settings pages, reusable design system, `createGraphView()` factory. UI-only — zero new backend surface. |
 | Alpha | Alpha demo | `scripts/run_alpha.sh` / `.bat` one-command setup + seed script (`scripts/seed_alpha_demo.py`) populating seven realistic demo projects across five workspaces, so the whole system is explorable without bringing real data first. |
 | B1 | ChatGPT Conversation Importer | Dashboard-owned import pipeline (`dashboard/app/imports/`) for bringing ChatGPT exports in directly — parse, normalize, deduplicate, persist, report — without regenerating the Builder-generated knowledge base. New `/import/*` API, `scripts/import_chatgpt.py` CLI, and a Knowledge page import panel. No AI extraction, project matching, or graph linking. |
+| B1.5 | Conversation Explorer | Browse/search/filter/inspect/manage UI over imported conversations: new Explorer sidebar page (metrics strip, search/filter/sort, paginated table, detail view with message timeline + metadata panel), extending `/import/*` with search/filter/sort/pagination, detail, JSON export, delete, facets, and metrics endpoints. No AI, extraction, project matching, or graph inference. |
 
 Each entry after M1 was additive: every prior API endpoint and UI surface
 was left unchanged, confirmed by a regression test in that entry's own

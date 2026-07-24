@@ -89,6 +89,13 @@
     });
   }
 
+  function formatDate(iso) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
   function animateCount(el, target) {
     const duration = 500;
     const start = performance.now();
@@ -109,6 +116,7 @@
     projects: renderProjectsList,
     project: renderProjectDetail,
     knowledge: renderKnowledge,
+    explorer: renderExplorerPage,
     advisor: renderAdvisorPage,
     graph: renderGraphPage,
     assets: renderAssetsPage,
@@ -774,6 +782,340 @@
         form.reset();
       }
     });
+  }
+
+  // =======================================================================
+  // CONVERSATION EXPLORER (Sprint B1.5)
+  //
+  // Browses/searches/filters imported conversations and lets you inspect,
+  // export, or delete one. No AI, no extraction, no graph, no advisor --
+  // strictly a read/manage view over what Sprint B1's importer persisted.
+  // =======================================================================
+
+  let explorerState = null;
+
+  function defaultExplorerState() {
+    return { page: 1, pageSize: 20, sortBy: "imported_at", sortDir: "desc", q: "", source: "", status: "", importedPreset: "" };
+  }
+
+  function importedAfterForPreset(preset) {
+    const now = new Date();
+    if (preset === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    if (preset === "week") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      return d.toISOString();
+    }
+    if (preset === "month") return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    return null;
+  }
+
+  async function renderExplorerPage() {
+    explorerState = defaultExplorerState();
+    viewRoot.innerHTML = `
+      <div class="section-heading"><h2>Explorer</h2></div>
+      <div id="explorer-metrics" class="health-dashboard-grid u-mb-4"></div>
+      <div class="card page-section">
+        <div class="graph-toolbar">
+          <input id="explorer-search-input" type="search" placeholder="Search title, content, source, or ID..." />
+          <select id="explorer-source-select"><option value="">All sources</option></select>
+          <select id="explorer-status-select"><option value="">All statuses</option></select>
+          <select id="explorer-imported-select">
+            <option value="">Imported: any time</option>
+            <option value="today">Imported today</option>
+            <option value="week">Imported this week</option>
+            <option value="month">Imported this month</option>
+          </select>
+          <select id="explorer-sort-select">
+            <option value="imported_at">Sort: Import date</option>
+            <option value="created_at">Sort: Conversation date</option>
+            <option value="title">Sort: Title</option>
+            <option value="message_count">Sort: Message count</option>
+          </select>
+          <button id="explorer-sort-dir-btn" type="button" class="btn btn-sm">↓ Desc</button>
+        </div>
+      </div>
+      <div class="card page-section">
+        <div id="explorer-list-wrap"><p class="muted loading-pulse">Loading…</p></div>
+        <div id="explorer-pagination" class="explorer-pagination"></div>
+      </div>
+    `;
+
+    loadExplorerMetrics();
+    loadExplorerFacets();
+    wireExplorerControls();
+    await loadExplorerList();
+  }
+
+  async function loadExplorerMetrics() {
+    const el = document.getElementById("explorer-metrics");
+    try {
+      const metrics = await fetchJSON("/import/metrics");
+      const indicators = [
+        { label: "Imported Conversations", value: metrics.imported_conversations },
+        { label: "Pending Processing", value: metrics.pending_processing },
+        { label: "Processed", value: metrics.processed },
+        { label: "Knowledge Objects", value: metrics.knowledge_objects },
+        { label: "Projects", value: metrics.projects },
+        { label: "Decisions", value: metrics.decisions },
+        { label: "Assets", value: metrics.assets },
+      ];
+      el.innerHTML = indicators
+        .map(
+          (ind, i) => `
+        <div class="card u-text-center">
+          <div class="card-muted u-fs-12 u-mb-2">${escapeHtml(ind.label)}</div>
+          <div id="explorer-metric-${i}" class="u-fs-26">0</div>
+        </div>`
+        )
+        .join("");
+      indicators.forEach((ind, i) => animateCount(document.getElementById(`explorer-metric-${i}`), ind.value));
+    } catch (err) {
+      el.innerHTML = `<p class="error-box">Could not load metrics: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  async function loadExplorerFacets() {
+    try {
+      const facets = await fetchJSON("/import/facets");
+      const sourceSelect = document.getElementById("explorer-source-select");
+      const statusSelect = document.getElementById("explorer-status-select");
+      if (sourceSelect) {
+        sourceSelect.innerHTML =
+          '<option value="">All sources</option>' +
+          facets.sources.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+      }
+      if (statusSelect) {
+        statusSelect.innerHTML =
+          '<option value="">All statuses</option>' +
+          facets.statuses.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+      }
+    } catch (err) {
+      console.error("Could not load import facets", err);
+    }
+  }
+
+  function wireExplorerControls() {
+    document.getElementById("explorer-search-input").addEventListener(
+      "input",
+      debounce((e) => {
+        explorerState.q = e.target.value.trim();
+        explorerState.page = 1;
+        loadExplorerList();
+      }, 250)
+    );
+    document.getElementById("explorer-source-select").addEventListener("change", (e) => {
+      explorerState.source = e.target.value;
+      explorerState.page = 1;
+      loadExplorerList();
+    });
+    document.getElementById("explorer-status-select").addEventListener("change", (e) => {
+      explorerState.status = e.target.value;
+      explorerState.page = 1;
+      loadExplorerList();
+    });
+    document.getElementById("explorer-imported-select").addEventListener("change", (e) => {
+      explorerState.importedPreset = e.target.value;
+      explorerState.page = 1;
+      loadExplorerList();
+    });
+    document.getElementById("explorer-sort-select").addEventListener("change", (e) => {
+      explorerState.sortBy = e.target.value;
+      loadExplorerList();
+    });
+    document.getElementById("explorer-sort-dir-btn").addEventListener("click", (e) => {
+      explorerState.sortDir = explorerState.sortDir === "desc" ? "asc" : "desc";
+      e.target.textContent = explorerState.sortDir === "desc" ? "↓ Desc" : "↑ Asc";
+      loadExplorerList();
+    });
+  }
+
+  function explorerQueryString() {
+    const params = new URLSearchParams();
+    params.set("page", explorerState.page);
+    params.set("page_size", explorerState.pageSize);
+    params.set("sort_by", explorerState.sortBy);
+    params.set("sort_dir", explorerState.sortDir);
+    if (explorerState.q) params.set("q", explorerState.q);
+    if (explorerState.source) params.set("source", explorerState.source);
+    if (explorerState.status) params.set("status", explorerState.status);
+    const importedAfter = importedAfterForPreset(explorerState.importedPreset);
+    if (importedAfter) params.set("imported_after", importedAfter);
+    return params.toString();
+  }
+
+  async function loadExplorerList() {
+    const listEl = document.getElementById("explorer-list-wrap");
+    const pageEl = document.getElementById("explorer-pagination");
+    listEl.innerHTML = '<p class="muted loading-pulse">Loading…</p>';
+    try {
+      const result = await fetchJSON(`/import/conversations?${explorerQueryString()}`);
+      listEl.innerHTML = explorerTableHtml(result.items);
+      pageEl.innerHTML = explorerPaginationHtml(result);
+      wireExplorerRowActions();
+      wireExplorerPagination(result);
+    } catch (err) {
+      listEl.innerHTML = `<p class="error-box">${escapeHtml(err.message)}</p>`;
+      pageEl.innerHTML = "";
+    }
+  }
+
+  function explorerTableHtml(items) {
+    if (!items.length) return '<p class="muted">No imported conversations match these filters.</p>';
+    const rows = items
+      .map(
+        (c) => `
+      <tr data-conversation-id="${escapeHtml(c.id)}">
+        <td class="u-clickable" data-explorer-open="${escapeHtml(c.id)}">${escapeHtml(c.title)}</td>
+        <td><span class="badge">${escapeHtml(c.source)}</span></td>
+        <td>${formatDate(c.imported_at)}</td>
+        <td>${formatDate(c.created_at)}</td>
+        <td>${c.message_count}</td>
+        <td><span class="badge badge-info">${escapeHtml(c.status)}</span></td>
+        <td>
+          <button type="button" class="link-btn" data-explorer-open="${escapeHtml(c.id)}">View</button>
+          <button type="button" class="link-btn" data-explorer-export="${escapeHtml(c.id)}">Export</button>
+          <button type="button" class="link-btn" data-explorer-delete="${escapeHtml(c.id)}">Delete</button>
+        </td>
+      </tr>`
+      )
+      .join("");
+    return `
+      <table class="explorer-table">
+        <thead><tr><th>Title</th><th>Source</th><th>Import Date</th><th>Conversation Date</th><th>Messages</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function explorerPaginationHtml(result) {
+    const totalPages = Math.max(1, Math.ceil(result.total / result.page_size));
+    return `
+      <button type="button" class="btn btn-sm" id="explorer-prev-btn" ${result.page <= 1 ? "disabled" : ""}>&larr; Prev</button>
+      <span class="muted">Page ${result.page} of ${totalPages} &middot; ${result.total} conversation${result.total === 1 ? "" : "s"}</span>
+      <button type="button" class="btn btn-sm" id="explorer-next-btn" ${result.page >= totalPages ? "disabled" : ""}>Next &rarr;</button>
+    `;
+  }
+
+  function wireExplorerPagination(result) {
+    const totalPages = Math.max(1, Math.ceil(result.total / result.page_size));
+    const prevBtn = document.getElementById("explorer-prev-btn");
+    const nextBtn = document.getElementById("explorer-next-btn");
+    if (prevBtn) prevBtn.addEventListener("click", () => {
+      if (explorerState.page > 1) {
+        explorerState.page -= 1;
+        loadExplorerList();
+      }
+    });
+    if (nextBtn) nextBtn.addEventListener("click", () => {
+      if (explorerState.page < totalPages) {
+        explorerState.page += 1;
+        loadExplorerList();
+      }
+    });
+  }
+
+  function wireExplorerRowActions() {
+    document.querySelectorAll("[data-explorer-open]").forEach((el) => {
+      el.addEventListener("click", () => openConversationDetail(el.dataset.explorerOpen));
+    });
+    document.querySelectorAll("[data-explorer-export]").forEach((el) => {
+      el.addEventListener("click", () => exportConversation(el.dataset.explorerExport));
+    });
+    document.querySelectorAll("[data-explorer-delete]").forEach((el) => {
+      el.addEventListener("click", () => deleteConversationWithConfirm(el.dataset.explorerDelete, loadExplorerList));
+    });
+  }
+
+  function exportConversation(id) {
+    window.open(`/import/conversations/${encodeURIComponent(id)}/export`, "_blank");
+  }
+
+  async function deleteConversationWithConfirm(id, onDeleted) {
+    if (!window.confirm("Delete this imported conversation? This cannot be undone.")) return;
+    try {
+      await fetchJSON(`/import/conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (onDeleted) onDeleted();
+    } catch (err) {
+      window.alert(`Could not delete conversation: ${err.message}`);
+    }
+  }
+
+  function roleLabel(role) {
+    const known = ["user", "assistant", "system"];
+    return known.includes(role) ? role.toUpperCase() : escapeHtml(role).toUpperCase();
+  }
+
+  function conversationMessagesHtml(content, filterText) {
+    const needle = (filterText || "").toLowerCase();
+    const visible = needle ? content.filter((m) => m.text.toLowerCase().includes(needle)) : content;
+    if (!visible.length) return '<p class="muted">No messages match your search.</p>';
+    return `<div class="message-list">${visible
+      .map((m) => {
+        const roleClass = ["user", "assistant", "system"].includes(m.role) ? `role-${m.role}` : "";
+        return `
+      <div class="message-item ${roleClass}">
+        <div class="message-item-header"><span>${roleLabel(m.role)}</span><span>${m.created_at ? formatDate(m.created_at) : ""}</span></div>
+        <div class="message-item-text">${escapeHtml(m.text)}</div>
+      </div>`;
+      })
+      .join("")}</div>`;
+  }
+
+  function conversationDetailHtml(conv) {
+    return `
+      <h2 id="detail-title">${escapeHtml(conv.title)}</h2>
+      <p class="card-muted">
+        ${escapeHtml(conv.source)} &middot; ${conv.message_count} messages &middot;
+        Conversation: ${formatDate(conv.created_at)} &middot; Imported: ${formatDate(conv.imported_at)}
+      </p>
+      <div class="graph-detail-actions u-mb-3">
+        <button type="button" class="btn btn-sm" id="explorer-detail-copy-btn">Copy conversation</button>
+        <button type="button" class="btn btn-sm" id="explorer-detail-export-btn">Export JSON</button>
+        <button type="button" class="btn btn-sm" id="explorer-detail-delete-btn">Delete</button>
+      </div>
+      <input id="explorer-detail-search-input" type="search" class="u-full-width u-mb-3" placeholder="Search within this conversation..." />
+      <div id="explorer-detail-messages">${conversationMessagesHtml(conv.content)}</div>
+      <h4 class="u-mt-4">Metadata</h4>
+      <table class="kv-table">
+        <tr><th>Conversation ID</th><td>${escapeHtml(conv.id)}</td></tr>
+        <tr><th>Fingerprint</th><td>${escapeHtml(conv.fingerprint)}</td></tr>
+        <tr><th>Import Run</th><td>${escapeHtml(conv.import_run_id || "—")}</td></tr>
+        <tr><th>Import Date</th><td>${formatDate(conv.imported_at)}</td></tr>
+        <tr><th>Created</th><td>${formatDate(conv.created_at)}</td></tr>
+        <tr><th>Updated</th><td>${formatDate(conv.updated_at)}</td></tr>
+        <tr><th>Roles</th><td>${conv.roles.map(escapeHtml).join(", ") || "—"}</td></tr>
+        <tr><th>Source File</th><td>${escapeHtml(conv.source_file || "—")}</td></tr>
+        <tr><th>Message Count</th><td>${conv.message_count}</td></tr>
+      </table>
+    `;
+  }
+
+  async function openConversationDetail(conversationId) {
+    detailOverlay.hidden = false;
+    detailBody.innerHTML = '<p class="muted">Loading…</p>';
+    try {
+      const conv = await fetchJSON(`/import/conversations/${encodeURIComponent(conversationId)}`);
+      detailBody.innerHTML = conversationDetailHtml(conv);
+
+      document.getElementById("explorer-detail-search-input").addEventListener(
+        "input",
+        debounce((e) => {
+          document.getElementById("explorer-detail-messages").innerHTML = conversationMessagesHtml(conv.content, e.target.value.trim());
+        }, 200)
+      );
+      document.getElementById("explorer-detail-copy-btn").addEventListener("click", async () => {
+        await navigator.clipboard.writeText(JSON.stringify(conv, null, 2));
+      });
+      document.getElementById("explorer-detail-export-btn").addEventListener("click", () => exportConversation(conv.id));
+      document.getElementById("explorer-detail-delete-btn").addEventListener("click", () => {
+        deleteConversationWithConfirm(conv.id, () => {
+          detailOverlay.hidden = true;
+          if (parseHash().view === "explorer") loadExplorerList();
+        });
+      });
+    } catch (err) {
+      detailBody.innerHTML = `<p class="error-box">Could not load conversation: ${escapeHtml(err.message)}</p>`;
+    }
   }
 
   // =======================================================================

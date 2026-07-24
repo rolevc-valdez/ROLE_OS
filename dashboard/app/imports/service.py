@@ -33,6 +33,7 @@ def run_import(raw: bytes, filename: str, settings: Settings | None = None) -> d
     settings = settings or get_settings()
     started_at = _now_iso()
     source_fingerprint = _file_fingerprint(raw)
+    run_id = db.new_id()
 
     conversations = parse_export_bytes(raw)  # may raise InvalidExportError
 
@@ -48,6 +49,8 @@ def run_import(raw: bytes, filename: str, settings: Settings | None = None) -> d
 
             record["source_file"] = filename
             record["source_fingerprint"] = source_fingerprint
+            record["status"] = "imported"
+            record["import_run_id"] = run_id
 
             existing = db.get_by_fingerprint(record["fingerprint"], conn)
             if existing is None:
@@ -73,7 +76,7 @@ def run_import(raw: bytes, filename: str, settings: Settings | None = None) -> d
         "started_at": started_at,
         "completed_at": _now_iso(),
     }
-    return db.record_run(summary, settings)
+    return db.record_run(summary, settings, run_id=run_id)
 
 
 __all__ = ["run_import", "InvalidExportError"]

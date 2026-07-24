@@ -5,6 +5,28 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## Conversation Explorer (Sprint B1.5)
+
+You can now browse, search, filter, inspect, and manage everything the
+ChatGPT importer has brought in, from a dedicated Explorer page (sidebar →
+Explorer). A metrics strip shows what's real today (imported conversation
+count) and what's honestly still `0` (processing, knowledge objects,
+projects, decisions, assets — none of that exists yet for imported
+conversations). A search box matches title, message text, source, or
+conversation id in one query; filters for source, status, and "imported
+today/this week/this month" are built from whatever data actually exists
+rather than a hard-coded list, so a future provider (Claude, Gemini,
+Gmail, ...) becomes a filter option automatically the moment something
+from it is imported. Opening a conversation shows its full message
+timeline exactly as imported — never summarized, never modified — with
+USER/ASSISTANT/SYSTEM visually distinguished, a search-within-conversation
+box, a metadata panel, and Copy / Export JSON / Delete (delete requires
+confirmation and is permanent). This sprint deliberately adds no AI,
+extraction, project matching, or graph inference — it's strictly a window
+onto imported data; see
+[`dashboard/README.md`](../../dashboard/README.md) for the full API,
+search/filter behavior, and known limitations.
+
 ## ChatGPT Conversation Importer (Sprint B1)
 
 You can now bring ChatGPT conversations into ROLE OS directly — via the
@@ -15,7 +37,7 @@ imported, updated, skipped (duplicate), or invalid. Re-running the same
 import never creates duplicates. This sprint deliberately does not do any
 AI knowledge extraction, project matching, or graph linking for imported
 conversations — that stays the Builder's job; see
-[`dashboard/README.md`](../../dashboard/README.md#chatgpt-conversation-importer-domain-sprint-b1)
+[`dashboard/README.md`](../../dashboard/README.md)
 for the supported format, deduplication behavior, and known limitations.
 
 ## Alpha — one-command demo

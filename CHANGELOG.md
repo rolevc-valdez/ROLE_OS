@@ -6,6 +6,56 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint B1.5: Conversation Explorer — browse, search, filter, inspect, and
+  manage imported conversations. **Additive only**: extends Sprint B1's
+  `/import/*` API and imports database; no existing endpoint, table, or UI
+  page changed behavior.
+  - `dashboard/app/imports/db.py`: two-column migration on the existing
+    `imported_conversations` table (`status`, `import_run_id`), applied via
+    idempotent `ALTER TABLE` wrapped in a duplicate-column guard so it's
+    safe to run against a database created by Sprint B1 before this
+    column existed. New `list_conversations_page()` (search/filter/sort/
+    paginate, parameterized SQL), `get_conversation()` (full detail incl.
+    content), `delete_conversation()`, `list_facets()`,
+    `count_conversations()`. `service.run_import()` now generates the
+    `import_run_id` up front and threads it through both
+    `insert_conversation()`/`update_conversation()` and `record_run()` so
+    every persisted conversation can be traced back to the run that
+    produced its current state.
+  - New API on the existing `/import` router: `GET /import/conversations`
+    now accepts `page`/`page_size`/`sort_by`/`sort_dir`/`q`/`source`/
+    `status`/`imported_after`/`imported_before` and returns a paginated
+    envelope (`{items, total, page, page_size}`) instead of a bare list —
+    the only contract change in this sprint, and one with no prior
+    consumer (nothing was wired to the old shape yet). New
+    `GET /import/conversations/{id}` (detail incl. content),
+    `GET /import/conversations/{id}/export` (JSON file download),
+    `DELETE /import/conversations/{id}`, `GET /import/facets` (distinct
+    source/status values present, so filter dropdowns need no hard-coded
+    provider list), `GET /import/metrics` (dashboard metrics — only
+    `imported_conversations` is real; `pending_processing`, `processed`,
+    `knowledge_objects`, `projects`, `decisions`, `assets` are `0` by
+    design, since none of those pipelines exist yet).
+  - New **Explorer** page: sidebar nav item + `#/explorer` route
+    (`dashboard/app/templates/index.html`, `dashboard/app/static/js/app.js`).
+    Reuses existing design-system pieces rather than introducing new ones
+    where one already fit: the Home page's `health-dashboard-grid` +
+    `animateCount()` for the metrics strip, the Graph page's
+    `.graph-toolbar` for the filter bar, and the same shared
+    `#detail-overlay`/`#detail-body` the Knowledge page's card detail
+    already uses for the conversation detail view (message timeline with
+    USER/ASSISTANT/SYSTEM color-coded via new minimal `.message-item`
+    rules, search-within-conversation, metadata table, Copy/Export/Delete
+    actions). New `.explorer-table`/`.explorer-pagination`/`.message-*`
+    rules added to `components.css`, consistent with its existing
+    per-feature section convention. Delete requires a native `confirm()`
+    dialog.
+  - 31 new tests: `dashboard/tests/test_explorer_api.py` (list/pagination/
+    sort/search/filters/detail/export/delete/facets/metrics, all via
+    `TestClient`) and `dashboard/tests/test_import_db.py` (pagination
+    edge cases, sort-field whitelist fallback, migration idempotency).
+    284/284 passing repo-wide.
+
 - Sprint B1: ChatGPT Conversation Importer — a dashboard-owned pipeline for
   importing ChatGPT conversation exports without regenerating the whole
   Builder-generated knowledge base. **Additive only**: no existing
