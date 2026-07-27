@@ -857,7 +857,11 @@
         { label: "Processed", value: metrics.processed },
         { label: "Knowledge Objects", value: metrics.knowledge_objects },
         { label: "Projects", value: metrics.projects },
+        { label: "People", value: metrics.people },
+        { label: "Tasks", value: metrics.tasks },
         { label: "Decisions", value: metrics.decisions },
+        { label: "Ideas", value: metrics.ideas },
+        { label: "Documents", value: metrics.documents },
         { label: "Assets", value: metrics.assets },
       ];
       el.innerHTML = indicators
@@ -1087,7 +1091,76 @@
         <tr><th>Source File</th><td>${escapeHtml(conv.source_file || "—")}</td></tr>
         <tr><th>Message Count</th><td>${conv.message_count}</td></tr>
       </table>
+      <h4 class="u-mt-4">Knowledge</h4>
+      <div class="graph-detail-actions u-mb-3">
+        <button type="button" class="btn btn-sm" id="explorer-detail-extract-btn">Extract Knowledge</button>
+        <span id="explorer-detail-extract-status" class="muted"></span>
+      </div>
+      <div id="explorer-detail-knowledge"><p class="muted loading-pulse">Loading…</p></div>
     `;
+  }
+
+  // Object types the extractor supports, in display order, with the label
+  // to render for each section -- Sprint 4 supports exactly these seven,
+  // no more.
+  const EXTRACTION_OBJECT_TYPES = [
+    ["Project", "Projects"],
+    ["Person", "People"],
+    ["Task", "Tasks"],
+    ["Decision", "Decisions"],
+    ["Idea", "Ideas"],
+    ["Document", "Documents"],
+    ["Asset", "Assets"],
+  ];
+
+  function groupExtractedObjects(objects) {
+    const groups = {};
+    EXTRACTION_OBJECT_TYPES.forEach(([type]) => (groups[type] = []));
+    objects.forEach((o) => {
+      if (groups[o.object_type]) groups[o.object_type].push(o);
+    });
+    return groups;
+  }
+
+  function knowledgeSectionsHtml(objects) {
+    const groups = groupExtractedObjects(objects);
+    return EXTRACTION_OBJECT_TYPES.map(([type, label]) => {
+      const items = groups[type];
+      const body = items.length
+        ? `<ul class="activity-list">${items
+            .map(
+              (o) => `
+          <li class="u-flex-between">
+            <span>${escapeHtml(o.title)}</span>
+            <span><span class="badge">${Math.round(o.confidence * 100)}%</span>
+              <button type="button" class="link-btn" data-extraction-delete="${escapeHtml(o.id)}">Delete</button></span>
+          </li>`
+            )
+            .join("")}</ul>`
+        : '<p class="muted">None found.</p>';
+      return `<div class="page-section"><h5>${label} (${items.length})</h5>${body}</div>`;
+    }).join("");
+  }
+
+  async function loadConversationKnowledge(conversationId) {
+    const el = document.getElementById("explorer-detail-knowledge");
+    if (!el) return;
+    try {
+      const objects = await fetchJSON(`/extraction/conversations/${encodeURIComponent(conversationId)}/objects`);
+      el.innerHTML = knowledgeSectionsHtml(objects);
+      el.querySelectorAll("[data-extraction-delete]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          try {
+            await fetchJSON(`/extraction/objects/${encodeURIComponent(btn.dataset.extractionDelete)}`, { method: "DELETE" });
+            loadConversationKnowledge(conversationId);
+          } catch (err) {
+            window.alert(`Could not delete object: ${err.message}`);
+          }
+        });
+      });
+    } catch (err) {
+      el.innerHTML = `<p class="error-box">Could not load knowledge: ${escapeHtml(err.message)}</p>`;
+    }
   }
 
   async function openConversationDetail(conversationId) {
@@ -1113,6 +1186,26 @@
           if (parseHash().view === "explorer") loadExplorerList();
         });
       });
+
+      const extractBtn = document.getElementById("explorer-detail-extract-btn");
+      const extractStatus = document.getElementById("explorer-detail-extract-status");
+      extractBtn.addEventListener("click", async () => {
+        extractBtn.disabled = true;
+        extractBtn.textContent = "Extracting…";
+        try {
+          const run = await fetchJSON(`/extraction/conversations/${encodeURIComponent(conv.id)}/run`, { method: "POST" });
+          extractStatus.textContent = `Found ${run.total_found} (new ${run.created}, updated ${run.updated}, unchanged ${run.unchanged})`;
+          await loadConversationKnowledge(conv.id);
+          if (parseHash().view === "explorer") loadExplorerMetrics();
+        } catch (err) {
+          extractStatus.textContent = `Extraction failed: ${err.message}`;
+        } finally {
+          extractBtn.disabled = false;
+          extractBtn.textContent = "Extract Knowledge";
+        }
+      });
+
+      loadConversationKnowledge(conv.id);
     } catch (err) {
       detailBody.innerHTML = `<p class="error-box">Could not load conversation: ${escapeHtml(err.message)}</p>`;
     }

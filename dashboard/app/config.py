@@ -47,6 +47,17 @@ class Settings:
                 "samples/role_os_sample/00_SYSTEM/role_os_imports.db",
             )
         ).resolve()
+        # Knowledge Extraction (Sprint 4) also owns its own SQLite file,
+        # separate from every other domain's store. It holds extracted
+        # objects (Project, Person, Task, Decision, Idea, Document, Asset)
+        # and extraction run history, derived from imports_db_path's
+        # conversations but never written back into that database.
+        self.extraction_db_path: Path = Path(
+            os.environ.get(
+                "ROLE_OS_EXTRACTION_DB_PATH",
+                "samples/role_os_sample/00_SYSTEM/role_os_extraction.db",
+            )
+        ).resolve()
         self.app_name: str = "ROLE OS"
         self.app_version: str = "1.0.0-alpha"
         self.base_dir: Path = Path(__file__).resolve().parent

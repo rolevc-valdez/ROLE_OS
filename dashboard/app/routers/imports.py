@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 
 from app.config import Settings, get_settings
+from app.extraction import db as extraction_db
 from app.imports import db
 from app.imports import service
 from app.imports.models import (
@@ -53,18 +54,23 @@ def import_facets(settings: Settings = Depends(get_settings)) -> ImportFacets:
 
 @router.get("/metrics", response_model=ExplorerMetrics)
 def import_metrics(settings: Settings = Depends(get_settings)) -> ExplorerMetrics:
-    """Explorer dashboard metrics. Only `imported_conversations` reflects a
-    real, implemented feature; every other figure is intentionally 0 — this
-    sprint adds no extraction, project matching, or knowledge graph linking
-    for imported conversations, so there is nothing real to report yet."""
+    """Explorer dashboard metrics. `imported_conversations` and the seven
+    knowledge-object counts (Sprint 4) are real; `pending_processing` and
+    `processed` stay 0 — there is no per-conversation processing-state
+    tracking yet, only extraction counts in aggregate."""
+    counts = extraction_db.counts_by_type(settings=settings)
     return ExplorerMetrics(
         imported_conversations=db.count_conversations(settings=settings),
         pending_processing=0,
         processed=0,
-        knowledge_objects=0,
-        projects=0,
-        decisions=0,
-        assets=0,
+        knowledge_objects=sum(counts.values()),
+        projects=counts.get("Project", 0),
+        people=counts.get("Person", 0),
+        tasks=counts.get("Task", 0),
+        decisions=counts.get("Decision", 0),
+        ideas=counts.get("Idea", 0),
+        documents=counts.get("Document", 0),
+        assets=counts.get("Asset", 0),
     )
 
 

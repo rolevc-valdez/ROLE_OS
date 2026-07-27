@@ -89,18 +89,19 @@ Redesigned into a three-column layout:
   recommendations, and a Knowledge Graph Preview that opens the full
   Graph page focused on this project.
 
-### Explorer page (Sprint B1.5)
+### Explorer page (Sprint B1.5 / Sprint 4)
 
 A dedicated page for browsing, searching, filtering, and managing the
-conversations the ChatGPT importer has persisted — strictly an inspection
-and management view over imported data, with no AI, extraction, project
-matching, or graph inference of its own:
+conversations the ChatGPT importer has persisted, and the knowledge
+objects extracted from them — strictly an inspection and management view,
+with no AI chat, graph, or advisor of its own:
 
 - A metrics strip (reusing the Home page's `health-dashboard-grid` /
-  `animateCount()` pattern) showing Imported Conversations plus six
-  metrics that are `0` today because the pipelines behind them
-  (processing, knowledge extraction, project/decision/asset linking)
-  don't exist yet.
+  `animateCount()` pattern): Imported Conversations, Pending Processing,
+  Processed, Knowledge Objects, Projects, People, Tasks, Decisions, Ideas,
+  Documents, Assets. The seven object-type counts plus Knowledge Objects
+  are real (Sprint 4); Pending Processing/Processed stay `0` — there is no
+  per-conversation processing-state tracking yet.
 - A search/filter/sort toolbar: free-text search (title, message content,
   source, conversation id), source and status dropdowns populated from
   `GET /import/facets` (so a future provider like Claude or Gmail shows up
@@ -114,9 +115,14 @@ matching, or graph inference of its own:
   message timeline with USER/ASSISTANT/SYSTEM roles visually
   distinguished and per-message timestamps, a search-within-conversation
   box, a metadata panel (id, fingerprint, import run, dates, roles,
-  source file, message count), and Copy / Export JSON / Delete actions.
-  Message content is rendered exactly as imported — never summarized or
-  modified.
+  source file, message count), Copy / Export JSON / Delete actions, and —
+  as of Sprint 4 — a **Knowledge** section: an "Extract Knowledge" button
+  (also used to re-run extraction) and seven subsections (Projects,
+  People, Tasks, Decisions, Ideas, Documents, Assets) each listing that
+  conversation's extracted objects with a confidence badge and a per-object
+  Delete action. Message content is rendered exactly as imported — never
+  summarized or modified; extracted objects are pattern-matched text, never
+  generated.
 - Delete requires an explicit confirm dialog and is irreversible.
 
 ### Graph page
@@ -274,20 +280,25 @@ message content, source, and conversation id. `GET /import/conversations`
 returns `{"items": [...], "total": N, "page": N, "page_size": N}` rather
 than a bare list, so the Explorer can render page counts.
 
-`GET /import/metrics` response shape — only `imported_conversations`
-reflects a real, implemented feature; every other figure is `0` on purpose,
-since this sprint adds no extraction, project matching, or graph linking
-for imported conversations:
+`GET /import/metrics` response shape — `imported_conversations` and the
+seven knowledge-object counts (Sprint 4, read from the Extraction domain
+below) are real; `pending_processing`/`processed` stay `0` on purpose —
+there is no per-conversation processing-state tracking yet, only
+extraction counts in aggregate:
 
 ```json
 {
   "imported_conversations": 42,
   "pending_processing": 0,
   "processed": 0,
-  "knowledge_objects": 0,
-  "projects": 0,
-  "decisions": 0,
-  "assets": 0
+  "knowledge_objects": 17,
+  "projects": 2,
+  "people": 5,
+  "tasks": 4,
+  "decisions": 3,
+  "ideas": 1,
+  "documents": 1,
+  "assets": 1
 }
 ```
 
@@ -309,6 +320,42 @@ for imported conversations:
   "completed_at": "…"
 }
 ```
+
+### Knowledge Extraction API (Sprint 4 — new, namespaced under `/extraction`)
+
+Entirely additive; introduces no change to any route above. Rule-based
+extraction only — no AI/LLM call, no summarization, no graph, no advisor,
+no recommendations. Extracts and persists exactly seven object types:
+Project, Person, Task, Decision, Idea, Document, Asset.
+
+| Method | Path                                                  | Description |
+|--------|--------------------------------------------------------|--------------|
+| POST   | `/extraction/conversations/{id}/run`                    | Run (or re-run) extraction for one conversation; returns a structured run summary |
+| GET    | `/extraction/conversations/{id}/objects?object_type=`   | List extracted objects for a conversation, optionally filtered to one type |
+| DELETE | `/extraction/objects/{object_id}`                       | Delete one extracted object |
+| GET    | `/extraction/metrics`                                   | Object counts by type (feeds `GET /import/metrics` above) |
+
+`POST /extraction/conversations/{id}/run` response shape — safe to call
+repeatedly; see the Knowledge Extraction domain section below for the
+dedup/re-run behavior:
+
+```json
+{
+  "id": "…",
+  "conversation_id": "…",
+  "status": "completed",
+  "total_found": 9,
+  "created": 9,
+  "updated": 0,
+  "unchanged": 0,
+  "counts_by_type": {"Project": 1, "Person": 2, "Task": 2, "Decision": 1, "Idea": 1, "Document": 1, "Asset": 1},
+  "started_at": "…",
+  "completed_at": "…"
+}
+```
+
+Every extracted object carries: `conversation_id`, `source`, `confidence`
+(0-1), `fingerprint`, `extraction_run_id`, `created_at`, `updated_at`.
 
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
@@ -620,6 +667,76 @@ above for the UI walkthrough. Two behaviors worth calling out:
 - Delete is permanent (no undo/trash) — the confirm dialog is the only
   safety net.
 
+## Knowledge Extraction domain (Sprint 4)
+
+Extracts structured objects from imported conversations using
+deterministic, rule-based pattern matching — regex and keyword-line
+matching, the same style `builder/extractors/` already uses for the
+Builder pipeline. Lives entirely under `app/extraction/` (`rules.py`,
+`db.py`, `service.py`, `models.py`) and owns its own SQLite file, same
+pattern as every other domain.
+
+**Supported object types — exactly these seven, no more:**
+
+| Type | How it's detected |
+|------|---------------------|
+| Project | Lines matching project/initiative keywords (`proyecto`, `project`, `iniciativa`, `lanzamiento de`, `launch of`) |
+| Person | Capitalized two/three-word name sequences (e.g. "Maria Gonzalez"), with a small blocklist for common false positives |
+| Task | Lines matching outstanding-work keywords (`pendiente`, `falta`, `to-do`, `task`, `hay que`, `necesitamos`) |
+| Decision | Lines matching agreement/decision keywords (`decid`, `aprob`, `quedamos`, `vamos a usar`, `agreed`, `decision`) |
+| Idea | Lines matching suggestion keywords (`idea`, `podríamos`, `what if`, `se me ocurre`, `propuesta`, `brainstorm`) |
+| Document | Filenames with document extensions (pdf, doc(x), txt, md, csv, xls(x), ppt(x), json) |
+| Asset | Filenames with media extensions (png, jpg(eg), webp, gif, svg, mp4, mov, mp3, wav, zip) |
+
+Every extracted object is a verbatim snippet from the conversation (a
+matched line, a detected name, a detected filename) — nothing is
+rewritten, summarized, or generated. Each carries a `confidence` (0-1):
+file-extension matches get a fixed 0.85 (exact match, high reliability);
+keyword-line and name matches start around 0.55-0.6 and rise slightly with
+repeated hits, capped at 0.9.
+
+**What it intentionally does not do:** no AI/LLM call, no summarization,
+no free-form generation, no additional object types, no graph inference,
+no Advisor recommendations, no automatic Project Intelligence linking.
+
+### Deduplication behavior
+
+Same fingerprint strategy as the importer, applied per-conversation: each
+candidate object is fingerprinted as
+`sha256(conversation_id | object_type | normalized_title)`. Running
+extraction on the same conversation again:
+
+- **no existing row for that fingerprint** -> inserted, counted `created`
+- **existing row, confidence changed** -> updated in place, counted `updated`
+- **existing row, identical** -> left as-is (only `updated_at` bumped), counted `unchanged`
+
+Objects from a previous run that no longer match are **not**
+auto-deleted — deletion is always explicit, via
+`DELETE /extraction/objects/{id}`. Re-running extraction is therefore
+always safe: it never creates duplicates, and it never silently removes
+something you kept.
+
+### How to run extraction
+
+- **UI** — open any conversation in the Explorer (or Knowledge page) and
+  use the "Extract Knowledge" button in the conversation detail's
+  Knowledge section; the same button re-runs extraction.
+- **API** — `POST /extraction/conversations/{id}/run`.
+
+### Known limitations
+
+- Regex/keyword-based, not NLP — it will miss decisions/tasks/ideas
+  phrased outside the known keyword patterns, and the Person detector can
+  both miss real names (all-lowercase, single-word) and occasionally
+  match a capitalized non-name phrase not already in the blocklist.
+- No confidence threshold/filtering in the API or UI — every match above
+  is persisted and shown, regardless of how low its confidence is.
+- No cross-conversation deduplication — the same person or project
+  mentioned in two different conversations is stored as two separate
+  objects (fingerprinted per-conversation), not merged into one.
+- No linkage yet to Project Intelligence projects, the Knowledge Graph, or
+  the Advisor — extracted objects are a standalone store for this sprint.
+
 ## Setup
 
 ```bash
@@ -637,6 +754,7 @@ pip install -r requirements.txt
 | `ROLE_OS_PROJECTS_DB_PATH`       | `samples/role_os_sample/00_SYSTEM/role_os_projects.db`         | Project Intelligence database (dashboard-owned; schema and default workspaces are created automatically on first use) |
 | `ROLE_OS_ADVISOR_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_advisor.db`           | AI Advisor recommendations database (dashboard-owned; schema created automatically on first use) |
 | `ROLE_OS_IMPORTS_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_imports.db`           | ChatGPT Conversation Importer database (dashboard-owned; schema created automatically on first use) |
+| `ROLE_OS_EXTRACTION_DB_PATH`      | `samples/role_os_sample/00_SYSTEM/role_os_extraction.db`        | Knowledge Extraction database (dashboard-owned; schema created automatically on first use) |
 
 To point the dashboard at a real ROLE Knowledge OS generated by the builder:
 
@@ -644,12 +762,14 @@ To point the dashboard at a real ROLE Knowledge OS generated by the builder:
 export ROLE_OS_DB_PATH="/path/to/ROLE_KNOWLEDGE_OS/00_SYSTEM/role_os.db"
 ```
 
-All four databases are intentionally separate: the knowledge DB is
+All five databases are intentionally separate: the knowledge DB is
 regenerated wholesale each time `builder.py` runs; the projects DB is
 mutated incrementally through the `/pi/*` API; the advisor DB is written
 only by the recommendation engine; the imports DB is written only by the
-`/import/*` API and CLI. None of the four is ever clobbered by changes to
-another.
+`/import/*` API and CLI; the extraction DB is written only by the
+`/extraction/*` API (reading conversation content from the imports DB, but
+never writing back into it). None of the five is ever clobbered by
+changes to another.
 
 ## Run
 

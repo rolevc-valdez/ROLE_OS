@@ -27,3 +27,8 @@ os.environ.setdefault("ROLE_OS_ADVISOR_DB_PATH", str(Path(_ADVISOR_DB_DIR) / "ro
 # rather than mutating any committed sample database.
 _IMPORTS_DB_DIR = tempfile.mkdtemp(prefix="role_os_imports_test_")
 os.environ.setdefault("ROLE_OS_IMPORTS_DB_PATH", str(Path(_IMPORTS_DB_DIR) / "role_os_imports.db"))
+
+# Knowledge Extraction (Sprint 4) also owns its own SQLite file and
+# auto-creates its schema on first use, so tests get a fresh, isolated store.
+_EXTRACTION_DB_DIR = tempfile.mkdtemp(prefix="role_os_extraction_test_")
+os.environ.setdefault("ROLE_OS_EXTRACTION_DB_PATH", str(Path(_EXTRACTION_DB_DIR) / "role_os_extraction.db"))

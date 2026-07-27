@@ -6,6 +6,48 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint 4: Knowledge Extraction — deterministic, rule-based extraction of
+  structured objects from imported conversations. **Additive only**: new
+  domain, new database, new API namespace; extends (does not replace) the
+  Explorer's conversation detail view and `GET /import/metrics`.
+  - New `dashboard/app/extraction/` package: `rules.py` (pattern-based
+    extractors for exactly seven object types — Project, Person, Task,
+    Decision, Idea, Document, Asset — regex/keyword-line matching only, no
+    AI/LLM call, styled after `builder/extractors/` but self-contained,
+    not imported from it), `db.py` (owns its own SQLite file,
+    `role_os_extraction.db`, with `extracted_objects` and
+    `extraction_runs` tables, schema auto-created on first use), and
+    `service.py` (`run_extraction()`: read a conversation from the
+    imports domain -> run every extractor -> deduplicate -> persist ->
+    report).
+  - Deduplication mirrors the importer's own fingerprint strategy, scoped
+    per-conversation: `sha256(conversation_id | object_type | normalized_title)`.
+    Re-running extraction never duplicates — new candidates are inserted
+    (`created`), changed ones updated in place (`updated`), unchanged ones
+    just get `updated_at` bumped (`unchanged`). Objects removed via
+    `DELETE /extraction/objects/{id}` are never silently recreated except
+    by an explicit re-run finding the same match again.
+  - New API on `/extraction`: `POST /extraction/conversations/{id}/run`
+    (run/re-run, same idempotent endpoint), `GET
+    /extraction/conversations/{id}/objects?object_type=`, `DELETE
+    /extraction/objects/{object_id}`, `GET /extraction/metrics`.
+  - `GET /import/metrics` (Sprint B1.5) now reads real counts from the
+    extraction domain for `knowledge_objects` and all seven per-type
+    fields (`projects`, `people`, `tasks`, `decisions`, `ideas`,
+    `documents`, `assets` — the last two are new response fields);
+    `pending_processing`/`processed` remain `0` (no per-conversation
+    processing-state tracking yet, out of scope for this sprint).
+  - Explorer conversation detail view (`dashboard/app/static/js/app.js`)
+    gained a **Knowledge** section: an "Extract Knowledge" button and
+    seven object-type lists (with confidence badge + per-object Delete),
+    reusing existing `.activity-list`/`.badge`/`.link-btn`/`.page-section`
+    styling — no new CSS classes were needed.
+  - 32 new tests: `dashboard/tests/test_extraction_rules.py` (per-type
+    extractor behavior), `test_extraction_service.py` (persistence, dedup,
+    re-run, deletion+recreation), `test_extraction_api.py` (full API
+    surface plus a regression check that `/import/*` and `/health` are
+    unaffected). 316/316 passing repo-wide.
+
 - Sprint B1.5: Conversation Explorer — browse, search, filter, inspect, and
   manage imported conversations. **Additive only**: extends Sprint B1's
   `/import/*` API and imports database; no existing endpoint, table, or UI

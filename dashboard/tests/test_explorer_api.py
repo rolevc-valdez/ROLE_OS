@@ -273,19 +273,23 @@ def test_facets_include_chatgpt_source_and_imported_status():
     assert "imported" in body["statuses"]
 
 
-def test_metrics_reports_real_conversation_count_and_zero_for_unimplemented():
+def test_metrics_reports_real_conversation_count():
     before = client.get("/import/metrics").json()["imported_conversations"]
     upload([conversation(unique_id(), "Metrics check", "body")])
     after = client.get("/import/metrics")
     assert after.status_code == 200
     body = after.json()
     assert body["imported_conversations"] == before + 1
+    # pending_processing/processed have no per-conversation state tracking
+    # yet -- they stay 0 regardless of extraction activity elsewhere.
     assert body["pending_processing"] == 0
     assert body["processed"] == 0
-    assert body["knowledge_objects"] == 0
-    assert body["projects"] == 0
-    assert body["decisions"] == 0
-    assert body["assets"] == 0
+    # knowledge_objects/projects/people/tasks/decisions/ideas/documents/assets
+    # are real counts from the Sprint 4 extraction domain (see
+    # test_extraction_api.py for extraction-specific coverage); just assert
+    # the fields exist and are non-negative here.
+    for field in ("knowledge_objects", "projects", "people", "tasks", "decisions", "ideas", "documents", "assets"):
+        assert body[field] >= 0
 
 
 # ---------------------------------------------------------------------------

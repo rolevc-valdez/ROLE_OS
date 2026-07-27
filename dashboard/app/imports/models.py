@@ -75,5 +75,9 @@ class ExplorerMetrics(BaseModel):
     processed: int
     knowledge_objects: int
     projects: int
+    people: int
+    tasks: int
     decisions: int
+    ideas: int
+    documents: int
     assets: int

@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import advisor, graph, health, imports, knowledge, projects, search, ui
+from app.routers import advisor, extraction, graph, health, imports, knowledge, projects, search, ui
 from app.routers.pi import capabilities as pi_capabilities
 from app.routers.pi import dependencies as pi_dependencies
 from app.routers.pi import health as pi_health
@@ -57,5 +57,11 @@ app.include_router(graph.router)
 # its own SQLite file; performs no AI extraction, project matching, or
 # graph inference.
 app.include_router(imports.router)
+
+# Knowledge Extraction (Sprint 4) — additive only, namespaced under
+# /extraction. Rule-based extraction of Project/Person/Task/Decision/Idea/
+# Document/Asset objects from imported conversations into its own SQLite
+# file; no AI, no summarization, no graph, no advisor.
+app.include_router(extraction.router)
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")

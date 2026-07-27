@@ -5,6 +5,26 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## Knowledge Extraction (Sprint 4)
+
+Every imported conversation can now be turned into structured knowledge:
+open it in the Explorer and click "Extract Knowledge" to pull out exactly
+seven kinds of objects — **Projects, People, Tasks, Decisions, Ideas,
+Documents, Assets** — each shown with a confidence score and a Delete
+action. This is deliberately not AI: extraction is deterministic pattern
+matching (keyword lines for Projects/Tasks/Decisions/Ideas, capitalized
+name detection for People, file-extension detection for Documents/Assets)
+— the same rule-based approach the Builder has always used, just applied
+to imported conversations without regenerating the whole knowledge base.
+Re-running extraction on the same conversation never creates duplicates:
+new objects are added, changed ones are updated, unchanged ones are left
+alone. The Explorer's dashboard metrics now show real counts for all
+seven types plus a Knowledge Objects total, instead of the placeholder
+zeros from Sprint B1.5. This sprint adds no AI chat, no knowledge graph
+linking, no Advisor recommendations, and no summarization — see
+[`dashboard/README.md`](../../dashboard/README.md) for the full detection
+rules, deduplication behavior, and known limitations.
+
 ## Conversation Explorer (Sprint B1.5)
 
 You can now browse, search, filter, inspect, and manage everything the
