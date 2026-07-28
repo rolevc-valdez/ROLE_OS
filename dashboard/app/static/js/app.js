@@ -1233,15 +1233,116 @@
   // ADVISOR PAGE
   // =======================================================================
 
+  // Result types the Advisor's search (Sprint 6) supports, in display
+  // order. Values match app.advisor.search_models.RESULT_TYPES exactly.
+  const ADVISOR_SEARCH_TYPES = [
+    ["Conversation", "Conversations"],
+    ["Project", "Projects"],
+    ["Person", "People"],
+    ["Task", "Tasks"],
+    ["Decision", "Decisions"],
+    ["Idea", "Ideas"],
+    ["Document", "Documents"],
+    ["Asset", "Assets"],
+  ];
+
+  function advisorSearchResultHtml(r) {
+    return `
+      <div class="card u-mb-2">
+        <div class="u-flex-between">
+          <div>
+            <span class="badge">${escapeHtml(r.object_type)}</span>
+            <strong>${escapeHtml(r.name)}</strong>
+          </div>
+          <span class="card-muted">${formatDate(r.date)}</span>
+        </div>
+        ${r.conversation_title && r.object_type !== "Conversation" ? `<p class="card-muted">In: ${escapeHtml(r.conversation_title)}</p>` : ""}
+        ${r.confidence != null ? `<p class="card-muted">Confidence: ${Math.round(r.confidence * 100)}%</p>` : ""}
+        <div class="graph-detail-actions">
+          ${r.conversation_id ? `<button type="button" class="btn btn-sm" data-advisor-open-conversation="${escapeHtml(r.conversation_id)}">Open Conversation</button>` : ""}
+          <button type="button" class="btn btn-sm" data-advisor-open-graph="${escapeHtml(r.graph_node_id)}" data-advisor-conversation="${escapeHtml(r.conversation_id || "")}">Open Graph</button>
+        </div>
+      </div>`;
+  }
+
+  function wireAdvisorSearch() {
+    const input = document.getElementById("advisor-search-input");
+    const typeSelect = document.getElementById("advisor-search-type-select");
+    const clearBtn = document.getElementById("advisor-search-clear-btn");
+    const resultsEl = document.getElementById("advisor-search-results");
+
+    async function runSearch() {
+      const q = input.value.trim();
+      const type = typeSelect.value;
+      if (!q && !type) {
+        resultsEl.innerHTML = '<p class="muted">Type a keyword, or choose a filter to list everything of that type.</p>';
+        return;
+      }
+      resultsEl.innerHTML = '<p class="muted loading-pulse">Searching…</p>';
+      try {
+        const params = new URLSearchParams();
+        if (q) params.set("q", q);
+        if (type) params.set("type", type);
+        const data = await fetchJSON(`/advisor/search?${params.toString()}`);
+        if (!data.results.length) {
+          resultsEl.innerHTML = '<p class="muted">No matches found.</p>';
+          return;
+        }
+        resultsEl.innerHTML = data.results.map(advisorSearchResultHtml).join("");
+        resultsEl.querySelectorAll("[data-advisor-open-conversation]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            detailOverlay.hidden = true;
+            navigate("explorer");
+            pendingExplorerConversationFocus = btn.dataset.advisorOpenConversation;
+          });
+        });
+        resultsEl.querySelectorAll("[data-advisor-open-graph]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            detailOverlay.hidden = true;
+            navigate("conversation-graph", btn.dataset.advisorConversation || undefined);
+          });
+        });
+      } catch (err) {
+        resultsEl.innerHTML = `<p class="error-box">${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    input.addEventListener("input", debounce(runSearch, 250));
+    typeSelect.addEventListener("change", runSearch);
+    clearBtn.addEventListener("click", () => {
+      input.value = "";
+      typeSelect.value = "";
+      runSearch();
+    });
+
+    runSearch();
+  }
+
   async function renderAdvisorPage() {
     viewRoot.innerHTML = `
       <div class="section-heading"><h2>Advisor</h2></div>
+      <div class="card page-section">
+        <p class="card-title">Search Knowledge</p>
+        <div class="graph-toolbar">
+          <input id="advisor-search-input" type="search" placeholder="Search projects, people, tasks, decisions, conversations..." />
+          <select id="advisor-search-type-select">
+            <option value="">All</option>
+            ${ADVISOR_SEARCH_TYPES.map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}
+          </select>
+          <button type="button" class="btn btn-sm" id="advisor-search-clear-btn">Clear</button>
+        </div>
+        <div id="advisor-search-results" class="advisor-search-results u-mt-3">
+          <p class="muted">Type a keyword, or choose a filter to list everything of that type.</p>
+        </div>
+      </div>
       <div class="card page-section">
         <p class="card-title">Daily Brief</p>
         <pre id="advisor-brief" class="card-muted u-pre-wrap">Loading…</pre>
       </div>
       <div id="advisor-groups"><p class="muted loading-pulse">Loading recommendations…</p></div>
     `;
+
+    wireAdvisorSearch();
 
     const workspaceFilter = workspaceSelect.value;
     const [brief, recs] = await Promise.all([

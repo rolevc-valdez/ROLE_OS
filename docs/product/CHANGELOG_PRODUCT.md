@@ -5,6 +5,24 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## Advisor Search (Sprint 6)
+
+The Advisor page can now answer "where is everything about X?" — type
+into the new Search Knowledge box (top of the Advisor page) and get
+matching conversations, Projects, People, Tasks, Decisions, Ideas,
+Documents, and Assets back immediately, live as you type. Filter to just
+one type — pick "Projects" with an empty search box and get every
+extracted Project; type "GitHub" with no filter and get every
+conversation and object mentioning it. Every result shows what it is,
+its name, its source conversation, when it was created, and a confidence
+score where one exists, plus one-click actions to open the full
+conversation or jump to its place in the Knowledge Graph. This is
+deliberately not AI: no chat, no LLM, no semantic search, no embeddings,
+no recommendations — just fast, honest keyword matching over knowledge
+ROLE OS already extracted. See
+[`dashboard/README.md`](../../dashboard/README.md) for the full query
+semantics and known limitations.
+
 ## Knowledge Graph (Sprint 5)
 
 ROLE OS can now show you how your imported conversations and the

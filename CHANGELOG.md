@@ -6,6 +6,58 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint 6: Advisor Search — keyword/partial-match search over imported
+  conversations and extracted knowledge objects, surfaced as a new
+  "Search Knowledge" section on the existing Advisor page. **Additive
+  only**: two new files inside the existing `app/advisor/` package, a
+  new router, a new UI section — every Epic 2 recommendation-engine file
+  (`db.py`, `engine.py`, `rules/`, `scoring.py`, `narrative.py`,
+  `routers/advisor.py`) and every existing `/advisor/*` route is
+  byte-for-byte untouched.
+  - New `dashboard/app/advisor/search.py` (`search(q, result_type, limit)`:
+    unifies two existing, already-tested search paths — `app.imports.db
+    .list_conversations_page(q=...)` for conversation matches (title,
+    message content, source, id) and a new `app.extraction.db
+    .search_objects(q=..., object_type=...)` helper for extracted-object
+    matches — into one result list sorted by date. `get_object_result()`/
+    `get_conversation_result()` back the two lookup endpoints. New
+    `dashboard/app/advisor/search_models.py` (`SearchResult`,
+    `SearchResponse` — `object_type`, `name`, `conversation_id`,
+    `conversation_title`, `date`, `confidence` (`null` for conversations),
+    `graph_node_id`).
+  - New API on `/advisor/search`, registered via a **separate router**
+    (`dashboard/app/routers/advisor_search.py`) from Epic 2's
+    `routers/advisor.py`, so this sprint carries zero risk to the
+    existing router: `GET /advisor/search?q=&type=&limit=`,
+    `GET /advisor/search/objects/{id}`, `GET
+    /advisor/search/conversations/{id}`. `type` must be one of
+    `Conversation`/`Project`/`Person`/`Task`/`Decision`/`Idea`/`Document`/
+    `Asset` or the request 400s. `graph_node_id` in every result matches
+    the Sprint 5 Knowledge Graph's node id format exactly
+    (`GET /conversation-graph/nodes/{id}`), so "Open Graph" needs no
+    translation.
+  - Advisor page (`dashboard/app/static/js/app.js`): a new "Search
+    Knowledge" section at the top (search box, live/debounced ~250ms;
+    type-filter `<select>`; Clear button; scrollable result list with
+    *Open Conversation* / *Open Graph* actions per result) inserted above
+    the existing Daily Brief/recommendations UI, which is otherwise
+    unchanged. *Open Conversation* reuses the same
+    `pendingExplorerConversationFocus` handoff the Knowledge Graph page
+    introduced in Sprint 5; *Open Graph* navigates to
+    `#/conversation-graph/{conversation_id}`. One new CSS rule
+    (`.advisor-search-results { max-height: 420px; overflow-y: auto; }`
+    in `components.css`) for the scrollable results container — no other
+    new styling, everything else reuses existing card/badge/button
+    classes.
+  - 35 new tests: `dashboard/tests/test_advisor_search.py` (keyword
+    search, partial matching, "show all X", type filters, result shape,
+    conversation/object lookup), `test_advisor_search_api.py` (full API
+    surface, invalid-type 400, a search result's `graph_node_id`
+    resolving against `/conversation-graph/nodes/{id}`, and a regression
+    check that `/advisor/recommendations`/`/advisor/daily-brief` are
+    unaffected), `test_advisor_search_ui.py` (nav/route/cross-link
+    regression checks). 383/383 passing repo-wide.
+
 - Sprint 5: Knowledge Graph — a second, independent graph visualizing
   imported conversations connected to the knowledge objects extracted
   from them. **Additive only**: new domain, new API namespace, new UI

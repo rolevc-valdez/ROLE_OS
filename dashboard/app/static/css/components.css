@@ -499,6 +499,13 @@ table.explorer-table tbody tr:hover { background: var(--bg-surface-raised); }
 
 .message-item-text { font-size: 13px; white-space: pre-wrap; }
 
+/* ---- Advisor Search (Sprint 6) ------------------------------------------------------------------ */
+
+.advisor-search-results {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
 /* ---- Misc utility ---------------------------------------------------------------------------- */
 
 .muted { color: var(--text-muted); }

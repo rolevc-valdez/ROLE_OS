@@ -10,7 +10,19 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import advisor, conversation_graph, extraction, graph, health, imports, knowledge, projects, search, ui
+from app.routers import (
+    advisor,
+    advisor_search,
+    conversation_graph,
+    extraction,
+    graph,
+    health,
+    imports,
+    knowledge,
+    projects,
+    search,
+    ui,
+)
 from app.routers.pi import capabilities as pi_capabilities
 from app.routers.pi import dependencies as pi_dependencies
 from app.routers.pi import health as pi_health
@@ -46,6 +58,12 @@ app.include_router(pi_health.router)
 
 # AI Advisor (Epic 2) — additive only, namespaced under /advisor.
 app.include_router(advisor.router)
+
+# Advisor Search (Sprint 6) — additive only, namespaced under
+# /advisor/search. A separate router from Epic 2's (left untouched):
+# keyword/partial-match search over imported conversations and extracted
+# knowledge objects. No AI, no NLP, no embeddings, no semantic search.
+app.include_router(advisor_search.router)
 
 # Knowledge Graph (Epic 3) — additive only, namespaced under /graph. The
 # graph is computed on demand from the Builder, Project Intelligence, and

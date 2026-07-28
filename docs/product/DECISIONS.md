@@ -145,6 +145,42 @@ data source is a case for its own small graph domain, following this same
 smaller scale that pipeline needs — not a case for growing Epic 3's
 vocabulary or reusing its id scheme.
 
+---
+
+## Sprint 6's Advisor Search is a sibling module inside `app/advisor/`, not a merge into the recommendation engine
+
+**Decision**: Keyword search over conversations/extracted objects lives
+in two new files, `app/advisor/search.py` and
+`app/advisor/search_models.py`, registered through a **separate** FastAPI
+router (`routers/advisor_search.py`) that happens to share the
+`/advisor` URL prefix. Epic 2's recommendation engine — `db.py`,
+`engine.py`, `rules/`, `scoring.py`, `narrative.py`, and
+`routers/advisor.py` — is not modified, and search results are not
+folded into `Recommendation` objects or the Daily Brief.
+
+**Why**: "What should I work on next?" (Epic 2 — rule-based scoring over
+Project Intelligence data, persisted dismiss/complete state) and "where
+is everything about X?" (Sprint 6 — stateless keyword search over
+imported conversations and extracted objects) are different questions
+with different data sources and no shared logic; there was nothing to
+gain from merging their code. But unlike the Sprint 5 Knowledge Graph
+decision above, there was also no *test-locked vocabulary* or *identity-
+collision* risk forcing a fully separate top-level domain — search has no
+fixed type count to violate and no id scheme that could collide with
+Epic 2's. So the answer here isn't "merge" or "fully separate," it's
+"sibling": new files alongside the existing ones, under the same
+conceptual umbrella (the Advisor page now does two related but distinct
+things), registered as a second router so the diff to Epic 2's existing,
+already-tested router is exactly zero lines.
+
+**How to apply**: When a new capability is conceptually part of an
+existing feature area but has its own data source and no logic to share,
+prefer adding sibling files/routers within that area's package over
+either (a) editing the existing files to accommodate the new logic, or
+(b) spinning up a whole new top-level domain out of caution. Reserve (b)
+for cases like the Sprint 5 entry above, where a shared vocabulary or id
+scheme would create real collision risk.
+
 ## Where to go next
 
 - [[../architecture/01_VISION]] and [[../architecture/02_PRINCIPLES]] — the

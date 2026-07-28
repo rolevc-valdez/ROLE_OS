@@ -172,6 +172,33 @@ def list_all_objects(settings: Settings | None = None) -> list[dict[str, Any]]:
     return [_row_to_object(row) for row in rows]
 
 
+def search_objects(
+    q: str | None = None,
+    object_type: str | None = None,
+    limit: int = 100,
+    settings: Settings | None = None,
+) -> list[dict[str, Any]]:
+    """Keyword/partial-match search across extracted objects from every
+    conversation, optionally narrowed to one object type. Used by the
+    Advisor's search (Sprint 6); a plain, case-insensitive substring match
+    on `title` -- no NLP, no ranking beyond recency."""
+    clauses: list[str] = []
+    params: list[Any] = []
+    if q:
+        clauses.append("title LIKE ?")
+        params.append(f"%{q}%")
+    if object_type:
+        clauses.append("object_type = ?")
+        params.append(object_type)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM extracted_objects {where} ORDER BY created_at DESC LIMIT ?",
+            [*params, limit],
+        ).fetchall()
+    return [_row_to_object(row) for row in rows]
+
+
 def get_object(object_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     with get_connection(settings) as conn:
         row = conn.execute("SELECT * FROM extracted_objects WHERE id = ?", (object_id,)).fetchone()

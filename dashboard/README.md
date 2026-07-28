@@ -180,9 +180,20 @@ and behaves consistently without any new rendering code:
 
 ### Advisor page
 
-Daily Brief at the top (`/advisor/daily-brief`), then recommendation
-cards grouped by workspace, each with evidence, impact, estimated effort,
-and Dismiss / Mark completed actions (`/advisor/recommendations`).
+As of Sprint 6, opens with a **Search Knowledge** section: a single search
+box (live, debounced), a type filter (`All` / Conversations / Projects /
+People / Tasks / Decisions / Ideas / Documents / Assets), a Clear button,
+and a scrollable result list — each result shows its type, name, source
+conversation, date, confidence (when it has one), and *Open Conversation*
+/ *Open Graph* actions. This is plain keyword/partial-match search over
+already-stored data (`GET /advisor/search`) — no AI, no ranking beyond
+recency. See [Advisor Search domain (Sprint 6)](#advisor-search-domain-sprint-6)
+below for the full query semantics.
+
+Below that, unchanged from Epic 2: Daily Brief (`/advisor/daily-brief`),
+then recommendation cards grouped by workspace, each with evidence,
+impact, estimated effort, and Dismiss / Mark completed actions
+(`/advisor/recommendations`).
 
 ### Assets and Settings
 
@@ -273,6 +284,48 @@ Entirely additive; introduces no change to any route above.
 the recommendation engine for the requested scope before reading — so the
 data is always current without a separate "generate" endpoint, the same
 pattern Epic 1 uses for `GET /pi/projects/{id}/health`.
+
+### Advisor Search API (Sprint 6 — new, namespaced under `/advisor/search`)
+
+Entirely additive; introduces no change to any route above, including
+every existing `/advisor/*` route (a separate router — see
+[Advisor Search domain (Sprint 6)](#advisor-search-domain-sprint-6) for
+why). Keyword/partial-match search only — no NLP, no embeddings, no
+semantic search, no AI/LLM call.
+
+| Method | Path                                    | Description |
+|--------|-------------------------------------------|--------------|
+| GET    | `/advisor/search?q=&type=&limit=`           | Search conversations and/or extracted objects; `q` omitted lists everything of the selected `type` |
+| GET    | `/advisor/search/objects/{object_id}`        | Look up one extracted-object result by id |
+| GET    | `/advisor/search/conversations/{conversation_id}` | Look up one conversation result by id |
+
+`type` must be one of `Conversation`, `Project`, `Person`, `Task`,
+`Decision`, `Idea`, `Document`, `Asset`, or the request 400s.
+
+`GET /advisor/search` response shape — every result carries enough to
+render the required "Open Conversation" / "Open Graph" actions without a
+second lookup:
+
+```json
+{
+  "results": [
+    {
+      "object_type": "Decision",
+      "name": "Use SSH for GitHub",
+      "conversation_id": "…",
+      "conversation_title": "Git Hardening",
+      "date": "…",
+      "confidence": 0.65,
+      "graph_node_id": "decision:…"
+    }
+  ],
+  "total": 1
+}
+```
+
+`graph_node_id` is exactly the node id the Sprint 5 Knowledge Graph API
+uses (`GET /conversation-graph/nodes/{id}`), so "Open Graph" needs no
+translation step.
 
 ### Knowledge Graph API (Epic 3 — new, namespaced under `/graph`)
 
@@ -907,6 +960,81 @@ deliberately out of scope for this sprint.
 - Layout is a simple circular arrangement (same `createGraphView()` layout
   used elsewhere) — there is no force-directed or hierarchical layout
   option.
+
+## Advisor Search domain (Sprint 6)
+
+Lets you find any imported conversation or extracted knowledge object by
+keyword — plain, deterministic, case-insensitive substring matching, no
+AI, no LLM, no NLP, no embeddings, no semantic search, no ranking beyond
+recency. Lives in two new, additive files inside the existing
+`app/advisor/` package (`search.py`, `search_models.py`) and a new router
+(`routers/advisor_search.py`); the Epic 2 recommendation engine's own
+files (`db.py`, `engine.py`, `rules/`, `scoring.py`, `narrative.py`,
+`routers/advisor.py`) are completely untouched by this sprint.
+
+**Why a new module inside `app/advisor/` instead of extending the
+recommendation engine?** They answer two different questions — "what
+should I work on next?" (Epic 2, rule-based scoring over Project
+Intelligence data) vs. "where is everything about X?" (Sprint 6, keyword
+search over imported conversations and extracted objects) — with
+different data sources and no shared logic. Keeping them as sibling
+modules under the same `/advisor` umbrella (not merged into one file, but
+also not a separate top-level domain) reflects that they're both part of
+"ask ROLE OS about your knowledge" without one having to accommodate the
+other's very different internals. See [[DECISIONS]] for the full
+reasoning.
+
+### Supported query types
+
+Every query is one call to `search(q, result_type)`:
+
+- **Keyword search** — `q="GitHub"` matches conversation titles, message
+  content, source, and id (reusing the Explorer's own
+  `list_conversations_page(q=...)`), plus extracted-object titles
+  (reusing a new `extraction.db.search_objects(q=...)` helper). Partial
+  matches count — `q="Fresh"` matches "Freshservice".
+- **"Show all X"** — an empty/omitted `q` with a `result_type` filter set
+  lists everything of that type, unfiltered by keyword.
+- **"Show everything related to X"** — an empty `result_type` with a `q`
+  set searches across every conversation and every object type in one
+  call, merged and sorted by date (most recent first).
+
+There is no query language beyond `q` + `result_type` — no boolean
+operators, no field-scoped search, no NLP parsing of the query text.
+
+### How results are shaped
+
+Every result (conversation or object) carries: `object_type`, `name`,
+`conversation_id`, `conversation_title`, `date`, `confidence` (`null` for
+conversations — only extracted objects have one), and `graph_node_id` —
+the exact id the Sprint 5 Knowledge Graph API expects, so "Open Graph"
+works with zero translation.
+
+### How to search
+
+- **UI** — sidebar → Advisor → **Search Knowledge** (at the top of the
+  page, above the existing Daily Brief/recommendations): a search box
+  (live, debounced ~250ms), a type filter, a Clear button, and a
+  scrollable result list with *Open Conversation* (jumps to the
+  Conversation Explorer, same `pendingExplorerConversationFocus` handoff
+  the Knowledge Graph page already uses) and *Open Graph* (jumps to the
+  Knowledge Graph page, pre-filtered to that result's conversation)
+  actions on every result.
+- **API** — `GET /advisor/search?q=&type=` (see API endpoints above).
+
+### Known limitations
+
+- Substring matching only — no fuzzy matching, no typo tolerance, no
+  relevance ranking (results are sorted by date, not match quality).
+- No pagination — results are capped at `limit` (default 100, max 500)
+  and the UI relies on a scrollable container rather than paging through
+  more.
+- Object search matches title only, not full extracted content (there
+  isn't any beyond the title/value already extracted) — this is a search
+  over what Sprint 4 stored, not a search over raw conversation text for
+  object-type results (conversation-type results do search full message
+  content, via the Explorer's existing search).
+- No saved searches, no search history, no query suggestions.
 
 ## Setup
 
