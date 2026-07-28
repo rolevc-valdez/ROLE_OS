@@ -243,3 +243,29 @@ def record_run(summary: dict[str, Any], settings: Settings | None = None, run_id
         )
         conn.commit()
     return {"id": run_id, **summary}
+
+
+def _row_to_run(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "conversation_id": row["conversation_id"],
+        "status": row["status"],
+        "total_found": row["total_found"],
+        "created": row["created"],
+        "updated": row["updated"],
+        "unchanged": row["unchanged"],
+        "counts_by_type": json.loads(row["counts_by_type"]),
+        "started_at": row["started_at"],
+        "completed_at": row["completed_at"],
+    }
+
+
+def list_recent_runs(limit: int = 50, settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Most recent extraction runs across every conversation, newest
+    first. Used by the Dashboard (Sprint 7) to show "last extraction";
+    not conversation-scoped like `list_objects()`."""
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            "SELECT * FROM extraction_runs ORDER BY completed_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    return [_row_to_run(row) for row in rows]

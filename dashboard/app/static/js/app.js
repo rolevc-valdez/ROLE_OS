@@ -113,6 +113,7 @@
 
   const routes = {
     home: renderHome,
+    dashboard: renderDashboardPage,
     projects: renderProjectsList,
     project: renderProjectDetail,
     knowledge: renderKnowledge,
@@ -524,6 +525,149 @@
       }
     }, 250);
     input.addEventListener("input", () => run(input.value.trim()));
+  }
+
+  // =======================================================================
+  // DASHBOARD PAGE (Sprint 7) -- an executive summary over the
+  // Importer/Explorer/Extraction/Knowledge Graph/Advisor Search pipeline
+  // (Sprints B1-6). Deliberately separate from Home (which summarizes the
+  // Project Intelligence / Advisor / Epic 3 Graph pipeline instead) so
+  // neither page's content or layout needs to change. UI-only: every
+  // number here is read directly from an existing endpoint -- no new
+  // client-side calculation, no new backend calculation beyond two thin
+  // "most recent N" wrappers around already-written queries
+  // (GET /extraction/recent, GET /extraction/runs).
+  // =======================================================================
+
+  function dashboardMetricsHtml(metrics) {
+    return [
+      { label: "Conversations", value: metrics.imported_conversations },
+      { label: "Projects", value: metrics.projects },
+      { label: "People", value: metrics.people },
+      { label: "Tasks", value: metrics.tasks },
+      { label: "Decisions", value: metrics.decisions },
+      { label: "Ideas", value: metrics.ideas },
+      { label: "Documents", value: metrics.documents },
+      { label: "Assets", value: metrics.assets },
+      { label: "Graph Nodes", value: metrics.graph_nodes },
+      { label: "Graph Edges", value: metrics.graph_edges },
+    ];
+  }
+
+  function renderDashboardMetrics(metrics) {
+    const el = document.getElementById("dashboard-metrics");
+    const indicators = dashboardMetricsHtml(metrics);
+    el.innerHTML = indicators
+      .map(
+        (ind, i) => `
+      <div class="card u-text-center">
+        <div class="card-muted u-fs-12 u-mb-2">${escapeHtml(ind.label)}</div>
+        <div id="dashboard-metric-${i}" class="u-fs-26">0</div>
+      </div>`
+      )
+      .join("");
+    indicators.forEach((ind, i) => animateCount(document.getElementById(`dashboard-metric-${i}`), ind.value));
+  }
+
+  function renderDashboardRecentConversations(items) {
+    const el = document.getElementById("dashboard-recent-conversations");
+    if (!items.length) {
+      el.innerHTML = '<p class="muted">No conversations imported yet.</p>';
+      return;
+    }
+    el.innerHTML = `<ul class="activity-list">${items
+      .map(
+        (c) =>
+          `<li class="u-clickable" data-dashboard-open-conversation="${escapeHtml(c.id)}">${escapeHtml(c.title)} <span class="card-muted">— ${formatDate(c.imported_at)}</span></li>`
+      )
+      .join("")}</ul>`;
+    el.querySelectorAll("[data-dashboard-open-conversation]").forEach((li) => {
+      li.addEventListener("click", () => {
+        navigate("explorer");
+        pendingExplorerConversationFocus = li.dataset.dashboardOpenConversation;
+      });
+    });
+  }
+
+  function renderDashboardRecentObjects(objects) {
+    const el = document.getElementById("dashboard-recent-objects");
+    el.innerHTML = objects.length
+      ? `<ul class="activity-list">${objects
+          .map(
+            (o) =>
+              `<li><span class="badge">${escapeHtml(o.object_type)}</span> ${escapeHtml(o.title)} <span class="card-muted">— ${formatDate(o.created_at)}</span></li>`
+          )
+          .join("")}</ul>`
+      : '<p class="muted">Nothing extracted yet.</p>';
+  }
+
+  function renderDashboardStatus(metrics, importHistory, extractionRuns) {
+    const el = document.getElementById("dashboard-status-table");
+    const lastImport = importHistory[0];
+    const lastExtraction = extractionRuns[0];
+    el.innerHTML = `
+      <tr><th>Last import</th><td>${lastImport ? `${formatDate(lastImport.completed_at)} — ${escapeHtml(lastImport.status)} (${lastImport.imported} new, ${lastImport.updated} updated, ${lastImport.skipped} skipped)` : "No imports yet"}</td></tr>
+      <tr><th>Last extraction</th><td>${lastExtraction ? `${formatDate(lastExtraction.completed_at)} — ${lastExtraction.total_found} object(s) found` : "No extraction runs yet"}</td></tr>
+      <tr><th>Graph status</th><td>${metrics.graph_nodes > 0 ? `Ready — ${metrics.graph_nodes} nodes, ${metrics.graph_edges} edges` : "No graph data yet"}</td></tr>
+      <tr><th>Database status</th><td>Connected</td></tr>
+    `;
+  }
+
+  async function renderDashboardPage() {
+    viewRoot.innerHTML = `
+      <div class="section-heading"><h2>Dashboard</h2></div>
+      <div id="dashboard-metrics" class="health-dashboard-grid u-mb-4"><p class="muted loading-pulse">Loading metrics…</p></div>
+      <div class="page-section">
+        <div class="section-heading"><h2>Quick Actions</h2></div>
+        <div class="graph-detail-actions">
+          <button type="button" class="btn btn-sm" data-nav="knowledge">Import Conversation</button>
+          <button type="button" class="btn btn-sm" data-nav="explorer">Conversation Explorer</button>
+          <button type="button" class="btn btn-sm" data-nav="conversation-graph">Knowledge Graph</button>
+          <button type="button" class="btn btn-sm" data-nav="advisor">Search Knowledge</button>
+        </div>
+      </div>
+      <div class="home-grid">
+        <div>
+          <div class="page-section">
+            <div class="section-heading"><h2>Recent Conversations</h2></div>
+            <div id="dashboard-recent-conversations"><p class="muted loading-pulse">Loading…</p></div>
+          </div>
+          <div class="page-section">
+            <div class="section-heading"><h2>Recent Extracted Objects</h2></div>
+            <div id="dashboard-recent-objects"><p class="muted loading-pulse">Loading…</p></div>
+          </div>
+        </div>
+        <div>
+          <div class="page-section">
+            <div class="section-heading"><h2>System Status</h2></div>
+            <table class="kv-table" id="dashboard-status-table"><tr><td class="muted">Loading…</td></tr></table>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.querySelectorAll("#view-root [data-nav]").forEach((el) => {
+      el.addEventListener("click", () => navigate(el.dataset.nav));
+    });
+
+    try {
+      const [metrics, recentConversations, recentObjects, importHistory, extractionRuns] = await Promise.all([
+        fetchJSON("/import/metrics"),
+        fetchJSON("/import/conversations?page=1&page_size=5&sort_by=imported_at&sort_dir=desc"),
+        fetchJSON("/extraction/recent?limit=5"),
+        fetchJSON("/import/history"),
+        fetchJSON("/extraction/runs?limit=1"),
+      ]);
+      renderDashboardMetrics(metrics);
+      renderDashboardRecentConversations(recentConversations.items);
+      renderDashboardRecentObjects(recentObjects);
+      renderDashboardStatus(metrics, importHistory, extractionRuns);
+    } catch (err) {
+      document.getElementById("dashboard-metrics").innerHTML = `<p class="error-box">${escapeHtml(err.message)}</p>`;
+      document.getElementById("dashboard-recent-conversations").innerHTML = "";
+      document.getElementById("dashboard-recent-objects").innerHTML = "";
+      document.getElementById("dashboard-status-table").innerHTML = `<tr><td class="error-box">${escapeHtml(err.message)}</td></tr>`;
+    }
   }
 
   // =======================================================================

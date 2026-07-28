@@ -47,13 +47,19 @@ type-based fill color.
 
 ### Sidebar navigation
 
-Persistent icons for: **Home**, **Projects**, **Knowledge**, **Explorer**,
-**Advisor**, **Graph**, **Knowledge Graph**, **Assets**, **Settings**.
+Persistent icons for: **Home**, **Dashboard**, **Projects**, **Knowledge**,
+**Explorer**, **Advisor**, **Graph**, **Knowledge Graph**, **Assets**,
+**Settings**.
 ("Graph" is the Epic 3 Knowledge Graph over Projects/Advisor/Builder data;
 "Knowledge Graph" — added in Sprint 5 — is the separate, smaller graph over
 imported conversations and their extracted objects. See
 [Knowledge Graph domain (Sprint 5)](#knowledge-graph-domain-sprint-5)
-below for why these are two independent features, not one.)
+below for why these are two independent features, not one. Similarly,
+"Home" is Epic 4's original landing page over the Project Intelligence /
+Advisor / Epic 3 Graph pipeline; "Dashboard" — added in Sprint 7 — is an
+executive summary over the newer Importer / Explorer / Extraction /
+Knowledge Graph / Advisor Search pipeline instead. Neither page's content
+changed to make room for the other.)
 
 ### Home
 
@@ -81,6 +87,39 @@ below for why these are two independent features, not one.)
   (`/graph/search`) are grouped by Projects, Knowledge Cards, People,
   Applications, Vendors, and Assets — the same six node types the
   Knowledge Graph already models, so no new grouping endpoint was needed.
+
+### Dashboard page (Sprint 7)
+
+An executive summary over the Importer/Explorer/Extraction/Knowledge
+Graph/Advisor Search pipeline (Sprints B1-6) — deliberately separate from
+Home above, which summarizes the older Project Intelligence/Advisor/Epic 3
+Graph pipeline instead. Every number on this page is read directly from an
+existing endpoint; nothing is recomputed client-side:
+
+- **Summary cards** (`health-dashboard-grid`, same animated count-up
+  pattern as Home's Health Dashboard and the Explorer's metrics strip):
+  Conversations, Projects, People, Tasks, Decisions, Ideas, Documents,
+  Assets, Graph Nodes, Graph Edges — all ten fields come straight out of
+  the existing `GET /import/metrics` response (introduced in Sprint B1.5,
+  filled in with real values across Sprints 4-5).
+- **Quick Actions** — four buttons that just navigate: Import Conversation
+  (→ Knowledge page, where the import panel lives), Conversation Explorer,
+  Knowledge Graph, Search Knowledge (→ the Advisor page's search section).
+- **Recent Activity** — Recent Conversations (`GET /import/conversations`,
+  sorted by import date) and Recent Extracted Objects (`GET
+  /extraction/recent`, a new thin endpoint — see below).
+- **System Status** — Last import (`GET /import/history`), Last extraction
+  (`GET /extraction/runs`, a new thin endpoint), Graph status (derived
+  from the same `graph_nodes`/`graph_edges` already in `/import/metrics`),
+  and Database status (`Connected` once every other panel's fetch has
+  succeeded — if any fetch fails, the page shows an error instead, which
+  *is* the "database unreachable" signal; no separate health-check call
+  was added since the existing panels already require every database to
+  be reachable).
+- Loading, empty ("No conversations imported yet.", "Nothing extracted
+  yet.", "No imports/extraction runs/graph data yet"), and error states
+  are all handled explicitly, matching the pattern established by the
+  Explorer and Knowledge Graph pages.
 
 ### Project page
 
@@ -425,6 +464,8 @@ Project, Person, Task, Decision, Idea, Document, Asset.
 | GET    | `/extraction/conversations/{id}/objects?object_type=`   | List extracted objects for a conversation, optionally filtered to one type |
 | DELETE | `/extraction/objects/{object_id}`                       | Delete one extracted object |
 | GET    | `/extraction/metrics`                                   | Object counts by type (feeds `GET /import/metrics` above) |
+| GET    | `/extraction/recent?limit=`                             | Most recently extracted objects across every conversation (Sprint 7, for the Dashboard's Recent Activity) |
+| GET    | `/extraction/runs?limit=`                               | Most recent extraction runs across every conversation (Sprint 7; the extraction-domain analogue of `GET /import/history`) |
 
 `POST /extraction/conversations/{id}/run` response shape — safe to call
 repeatedly; see the Knowledge Extraction domain section below for the

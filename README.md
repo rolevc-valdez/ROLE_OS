@@ -83,7 +83,7 @@ walkthrough, feature list, and troubleshooting.
    Then open `http://127.0.0.1:8000/` in a browser for the dashboard UI.
    See [`dashboard/README.md`](dashboard/README.md) for endpoint and UI details.
 
-## Import, browse, extract, graph, and search ChatGPT conversations (Sprint B1 / B1.5 / 4 / 5 / 6)
+## Import, browse, extract, graph, search, and monitor ChatGPT conversations (Sprint B1 / B1.5 / 4 / 5 / 6 / 7)
 
 In addition to the offline Builder pipeline above, the dashboard has a
 lightweight, dashboard-owned **ChatGPT conversation importer** for bringing
@@ -94,19 +94,21 @@ searching, filtering, and managing what was imported, per-conversation
 Projects, People, Tasks, Decisions, Ideas, Documents, and Assets using
 deterministic pattern matching, a **Knowledge Graph** page (sidebar →
 Knowledge Graph) that visualizes every imported conversation connected to
-the objects extracted from it, and — on the existing **Advisor** page — a
-**Search Knowledge** box that keyword-searches across everything above
-(conversations and every extracted object type) with results linking
-straight to the Conversation Explorer or Knowledge Graph. All five stay
-deliberately AI-free: normalize, store, search, display, pattern-match,
-graph, and search only — no summarization, no free-form generation, no
-inferred relationships, no semantic search, no LLM-based recommendations;
-deeper AI-assisted understanding remains the Builder's job. See
+the objects extracted from it, a **Search Knowledge** box on the existing
+**Advisor** page that keyword-searches across everything above with
+results linking straight to the Conversation Explorer or Knowledge Graph,
+and — tying it all together — a **Dashboard** page (sidebar → Dashboard)
+with summary cards for all ten counts, recent activity, system status,
+and quick actions to every page above. All six stay deliberately AI-free:
+normalize, store, search, display, pattern-match, graph, search, and
+summarize only using data already computed elsewhere — no new extraction,
+no new storage, no AI, no background jobs; deeper AI-assisted
+understanding remains the Builder's job. See
 [`docs/product/CHANGELOG_PRODUCT.md`](docs/product/CHANGELOG_PRODUCT.md)
 for the supported input format, how to run an import/extraction/search via
 the API, CLI, or UI, deduplication behavior, Explorer search/filters,
 supported knowledge object types, supported graph relationships, supported
-search query types, and known limitations.
+search query types, the Dashboard's data sources, and known limitations.
 
 ## Status
 

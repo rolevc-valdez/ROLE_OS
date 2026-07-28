@@ -181,6 +181,35 @@ either (a) editing the existing files to accommodate the new logic, or
 for cases like the Sprint 5 entry above, where a shared vocabulary or id
 scheme would create real collision risk.
 
+---
+
+## Sprint 7's Dashboard is a new page, not an extension of Home
+
+**Decision**: The Dashboard is a new sidebar item/route (`#/dashboard`,
+`renderDashboardPage()`) rendering entirely separate content from Home.
+Home's own markup, data sources, and layout (Today's Focus, Workspace
+Overview, Health Dashboard, Recent Activity, Knowledge Graph Preview,
+Quick Search) are untouched.
+
+**Why**: Home already *is* a dashboard — Epic 4 built it as one — but
+over a specific pipeline (Project Intelligence, the Advisor's
+recommendations, the Epic 3 Graph). Sprint 7 asked for summary
+cards/recent activity/system status/quick actions over a different
+pipeline entirely (Importer, Explorer, Extraction, the Sprint 5 Knowledge
+Graph, Advisor Search) — different endpoints, different metrics, no
+overlap. Cramming a second, unrelated set of cards and activity feeds
+into Home's existing two-column layout would have meant reworking a page
+that already works, for no benefit: nothing about the two pipelines'
+data relates closely enough to justify sharing one page's layout logic.
+
+**How to apply**: A new "give me an overview of X" request is a case for
+extending an existing overview page only when X is close enough to what
+that page already summarizes that a shared layout still reads as one
+coherent view. When X is a different pipeline with its own metrics and
+no natural connection to the existing page's content, a new page (reusing
+the same design-system pieces — card grids, animated counters, activity
+lists — without reusing the *page*) keeps both simple.
+
 ## Where to go next
 
 - [[../architecture/01_VISION]] and [[../architecture/02_PRINCIPLES]] — the

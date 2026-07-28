@@ -59,3 +59,23 @@ def extraction_metrics(settings: Settings = Depends(get_settings)) -> Extraction
         document=counts.get("Document", 0),
         asset=counts.get("Asset", 0),
     )
+
+
+@router.get("/recent", response_model=list[ExtractedObject])
+def recent_extracted_objects(
+    limit: int = Query(10, ge=1, le=100), settings: Settings = Depends(get_settings)
+) -> list[ExtractedObject]:
+    """Most recently extracted objects across every conversation, newest
+    first. Added for the Dashboard's Recent Activity (Sprint 7); reuses
+    the existing `search_objects()` query unfiltered."""
+    return [ExtractedObject(**o) for o in db.search_objects(limit=limit, settings=settings)]
+
+
+@router.get("/runs", response_model=list[ExtractionRun])
+def list_extraction_runs(
+    limit: int = Query(50, ge=1, le=200), settings: Settings = Depends(get_settings)
+) -> list[ExtractionRun]:
+    """Most recent extraction runs across every conversation, newest
+    first -- the extraction-domain analogue of `GET /import/history`.
+    Added for the Dashboard's "last extraction" status (Sprint 7)."""
+    return [ExtractionRun(**r) for r in db.list_recent_runs(limit=limit, settings=settings)]

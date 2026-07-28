@@ -5,6 +5,25 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## Dashboard (Sprint 7)
+
+ROLE OS now has a proper executive Dashboard (sidebar → Dashboard): ten
+summary cards (Conversations, Projects, People, Tasks, Decisions, Ideas,
+Documents, Assets, Graph Nodes, Graph Edges), Recent Activity (the latest
+imported conversations and the latest extracted knowledge objects),
+System Status (when you last imported and last extracted, whether the
+Knowledge Graph has data, whether the databases are reachable), and Quick
+Actions to jump straight to importing a conversation, the Conversation
+Explorer, the Knowledge Graph, or Search Knowledge. Every number on this
+page is real — read directly from data ROLE OS already computed, nothing
+recalculated, nothing new stored, nothing AI-generated. This is a second,
+separate landing page from the original Home (which still covers Project
+Intelligence, the Advisor's recommendations, and the Epic 3 Graph) — the
+Dashboard is specifically the mission-control view for everything the
+Importer → Explorer → Extraction → Knowledge Graph → Advisor Search
+pipeline has built. See [`dashboard/README.md`](../../dashboard/README.md)
+for exactly which existing endpoint backs each card.
+
 ## Advisor Search (Sprint 6)
 
 The Advisor page can now answer "where is everything about X?" — type

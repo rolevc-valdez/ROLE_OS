@@ -6,6 +6,47 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint 7: Dashboard — a new executive-summary sidebar page over the
+  Importer/Explorer/Extraction/Knowledge Graph/Advisor Search pipeline.
+  **Additive only, UI-first**: one new nav item/route, two thin new
+  endpoints; zero new storage, zero new client- or server-side
+  calculation beyond "most recent N" queries, zero changes to Home or any
+  other existing page's content.
+  - New API on the existing Extraction router (`routers/extraction.py`,
+    zero changes to its existing endpoints): `GET /extraction/recent?limit=`
+    (most recently extracted objects across every conversation, reusing
+    the already-written `search_objects()` unfiltered) and `GET
+    /extraction/runs?limit=` (most recent extraction runs across every
+    conversation — the extraction-domain analogue of the already-existing
+    `GET /import/history`). Backed by two additive functions in
+    `app/extraction/db.py`: `_row_to_run()`, `list_recent_runs()`.
+  - New **Dashboard** page (`dashboard/app/templates/index.html`,
+    `dashboard/app/static/js/app.js`): sidebar nav item placed right after
+    Home, route `#/dashboard`. Ten summary cards (Conversations, Projects,
+    People, Tasks, Decisions, Ideas, Documents, Assets, Graph Nodes, Graph
+    Edges) read verbatim from the existing `GET /import/metrics` — no
+    field is recomputed, only displayed (reusing the same
+    `health-dashboard-grid` + `animateCount()` pattern Home and the
+    Explorer already use). Recent Activity (`GET /import/conversations`
+    + the new `GET /extraction/recent`). System Status (`GET
+    /import/history` for last import, the new `GET /extraction/runs` for
+    last extraction, the same `graph_nodes`/`graph_edges` fields already
+    in `/import/metrics` for graph status, and "Connected" once every
+    other panel's fetch succeeds for database status — no separate
+    health-check endpoint was added). Quick Actions: four buttons that
+    just call `navigate()` to Knowledge (where the import panel lives),
+    Explorer, Knowledge Graph, and Advisor (where Search Knowledge lives)
+    — no new pages behind them. Loading/empty/error states throughout,
+    matching the pattern already established by the Explorer and
+    Knowledge Graph pages. Zero new CSS — every element reuses existing
+    classes.
+  - 17 new tests: `dashboard/tests/test_extraction_dashboard_endpoints.py`
+    (ordering, limit, empty state for the two new endpoints),
+    `test_dashboard_ui.py` (nav/route/metrics-mapping/quick-actions/
+    empty-state/error-state regression checks, plus a check that Home and
+    every other existing page's render function is still present
+    unchanged). 400/400 passing repo-wide.
+
 - Sprint 6: Advisor Search — keyword/partial-match search over imported
   conversations and extracted knowledge objects, surfaced as a new
   "Search Knowledge" section on the existing Advisor page. **Additive
