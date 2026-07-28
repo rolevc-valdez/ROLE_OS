@@ -21,6 +21,7 @@ from app.routers import (
     knowledge,
     projects,
     search,
+    settings as settings_router,
     ui,
 )
 from app.routers.pi import capabilities as pi_capabilities
@@ -88,5 +89,10 @@ app.include_router(extraction.router)
 # Computed on demand from the imports and extraction databases; no new
 # persisted store, no AI, no inferred relationships.
 app.include_router(conversation_graph.router)
+
+# Settings (Sprint 8) — additive only, namespaced under /settings.
+# Aggregates existing config/status/version info and offers export/import
+# preview and maintenance actions; introduces no new persisted store.
+app.include_router(settings_router.router)
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")

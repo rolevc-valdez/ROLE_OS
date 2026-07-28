@@ -1597,12 +1597,62 @@
   // SETTINGS PAGE
   // =======================================================================
 
+  function formatBytes(bytes) {
+    if (bytes === null || bytes === undefined) return "not found";
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ["KB", "MB", "GB"];
+    let value = bytes / 1024;
+    let i = 0;
+    while (value >= 1024 && i < units.length - 1) {
+      value /= 1024;
+      i += 1;
+    }
+    return `${value.toFixed(1)} ${units[i]}`;
+  }
+
   async function renderSettingsPage() {
     viewRoot.innerHTML = `
       <div class="section-heading"><h2>Settings</h2></div>
-      <div class="card u-max-w-480">
-        <p class="card-title">System status</p>
-        <table class="kv-table" id="settings-table"><tr><td class="muted">Loading…</td></tr></table>
+      <div class="home-grid">
+        <div>
+          <div class="card">
+            <p class="card-title">General</p>
+            <table class="kv-table" id="settings-general"><tr><td class="muted">Loading…</td></tr></table>
+          </div>
+          <div class="card u-mt-4">
+            <p class="card-title">System status</p>
+            <table class="kv-table" id="settings-system"><tr><td class="muted">Loading…</td></tr></table>
+          </div>
+          <div class="card u-mt-4">
+            <p class="card-title">About</p>
+            <table class="kv-table" id="settings-about"><tr><td class="muted">Loading…</td></tr></table>
+          </div>
+        </div>
+        <div>
+          <div class="card" id="settings-export-panel">
+            <p class="card-title">Export configuration</p>
+            <p class="muted">Download the current general settings and version info as JSON.</p>
+            <button type="button" class="btn btn-sm" id="settings-export-btn">Export</button>
+          </div>
+          <div class="card u-mt-4" id="settings-import-panel">
+            <p class="card-title">Import configuration</p>
+            <p class="muted">Upload a previously exported configuration file to preview which environment variables to set. ROLE OS cannot apply settings to a running server — you'll need to set them and restart.</p>
+            <form id="settings-import-form">
+              <input type="file" id="settings-import-file-input" accept=".json" required />
+              <button type="submit" class="btn btn-sm" id="settings-import-submit-btn">Preview</button>
+            </form>
+            <div id="settings-import-status" class="u-mt-4"></div>
+          </div>
+          <div class="card u-mt-4">
+            <p class="card-title">Maintenance</p>
+            <table class="kv-table" id="settings-maintenance"><tr><td class="muted">Loading…</td></tr></table>
+            <div class="u-mt-4">
+              <button type="button" class="btn btn-sm" id="settings-rebuild-graph-btn">Rebuild graph</button>
+              <button type="button" class="btn btn-sm" id="settings-clear-cache-btn">Clear cache</button>
+            </div>
+            <div id="settings-maintenance-status" class="u-mt-4"></div>
+          </div>
+        </div>
       </div>
       <p class="muted u-mt-4">
         ROLE OS Command Center is a UI-only layer over the existing Builder,
@@ -1610,13 +1660,113 @@
         APIs — nothing here writes to a database directly.
       </p>
     `;
-    const health = await fetchJSON("/health");
-    document.getElementById("settings-table").innerHTML = `
-      <tr><th>App</th><td>${escapeHtml(health.app)}</td></tr>
-      <tr><th>Version</th><td>${escapeHtml(health.version)}</td></tr>
-      <tr><th>Status</th><td>${escapeHtml(health.status)}</td></tr>
-      <tr><th>Knowledge database connected</th><td>${health.database_connected ? "Yes" : "No"}</td></tr>
+
+    const overview = await fetchJSON("/settings");
+
+    document.getElementById("settings-general").innerHTML = `
+      <tr><th>App name</th><td>${escapeHtml(overview.general.app_name)}</td></tr>
+      <tr><th>Version</th><td>${escapeHtml(overview.general.app_version)}</td></tr>
+      <tr><th>Default import path</th><td>${escapeHtml(overview.general.default_import_path || "not set")}</td></tr>
+      <tr><th>Search result limit</th><td>${overview.general.search_result_limit}</td></tr>
+      ${Object.entries(overview.general.database_paths)
+        .map(([name, path]) => `<tr><th>${escapeHtml(name)} DB path</th><td>${escapeHtml(path)}</td></tr>`)
+        .join("")}
     `;
+
+    document.getElementById("settings-system").innerHTML = `
+      <tr><th>Total conversations</th><td>${overview.system.total_conversations}</td></tr>
+      <tr><th>Total extracted objects</th><td>${overview.system.total_extracted_objects}</td></tr>
+      <tr><th>Database location</th><td>${escapeHtml(overview.system.database_location)}</td></tr>
+      ${Object.entries(overview.system.database_sizes_bytes)
+        .map(([name, size]) => `<tr><th>${escapeHtml(name)} DB size</th><td>${formatBytes(size)}</td></tr>`)
+        .join("")}
+      <tr><th>Last import</th><td>${escapeHtml(overview.system.last_import || "never")}</td></tr>
+      <tr><th>Last extraction</th><td>${escapeHtml(overview.system.last_extraction || "never")}</td></tr>
+    `;
+
+    document.getElementById("settings-about").innerHTML = `
+      <tr><th>Version</th><td>${escapeHtml(overview.about.version)}</td></tr>
+      <tr><th>Commit</th><td>${escapeHtml(overview.about.commit || "unknown")}</td></tr>
+      <tr><th>Build date</th><td>${escapeHtml(overview.about.build_date || "not stamped")}</td></tr>
+      <tr><th>License</th><td>${escapeHtml(overview.about.license)}</td></tr>
+    `;
+
+    document.getElementById("settings-maintenance").innerHTML = `
+      <tr><th>Settings cache</th><td>${overview.maintenance.cache_exists ? "Active" : "Empty"}</td></tr>
+      <tr><th>Description</th><td>${escapeHtml(overview.maintenance.cache_description)}</td></tr>
+    `;
+
+    wireSettingsActions();
+  }
+
+  function wireSettingsActions() {
+    document.getElementById("settings-export-btn").addEventListener("click", () => {
+      window.location.href = "/settings/export";
+    });
+
+    const form = document.getElementById("settings-import-form");
+    const fileInput = document.getElementById("settings-import-file-input");
+    const submitBtn = document.getElementById("settings-import-submit-btn");
+    const statusEl = document.getElementById("settings-import-status");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Validating…";
+      statusEl.innerHTML = '<p class="muted loading-pulse">Validating configuration…</p>';
+
+      const body = new FormData();
+      body.append("file", file);
+
+      try {
+        const result = await fetchJSON("/settings/import", { method: "POST", body });
+        const envRows = Object.entries(result.env_vars_to_set)
+          .map(([name, value]) => `<tr><th>${escapeHtml(name)}</th><td>${escapeHtml(value)}</td></tr>`)
+          .join("");
+        statusEl.innerHTML = `
+          <p class="u-mt-0">${escapeHtml(result.note)}</p>
+          <table class="kv-table">${envRows || '<tr><td class="muted">No recognized fields found.</td></tr>'}</table>
+        `;
+      } catch (err) {
+        statusEl.innerHTML = `<p class="error-box">Import failed: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Preview";
+        form.reset();
+      }
+    });
+
+    const maintenanceStatusEl = document.getElementById("settings-maintenance-status");
+
+    document.getElementById("settings-rebuild-graph-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      maintenanceStatusEl.innerHTML = '<p class="muted loading-pulse">Rebuilding graph…</p>';
+      try {
+        const result = await fetchJSON("/settings/maintenance/rebuild-graph", { method: "POST" });
+        maintenanceStatusEl.innerHTML = `<p class="u-mt-0">Rebuilt: ${result.nodes} nodes, ${result.edges} edges.</p>`;
+      } catch (err) {
+        maintenanceStatusEl.innerHTML = `<p class="error-box">Rebuild failed: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    document.getElementById("settings-clear-cache-btn").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      maintenanceStatusEl.innerHTML = '<p class="muted loading-pulse">Clearing cache…</p>';
+      try {
+        await fetchJSON("/settings/maintenance/clear-cache", { method: "POST" });
+        maintenanceStatusEl.innerHTML = '<p class="u-mt-0">Cache cleared.</p>';
+      } catch (err) {
+        maintenanceStatusEl.innerHTML = `<p class="error-box">Clear cache failed: ${escapeHtml(err.message)}</p>`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   // =======================================================================

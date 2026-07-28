@@ -60,9 +60,21 @@ class Settings:
         ).resolve()
         self.app_name: str = "ROLE OS"
         self.app_version: str = "1.0.0-alpha"
+        self.license: str = "Proprietary"
         self.base_dir: Path = Path(__file__).resolve().parent
         self.static_dir: Path = self.base_dir / "static"
         self.templates_dir: Path = self.base_dir / "templates"
+        self.repo_root: Path = self.base_dir.parent.parent
+        # Settings (Sprint 8): both env-var driven, same pattern as every
+        # path above -- no new persistence, just two more optional
+        # environment variables. `default_import_path` has no behavior
+        # wired to it yet (nothing currently pre-fills an import dialog
+        # with it); it exists so the Settings page has something honest
+        # to display instead of a placeholder. `search_result_limit` *is*
+        # wired in: it's the Advisor Search API's default `limit` when the
+        # caller doesn't specify one.
+        self.default_import_path: str = os.environ.get("ROLE_OS_DEFAULT_IMPORT_PATH", "")
+        self.search_result_limit: int = int(os.environ.get("ROLE_OS_SEARCH_RESULT_LIMIT", "100"))
 
 
 @lru_cache

@@ -115,6 +115,22 @@ def test_search_type_filter_conversations():
     assert all(r["object_type"] == "Conversation" for r in body["results"])
 
 
+def test_search_default_limit_comes_from_settings():
+    """Sprint 8: an omitted `limit` now defers to Settings.search_result_limit
+    rather than a hardcoded default baked into the query param."""
+    from app.config import get_settings
+
+    resp = client.get("/advisor/search")
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) <= get_settings().search_result_limit
+
+
+def test_search_explicit_limit_still_overrides_settings_default():
+    resp = client.get("/advisor/search?limit=3")
+    assert resp.status_code == 200
+    assert len(resp.json()["results"]) <= 3
+
+
 def test_search_invalid_type_400():
     resp = client.get("/advisor/search?type=NotARealType")
     assert resp.status_code == 400

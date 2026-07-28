@@ -25,12 +25,13 @@ router = APIRouter(prefix="/advisor/search", tags=["advisor"])
 def search_knowledge(
     q: str | None = Query(None, description="Keyword to search for (partial match); omit to list all of a type"),
     type: str | None = Query(None, description=f"Restrict to one of {RESULT_TYPES}"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int | None = Query(None, ge=1, le=500, description="Defaults to Settings.search_result_limit (Sprint 8)"),
     settings: Settings = Depends(get_settings),
 ) -> SearchResponse:
     if type is not None and type not in RESULT_TYPES:
         raise HTTPException(status_code=400, detail=f"type must be one of {RESULT_TYPES}")
-    results = search_module.search(q=q, result_type=type, limit=limit, settings=settings)
+    effective_limit = limit if limit is not None else settings.search_result_limit
+    results = search_module.search(q=q, result_type=type, limit=effective_limit, settings=settings)
     return SearchResponse(results=[SearchResult(**r) for r in results], total=len(results))
 
 
