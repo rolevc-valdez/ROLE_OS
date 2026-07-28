@@ -9,6 +9,7 @@ import json
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
 
 from app.config import Settings, get_settings
+from app.conversation_graph.engine import build_graph
 from app.extraction import db as extraction_db
 from app.imports import db
 from app.imports import service
@@ -54,11 +55,13 @@ def import_facets(settings: Settings = Depends(get_settings)) -> ImportFacets:
 
 @router.get("/metrics", response_model=ExplorerMetrics)
 def import_metrics(settings: Settings = Depends(get_settings)) -> ExplorerMetrics:
-    """Explorer dashboard metrics. `imported_conversations` and the seven
-    knowledge-object counts (Sprint 4) are real; `pending_processing` and
-    `processed` stay 0 — there is no per-conversation processing-state
-    tracking yet, only extraction counts in aggregate."""
+    """Explorer dashboard metrics. `imported_conversations`, the seven
+    knowledge-object counts (Sprint 4), and `graph_nodes`/`graph_edges`
+    (Sprint 5) are real; `pending_processing`/`processed` stay 0 — there is
+    no per-conversation processing-state tracking yet, only extraction
+    counts in aggregate."""
     counts = extraction_db.counts_by_type(settings=settings)
+    graph = build_graph(settings)
     return ExplorerMetrics(
         imported_conversations=db.count_conversations(settings=settings),
         pending_processing=0,
@@ -71,6 +74,8 @@ def import_metrics(settings: Settings = Depends(get_settings)) -> ExplorerMetric
         ideas=counts.get("Idea", 0),
         documents=counts.get("Document", 0),
         assets=counts.get("Asset", 0),
+        graph_nodes=len(graph.nodes),
+        graph_edges=len(graph.edges),
     )
 
 

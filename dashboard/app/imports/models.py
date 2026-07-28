@@ -81,3 +81,5 @@ class ExplorerMetrics(BaseModel):
     ideas: int
     documents: int
     assets: int
+    graph_nodes: int
+    graph_edges: int

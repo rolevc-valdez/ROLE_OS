@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routers import advisor, extraction, graph, health, imports, knowledge, projects, search, ui
+from app.routers import advisor, conversation_graph, extraction, graph, health, imports, knowledge, projects, search, ui
 from app.routers.pi import capabilities as pi_capabilities
 from app.routers.pi import dependencies as pi_dependencies
 from app.routers.pi import health as pi_health
@@ -63,5 +63,12 @@ app.include_router(imports.router)
 # Document/Asset objects from imported conversations into its own SQLite
 # file; no AI, no summarization, no graph, no advisor.
 app.include_router(extraction.router)
+
+# Knowledge Graph (Sprint 5) — additive only, namespaced under
+# /conversation-graph. Independent of the Epic 3 /graph API (different
+# pipeline, different vocabulary — see app/conversation_graph/__init__.py).
+# Computed on demand from the imports and extraction databases; no new
+# persisted store, no AI, no inferred relationships.
+app.include_router(conversation_graph.router)
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")

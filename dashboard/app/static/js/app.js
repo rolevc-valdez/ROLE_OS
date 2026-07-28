@@ -119,6 +119,7 @@
     explorer: renderExplorerPage,
     advisor: renderAdvisorPage,
     graph: renderGraphPage,
+    "conversation-graph": renderConversationGraphPage,
     assets: renderAssetsPage,
     settings: renderSettingsPage,
   };
@@ -793,6 +794,10 @@
   // =======================================================================
 
   let explorerState = null;
+  // Set by the Knowledge Graph page's "Open in Conversation Explorer"
+  // action before navigating here, so the conversation detail overlay
+  // opens automatically once the Explorer list has loaded.
+  let pendingExplorerConversationFocus = null;
 
   function defaultExplorerState() {
     return { page: 1, pageSize: 20, sortBy: "imported_at", sortDir: "desc", q: "", source: "", status: "", importedPreset: "" };
@@ -845,6 +850,12 @@
     loadExplorerFacets();
     wireExplorerControls();
     await loadExplorerList();
+
+    if (pendingExplorerConversationFocus) {
+      const focusId = pendingExplorerConversationFocus;
+      pendingExplorerConversationFocus = null;
+      openConversationDetail(focusId);
+    }
   }
 
   async function loadExplorerMetrics() {
@@ -863,6 +874,8 @@
         { label: "Ideas", value: metrics.ideas },
         { label: "Documents", value: metrics.documents },
         { label: "Assets", value: metrics.assets },
+        { label: "Graph Nodes", value: metrics.graph_nodes },
+        { label: "Graph Edges", value: metrics.graph_edges },
       ];
       el.innerHTML = indicators
         .map(
@@ -1076,6 +1089,7 @@
         <button type="button" class="btn btn-sm" id="explorer-detail-copy-btn">Copy conversation</button>
         <button type="button" class="btn btn-sm" id="explorer-detail-export-btn">Export JSON</button>
         <button type="button" class="btn btn-sm" id="explorer-detail-delete-btn">Delete</button>
+        <button type="button" class="btn btn-sm" id="explorer-detail-view-graph-btn">View in Knowledge Graph</button>
       </div>
       <input id="explorer-detail-search-input" type="search" class="u-full-width u-mb-3" placeholder="Search within this conversation..." />
       <div id="explorer-detail-messages">${conversationMessagesHtml(conv.content)}</div>
@@ -1185,6 +1199,10 @@
           detailOverlay.hidden = true;
           if (parseHash().view === "explorer") loadExplorerList();
         });
+      });
+      document.getElementById("explorer-detail-view-graph-btn").addEventListener("click", () => {
+        detailOverlay.hidden = true;
+        navigate("conversation-graph", conv.id);
       });
 
       const extractBtn = document.getElementById("explorer-detail-extract-btn");
@@ -1614,6 +1632,13 @@
     Application: "--node-application", Vendor: "--node-vendor", Capability: "--node-capability",
     Workspace: "--node-workspace", Decision: "--node-decision", Deliverable: "--node-deliverable",
     Prompt: "--node-prompt", Asset: "--node-asset", Conversation: "--node-conversation",
+    // Sprint 5 Knowledge Graph (conversation graph) node types -- lowercase,
+    // a separate vocabulary from the Epic 3 types above. Project/Person/
+    // Decision/Asset/Conversation intentionally reuse the same CSS vars as
+    // their Epic 3 counterparts for consistent coloring across both graphs.
+    conversation: "--node-conversation", project: "--node-project", person: "--node-person",
+    task: "--node-task", decision: "--node-decision", idea: "--node-idea",
+    document: "--node-document", asset: "--node-asset",
   };
 
   function nodeColor(type) {
@@ -1803,6 +1828,156 @@
         applyTransform();
       },
     };
+  }
+
+  // =======================================================================
+  // KNOWLEDGE GRAPH PAGE (Sprint 5) -- graph over imported conversations
+  // and their extracted knowledge objects. Independent of the Epic 3
+  // /graph page above: separate API (/conversation-graph), separate
+  // vocabulary (8 node types, one "contains" relationship), but reuses the
+  // same createGraphView() rendering engine and .graph-* CSS classes.
+  // =======================================================================
+
+  const CONVERSATION_GRAPH_NODE_TYPES = [
+    "conversation", "project", "person", "task", "decision", "idea", "document", "asset",
+  ];
+
+  async function renderConversationGraphPage(conversationIdParam) {
+    viewRoot.innerHTML = `
+      <div class="graph-page">
+        <div class="graph-toolbar">
+          <select id="kg-conversation-select"><option value="">All conversations</option></select>
+          <select id="kg-node-type-select">
+            <option value="">All node types</option>
+            ${CONVERSATION_GRAPH_NODE_TYPES.map((t) => `<option value="${t}">${t}</option>`).join("")}
+          </select>
+          <button id="kg-clear-filters-btn" type="button" class="btn btn-sm">Clear filters</button>
+          <button id="kg-zoom-in" type="button" class="btn btn-sm">+</button>
+          <button id="kg-zoom-out" type="button" class="btn btn-sm">-</button>
+          <button id="kg-reset-btn" type="button" class="btn btn-sm">Reset view</button>
+        </div>
+        <div class="graph-page-body">
+          <div class="graph-page-canvas-wrap">
+            <svg id="kg-canvas"></svg>
+            <p id="kg-loading-msg" class="muted loading-pulse">Loading knowledge graph…</p>
+            <p id="kg-empty-msg" class="muted" hidden>No knowledge graph data yet. Import a conversation and extract knowledge (Explorer → open a conversation → Extract Knowledge) to see it here.</p>
+          </div>
+          <aside id="kg-detail-panel" class="graph-page-sidebar graph-detail-panel">
+            <p class="muted">Click a node to see its details.</p>
+          </aside>
+        </div>
+      </div>
+    `;
+
+    const els = {
+      svg: document.getElementById("kg-canvas"),
+      emptyMsg: document.getElementById("kg-empty-msg"),
+      loadingMsg: document.getElementById("kg-loading-msg"),
+      detailPanel: document.getElementById("kg-detail-panel"),
+      conversationSelect: document.getElementById("kg-conversation-select"),
+      nodeTypeSelect: document.getElementById("kg-node-type-select"),
+      clearFiltersBtn: document.getElementById("kg-clear-filters-btn"),
+      zoomInBtn: document.getElementById("kg-zoom-in"),
+      zoomOutBtn: document.getElementById("kg-zoom-out"),
+      resetBtn: document.getElementById("kg-reset-btn"),
+    };
+
+    const view = createGraphView(els.svg, { width: 900, height: 560, interactive: true, emptyMsgEl: els.emptyMsg });
+
+    function renderDetailPanel(node) {
+      const d = node.data || {};
+      const isConversation = node.type === "conversation";
+      const rows = isConversation
+        ? [
+            ["Title", node.label],
+            ["Source", d.source || "—"],
+            ["Created", formatDate(d.created_at)],
+            ["Updated", formatDate(d.updated_at)],
+            ["Message count", d.message_count ?? "—"],
+          ]
+        : [
+            ["Type", node.type],
+            ["Value", node.label],
+            ["Confidence", d.confidence != null ? `${Math.round(d.confidence * 100)}%` : "—"],
+            ["Created", formatDate(d.created_at)],
+            ["Updated", formatDate(d.updated_at)],
+            ["Source conversation", d.conversation_id || "—"],
+          ];
+      const rowsHtml = rows.map(([k, v]) => `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(String(v))}</td></tr>`).join("");
+      const conversationId = isConversation ? d.conversation_id : d.conversation_id;
+
+      els.detailPanel.innerHTML = `
+        <h3>${escapeHtml(node.label)}</h3>
+        <p class="badge">${escapeHtml(node.type)}</p>
+        <table class="graph-detail-table">${rowsHtml}</table>
+        <div class="graph-detail-actions">
+          ${conversationId ? `<button type="button" class="btn btn-sm" id="kg-open-conversation-btn">Open in Conversation Explorer</button>` : ""}
+        </div>
+      `;
+
+      const openBtn = document.getElementById("kg-open-conversation-btn");
+      if (openBtn) {
+        openBtn.addEventListener("click", () => {
+          navigate("explorer");
+          pendingExplorerConversationFocus = conversationId;
+        });
+      }
+    }
+
+    async function selectNode(id) {
+      try {
+        const data = await fetchJSON(`/conversation-graph/nodes/${encodeURIComponent(id)}`);
+        renderDetailPanel(data.node);
+      } catch (err) {
+        els.detailPanel.innerHTML = `<p class="error-box">Could not load node: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+    view.onNodeClick(selectNode);
+
+    async function loadConversationOptions() {
+      const result = await fetchJSON("/import/conversations?page=1&page_size=200&sort_by=title&sort_dir=asc");
+      els.conversationSelect.innerHTML =
+        '<option value="">All conversations</option>' +
+        result.items.map((c) => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.title)}</option>`).join("");
+    }
+
+    async function loadFilteredView() {
+      els.loadingMsg.hidden = false;
+      try {
+        const params = new URLSearchParams();
+        if (els.conversationSelect.value) params.set("conversation_id", els.conversationSelect.value);
+        if (els.nodeTypeSelect.value) params.set("node_type", els.nodeTypeSelect.value);
+        const data = await fetchJSON(`/conversation-graph?${params.toString()}`);
+        view.setNodes(data.nodes, data.edges);
+        els.loadingMsg.hidden = true;
+      } catch (err) {
+        els.loadingMsg.hidden = true;
+        els.emptyMsg.hidden = true;
+        document.getElementById("kg-canvas").insertAdjacentHTML(
+          "afterend",
+          `<p class="error-box">Could not load knowledge graph: ${escapeHtml(err.message)}</p>`
+        );
+      }
+    }
+
+    els.conversationSelect.addEventListener("change", loadFilteredView);
+    els.nodeTypeSelect.addEventListener("change", loadFilteredView);
+    els.clearFiltersBtn.addEventListener("click", () => {
+      els.conversationSelect.value = "";
+      els.nodeTypeSelect.value = "";
+      els.detailPanel.innerHTML = '<p class="muted">Click a node to see its details.</p>';
+      view.resetZoom();
+      loadFilteredView();
+    });
+    els.zoomInBtn.addEventListener("click", () => view.zoomBy(1.2));
+    els.zoomOutBtn.addEventListener("click", () => view.zoomBy(1 / 1.2));
+    els.resetBtn.addEventListener("click", () => view.resetZoom());
+
+    await loadConversationOptions();
+    if (conversationIdParam) {
+      els.conversationSelect.value = conversationIdParam;
+    }
+    await loadFilteredView();
   }
 
   // ---------------------------------------------------------------------

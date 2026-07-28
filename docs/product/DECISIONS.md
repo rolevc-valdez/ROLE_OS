@@ -107,6 +107,44 @@ dependency update or an unavailable package index.
 treated as a significant, deliberate decision requiring explicit
 justification — not a default choice for convenience.
 
+---
+
+## Sprint 5's Knowledge Graph is a second, independent graph — not an extension of Epic 3's
+
+**Decision**: `dashboard/app/conversation_graph/` is a standalone graph
+domain with its own vocabulary (8 lowercase node types, one `contains`
+relationship), its own API (`/conversation-graph`), and its own UI page —
+computed from the imports/extraction databases. It does not extend
+`app/graph/`'s `NODE_TYPES`/`RELATIONSHIP_TYPES`, does not add a builder
+to `app/graph/builders/`, and does not share node ids with Epic 3's graph
+even where a type name is the same (e.g. both have a "Person" concept,
+but they're different nodes from different pipelines).
+
+**Why**: Epic 3's graph vocabulary is frozen and test-locked —
+`dashboard/tests/test_graph_api.py` asserts `GET /graph/meta/types`
+returns exactly 12 node types and 12 relationship types, and three
+architecture docs document "12 node types / 12 relationship types" as a
+fixed fact (see [[../architecture/04_DATA_MODEL]]). Sprint 5 needed three
+node types Epic 3 doesn't have (`Task`, `Idea`, `Document`) and a
+relationship type it doesn't have (`contains`); adding them would have
+broken a currently-passing test and contradicted the documented
+"12/12" vocabulary. Beyond the test, the two graphs' overlapping type
+names describe genuinely different things: Epic 3's `Conversation` nodes
+come from the Builder's `knowledge_cards`; Sprint 5's `conversation` nodes
+come from the imports database. Merging them under one id scheme risked
+silently conflating two unrelated pipelines' data the first time a name
+collided (e.g. two different `Person` slugs computed differently by each
+pipeline landing on the same node, silently merging unrelated context).
+
+**How to apply**: Don't extend Epic 3's `NODE_TYPES`/`RELATIONSHIP_TYPES`
+tuples to accommodate a new feature unless that feature's data genuinely
+belongs to the same three source databases (Builder, Project
+Intelligence, Advisor) Epic 3 already reads. A new pipeline with its own
+data source is a case for its own small graph domain, following this same
+"compute layer, not a database" pattern (see the entry above) at whatever
+smaller scale that pipeline needs — not a case for growing Epic 3's
+vocabulary or reusing its id scheme.
+
 ## Where to go next
 
 - [[../architecture/01_VISION]] and [[../architecture/02_PRINCIPLES]] — the

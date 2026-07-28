@@ -6,6 +6,64 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Sprint 5: Knowledge Graph — a second, independent graph visualizing
+  imported conversations connected to the knowledge objects extracted
+  from them. **Additive only**: new domain, new API namespace, new UI
+  page; extends (does not replace) the Explorer's conversation detail
+  view and `GET /import/metrics`. Deliberately kept separate from the
+  Epic 3 Knowledge Graph rather than merged into it — see below and
+  [[DECISIONS]] for why.
+  - New `dashboard/app/conversation_graph/` package: `models.py` (`Node`/
+    `Edge`/`Graph`, 8 lowercase node types — `conversation`, `project`,
+    `person`, `task`, `decision`, `idea`, `document`, `asset` — and
+    exactly one relationship type, `contains`; edges deduplicated by
+    `(source, target, type)`, edges referencing a missing node silently
+    dropped), `engine.py` (`build_graph()`: one node per imported
+    conversation + one node per extracted object + a `contains` edge from
+    each conversation to every object extracted from it, computed fresh
+    from the imports/extraction databases on every call — no new
+    persisted store). One additive helper added to the frozen Sprint 4
+    extraction module: `app.extraction.db.list_all_objects()` (read-only,
+    used only by the graph engine).
+  - New API on `/conversation-graph`: `GET /conversation-graph?conversation_id=&node_type=`
+    (structured `{nodes, edges, metrics}` response), `GET
+    /conversation-graph/nodes/{id}`, `GET
+    /conversation-graph/nodes/{id}/neighbors`.
+  - Why a second graph instead of extending Epic 3's `/graph`:
+    `dashboard/tests/test_graph_api.py` hard-asserts exactly 12 node
+    types / 12 relationship types via `/graph/meta/types`, and three
+    architecture docs document that "12/12" as fixed. This sprint's types
+    (`task`, `idea`, `document`, `contains`) aren't in that vocabulary,
+    and this sprint's same-named types (`conversation`, `person`,
+    `project`, `decision`, `asset`) come from an entirely different
+    pipeline (imports/extraction, not Builder/PI/Advisor) — merging risked
+    both breaking a passing test and silent node-id collisions across two
+    unrelated data sources. A second, small, independent graph avoids
+    both, at the cost of not being one unified graph.
+  - New **Knowledge Graph** page: sidebar nav item + `#/conversation-graph`
+    route (`dashboard/app/templates/index.html`,
+    `dashboard/app/static/js/app.js`). Reuses the existing
+    `createGraphView()` SVG zoom/pan/reset engine and
+    `.graph-page`/`.graph-toolbar`/`.graph-detail-panel` CSS as-is; only
+    new CSS is 3 additional node colors (`--node-task`, `--node-idea`,
+    `--node-document` in `colors.css`) and a small `#kg-loading-msg`/
+    `#kg-empty-msg` overlay-centering rule in `layout.css`, scoped to this
+    page's own ids so the Epic 3 Graph page's markup/CSS is untouched.
+    Filters: conversation, node type, Clear filters — exactly the two
+    filters in scope. Two-way navigation with the Conversation Explorer:
+    a "View in Knowledge Graph" button in the conversation detail overlay,
+    and an "Open in Conversation Explorer" action in the graph's node
+    detail panel.
+  - `GET /import/metrics` (Explorer dashboard metrics) gains
+    `graph_nodes`/`graph_edges`, real counts from `build_graph()`.
+  - 32 new tests: `dashboard/tests/test_conversation_graph_engine.py`
+    (node/edge validation, dedup, full graph construction, empty/
+    orphaned/incomplete data), `test_conversation_graph_api.py` (full API
+    surface, filters, node detail, neighbors, dashboard metrics),
+    `test_conversation_graph_ui.py` (nav/route/cross-link regression
+    checks, same string-assertion style as `test_ui.py`). 348/348 passing
+    repo-wide.
+
 - Sprint 4: Knowledge Extraction — deterministic, rule-based extraction of
   structured objects from imported conversations. **Additive only**: new
   domain, new database, new API namespace; extends (does not replace) the

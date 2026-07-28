@@ -83,25 +83,27 @@ walkthrough, feature list, and troubleshooting.
    Then open `http://127.0.0.1:8000/` in a browser for the dashboard UI.
    See [`dashboard/README.md`](dashboard/README.md) for endpoint and UI details.
 
-## Import, browse, and extract knowledge from ChatGPT conversations (Sprint B1 / B1.5 / 4)
+## Import, browse, extract, and graph ChatGPT conversations (Sprint B1 / B1.5 / 4 / 5)
 
 In addition to the offline Builder pipeline above, the dashboard has a
 lightweight, dashboard-owned **ChatGPT conversation importer** for bringing
 conversations in without regenerating the whole knowledge base, a
 **Conversation Explorer** page (sidebar → Explorer) for browsing,
-searching, filtering, and managing what was imported, and — per
-conversation — **Knowledge Extraction**: an "Extract Knowledge" button
-that pulls out Projects, People, Tasks, Decisions, Ideas, Documents, and
-Assets using deterministic pattern matching, with each object's
-conversation, source, confidence, and created/updated dates tracked. All
-three stay deliberately AI-free: normalize, store, search, display, and
-pattern-match only — no summarization, no free-form generation, no
-project matching, no graph inference, no Advisor recommendations; deeper
-AI-assisted understanding remains the Builder's job. See
+searching, filtering, and managing what was imported, per-conversation
+**Knowledge Extraction**: an "Extract Knowledge" button that pulls out
+Projects, People, Tasks, Decisions, Ideas, Documents, and Assets using
+deterministic pattern matching, and a **Knowledge Graph** page (sidebar →
+Knowledge Graph) that visualizes every imported conversation connected to
+the objects extracted from it. All four stay deliberately AI-free:
+normalize, store, search, display, pattern-match, and graph only — no
+summarization, no free-form generation, no inferred relationships, no
+Advisor recommendations; deeper AI-assisted understanding remains the
+Builder's job. See
 [`docs/product/CHANGELOG_PRODUCT.md`](docs/product/CHANGELOG_PRODUCT.md)
-for the supported input format, how to run an import or extraction via
-the API, CLI, or UI, deduplication behavior, Explorer search/filters,
-supported knowledge object types, and known limitations.
+for the supported input format, how to run an import/extraction via the
+API, CLI, or UI, deduplication behavior, Explorer search/filters,
+supported knowledge object types, supported graph relationships, and
+known limitations.
 
 ## Status
 

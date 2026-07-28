@@ -285,10 +285,15 @@ def test_metrics_reports_real_conversation_count():
     assert body["pending_processing"] == 0
     assert body["processed"] == 0
     # knowledge_objects/projects/people/tasks/decisions/ideas/documents/assets
-    # are real counts from the Sprint 4 extraction domain (see
-    # test_extraction_api.py for extraction-specific coverage); just assert
-    # the fields exist and are non-negative here.
-    for field in ("knowledge_objects", "projects", "people", "tasks", "decisions", "ideas", "documents", "assets"):
+    # are real counts from the Sprint 4 extraction domain, and
+    # graph_nodes/graph_edges are real counts from the Sprint 5 Knowledge
+    # Graph (see test_extraction_api.py / test_conversation_graph_api.py
+    # for domain-specific coverage); just assert the fields exist and are
+    # non-negative here.
+    for field in (
+        "knowledge_objects", "projects", "people", "tasks", "decisions", "ideas", "documents", "assets",
+        "graph_nodes", "graph_edges",
+    ):
         assert body[field] >= 0
 
 

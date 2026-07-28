@@ -16,12 +16,13 @@ app shell built with plain HTML, CSS, and vanilla JavaScript (no frontend
 framework, no build step). A persistent sidebar and header stay on screen
 at all times; a small hash-based client-side router (`#/home`,
 `#/projects`, `#/project/{id}`, `#/knowledge`, `#/explorer`, `#/advisor`,
-`#/graph`, `#/assets`, `#/settings`) swaps pages in and out of one content
-area. This is a UI-only layer: every page below is built entirely from the
-existing API described in the next section — no new backend endpoint,
-database, or business logic was introduced for Epic 4 (the Explorer page,
-added in Sprint B1.5, is the one later exception — it's a UI-only
-consumer of the `/import/*` API added alongside it, not of Epic 4 itself).
+`#/graph`, `#/conversation-graph`, `#/assets`, `#/settings`) swaps pages
+in and out of one content area. This is a UI-only layer: every page below
+is built entirely from the existing API described in the next section —
+no new backend endpoint, database, or business logic was introduced for
+Epic 4 (the Explorer page added in Sprint B1.5 and the Knowledge Graph
+page added in Sprint 5 are the later exceptions — each is a UI-only
+consumer of its own API added alongside it, not of Epic 4 itself).
 
 ### Design system
 
@@ -47,7 +48,12 @@ type-based fill color.
 ### Sidebar navigation
 
 Persistent icons for: **Home**, **Projects**, **Knowledge**, **Explorer**,
-**Advisor**, **Graph**, **Assets**, **Settings**.
+**Advisor**, **Graph**, **Knowledge Graph**, **Assets**, **Settings**.
+("Graph" is the Epic 3 Knowledge Graph over Projects/Advisor/Builder data;
+"Knowledge Graph" — added in Sprint 5 — is the separate, smaller graph over
+imported conversations and their extracted objects. See
+[Knowledge Graph domain (Sprint 5)](#knowledge-graph-domain-sprint-5)
+below for why these are two independent features, not one.)
 
 ### Home
 
@@ -124,6 +130,11 @@ with no AI chat, graph, or advisor of its own:
   summarized or modified; extracted objects are pattern-matched text, never
   generated.
 - Delete requires an explicit confirm dialog and is irreversible.
+- As of Sprint 5, the detail overlay's action row also has a **"View in
+  Knowledge Graph"** button that navigates to the new Knowledge Graph page
+  pre-filtered to that conversation; the Knowledge Graph page's node
+  detail panel has a matching **"Open in Conversation Explorer"** action
+  that comes back here and opens the same conversation.
 
 ### Graph page
 
@@ -142,6 +153,30 @@ The graph rendering code lives in one reusable `createGraphView()`
 factory in `app.js`, shared by the Home preview, the Project page
 preview, and this full page — so a bug fix or a new interaction only has
 to be written once.
+
+### Knowledge Graph page (Sprint 5)
+
+A separate, smaller graph page over imported conversations and their
+extracted knowledge objects — independent of the Graph page above (see
+[Knowledge Graph domain (Sprint 5)](#knowledge-graph-domain-sprint-5) for
+why). Reuses the same `createGraphView()` factory and `.graph-page`/
+`.graph-toolbar`/`.graph-detail-panel` CSS as the Graph page, so it looks
+and behaves consistently without any new rendering code:
+
+- **Filters**: a conversation dropdown and a node-type dropdown (exactly
+  the two filters this sprint supports), plus a Clear filters button.
+  Nothing else — no search box, no relationship filter (there is only one
+  relationship type), no saved views.
+- **Zoom** (mouse wheel or +/- buttons), **pan** (click-drag), and
+  **Reset view**.
+- Clicking a node opens its detail panel: a Conversation node shows
+  title/source/created/updated/message count; a knowledge-object node
+  shows type/value/confidence/created/updated/source conversation. Either
+  way, an action button crosses over to the Conversation Explorer for that
+  conversation.
+- Loading, empty ("No knowledge graph data yet...", shown when there are
+  no conversations or none have been extracted yet), and error states are
+  all handled explicitly.
 
 ### Advisor page
 
@@ -280,11 +315,12 @@ message content, source, and conversation id. `GET /import/conversations`
 returns `{"items": [...], "total": N, "page": N, "page_size": N}` rather
 than a bare list, so the Explorer can render page counts.
 
-`GET /import/metrics` response shape — `imported_conversations` and the
+`GET /import/metrics` response shape — `imported_conversations`, the
 seven knowledge-object counts (Sprint 4, read from the Extraction domain
-below) are real; `pending_processing`/`processed` stay `0` on purpose —
-there is no per-conversation processing-state tracking yet, only
-extraction counts in aggregate:
+below), and `graph_nodes`/`graph_edges` (Sprint 5, read from the Knowledge
+Graph domain below) are real; `pending_processing`/`processed` stay `0`
+on purpose — there is no per-conversation processing-state tracking yet,
+only extraction counts in aggregate:
 
 ```json
 {
@@ -298,7 +334,9 @@ extraction counts in aggregate:
   "decisions": 3,
   "ideas": 1,
   "documents": 1,
-  "assets": 1
+  "assets": 1,
+  "graph_nodes": 59,
+  "graph_edges": 17
 }
 ```
 
@@ -356,6 +394,42 @@ dedup/re-run behavior:
 
 Every extracted object carries: `conversation_id`, `source`, `confidence`
 (0-1), `fingerprint`, `extraction_run_id`, `created_at`, `updated_at`.
+
+### Knowledge Graph API (Sprint 5 — new, namespaced under `/conversation-graph`)
+
+Entirely additive; introduces no change to any route above, including the
+Epic 3 `/graph` API (a genuinely separate, independent graph — see
+[Knowledge Graph domain (Sprint 5)](#knowledge-graph-domain-sprint-5)).
+Computed fresh from the imports and extraction databases on every
+request; no dedicated graph database.
+
+| Method | Path                                              | Description |
+|--------|-----------------------------------------------------|--------------|
+| GET    | `/conversation-graph?conversation_id=&node_type=`     | Full graph, optionally filtered to one conversation's subgraph and/or one node type |
+| GET    | `/conversation-graph/nodes/{id}`                        | One node plus every edge touching it |
+| GET    | `/conversation-graph/nodes/{id}/neighbors`               | One-hop connected nodes, each paired with the connecting edge |
+
+`GET /conversation-graph` response shape:
+
+```json
+{
+  "nodes": [
+    {"id": "conversation:123", "type": "conversation", "label": "Git Hardening", "data": {"...": "..."}},
+    {"id": "decision:456", "type": "decision", "label": "Use SSH for GitHub", "data": {"confidence": 0.65, "conversation_id": "123", "...": "..."}}
+  ],
+  "edges": [
+    {"source": "conversation:123", "target": "decision:456", "type": "contains"}
+  ],
+  "metrics": {"nodes": 2, "edges": 1}
+}
+```
+
+`node_type` must be one of the 8 supported types (`conversation`,
+`project`, `person`, `task`, `decision`, `idea`, `document`, `asset`) or
+the request 400s. Filtering by `conversation_id` for an id that doesn't
+exist in the graph (e.g. a deleted conversation) returns an empty graph,
+not an error — see Known limitations below for why filtering and
+deletion interact this way.
 
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
@@ -734,8 +808,105 @@ something you kept.
 - No cross-conversation deduplication — the same person or project
   mentioned in two different conversations is stored as two separate
   objects (fingerprinted per-conversation), not merged into one.
-- No linkage yet to Project Intelligence projects, the Knowledge Graph, or
-  the Advisor — extracted objects are a standalone store for this sprint.
+- No linkage yet to Project Intelligence projects, the Epic 3 Knowledge
+  Graph, or the Advisor. (As of Sprint 5, extracted objects *are* linked
+  into their own, separate Knowledge Graph — see below — but that's a
+  `contains` edge back to the source conversation, not a link into PI,
+  Epic 3's graph, or the Advisor.)
+
+## Knowledge Graph domain (Sprint 5)
+
+Displays and navigates the relationships between imported conversations
+and the knowledge objects extracted from them. Lives entirely under
+`app/conversation_graph/` (`models.py`, `engine.py`, `api_models.py`) and
+is a **read/compute layer, not a new database** — same "no dedicated
+graph database" approach as the Epic 3 Knowledge Graph, just applied to a
+different, smaller pair of source databases (imports + extraction,
+instead of Project Intelligence + Advisor + Builder).
+
+**Why a second, separate graph instead of extending Epic 3's `/graph`?**
+Epic 3's graph has a frozen, test-locked vocabulary of exactly 12 node
+types and 12 relationship types (`GET /graph/meta/types` is asserted
+against those exact counts), built from a completely different pipeline
+(the Builder's `knowledge_cards`, Project Intelligence, and the Advisor).
+This sprint's node types (`Task`, `Idea`, `Document`) and relationship
+type (`contains`) don't exist in that vocabulary, and this sprint's
+"Conversation"/"Person"/"Project"/"Decision"/"Asset" concepts come from an
+entirely different pipeline (the imports/extraction domains) than Epic
+3's same-named types. Extending Epic 3's tuples would both break an
+existing passing test and risk silent node-id collisions between two
+unrelated data sources sharing a type name. A second, independent,
+much smaller graph avoids both problems and keeps Epic 3 completely
+untouched. See [[DECISIONS]] for the full reasoning.
+
+### Supported node types (8)
+
+`conversation`, `project`, `person`, `task`, `decision`, `idea`,
+`document`, `asset` — lowercase, a separate vocabulary from Epic 3's
+12 (capitalized) types. Every node id is `<type>:<raw-id>`, e.g.
+`conversation:4cf8e31f...` or `decision:754c61ec...`.
+
+### Supported relationship type (1)
+
+`contains` — every edge is `Conversation -> contains -> <object>`, one per
+extracted knowledge object, generated directly from
+`extracted_objects.conversation_id`. No relationships are inferred
+between extracted objects themselves (no "Person works on Project", no
+"Task belongs to Project", etc.) — v1.0 only represents relationships
+already explicit in the stored data.
+
+### How the graph is generated
+
+`build_graph()` reads every imported conversation
+(`app.imports.db.list_conversations()`) and every extracted object
+(`app.extraction.db.list_all_objects()`, a new read-only helper added for
+this sprint), turns each into a node, and adds one `contains` edge per
+object back to its source conversation. Nodes are deduplicated by id;
+edges are deduplicated by `(source, target, type)` so the same
+conversation/object pair is never linked twice. An edge whose source or
+target node doesn't exist is silently dropped rather than raised — this
+is what makes an orphaned extracted object (its source conversation was
+deleted) safe: the object still appears as a node, it just ends up with
+no edge pointing to it.
+
+### How to open and navigate the graph
+
+- **UI** — sidebar → **Knowledge Graph** (`#/conversation-graph`), or from
+  the Conversation Explorer's conversation detail, click **"View in
+  Knowledge Graph"** to jump straight to that conversation's subgraph.
+  Click any node for its detail panel; from a knowledge-object node's
+  detail panel, **"Open in Conversation Explorer"** jumps back.
+- **API** — `GET /conversation-graph` (see API endpoints above).
+
+### Filters
+
+Exactly two, per the v1.0 scope: **conversation** and **node type**. Both
+are query params on the same `GET /conversation-graph` endpoint and can be
+combined; a Clear filters control resets both. No free-text search, no
+time-range analysis, no clustering, no saved views, no layout options —
+deliberately out of scope for this sprint.
+
+### Known limitations
+
+- Only one relationship type (`contains`) — no inferred relationships
+  between extracted objects (e.g. no "these two Decisions are related"),
+  even where a human reader might see an obvious connection.
+- No cross-conversation identity — the same person mentioned in two
+  conversations produces two separate Person nodes, one per conversation
+  (this graph reuses the extraction domain's per-conversation
+  fingerprinting as-is; see Sprint 4's own "no cross-conversation
+  deduplication" limitation above).
+- The graph is recomputed from scratch on every request. Fine at the
+  scale of a personal knowledge base; a very large number of
+  conversations/objects would make every graph request proportionally
+  slower (no caching layer).
+- No multi-hop traversal, shortest-path, or impact-analysis queries (all
+  present in Epic 3's `/graph`) — this sprint only supports one-hop
+  "connected nodes," matching the simple star topology (a conversation and
+  its directly contained objects) this vocabulary actually has.
+- Layout is a simple circular arrangement (same `createGraphView()` layout
+  used elsewhere) — there is no force-directed or hierarchical layout
+  option.
 
 ## Setup
 

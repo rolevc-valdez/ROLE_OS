@@ -61,6 +61,14 @@
   --node-asset: #d9de6d;
   --node-conversation: #7d95ff;
 
+  /* Additional node colors for the Sprint 5 Knowledge Graph (conversation
+     graph) -- a separate, smaller node vocabulary from the 12 above, but
+     Project/Person/Decision/Asset/Conversation reuse the same colors for
+     visual consistency across both graphs. */
+  --node-task: #6dd9c7;
+  --node-idea: #ffb84d;
+  --node-document: #a3e0ff;
+
   /* Shadows */
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
   --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.55);

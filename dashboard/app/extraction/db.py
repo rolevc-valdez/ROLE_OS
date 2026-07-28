@@ -163,6 +163,15 @@ def list_objects(
     return [_row_to_object(row) for row in rows]
 
 
+def list_all_objects(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Every extracted object across every conversation. Used by the
+    Knowledge Graph engine (Sprint 5) to build the full graph in one pass;
+    not exposed as its own API endpoint."""
+    with get_connection(settings) as conn:
+        rows = conn.execute("SELECT * FROM extracted_objects ORDER BY conversation_id ASC, created_at ASC").fetchall()
+    return [_row_to_object(row) for row in rows]
+
+
 def get_object(object_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     with get_connection(settings) as conn:
         row = conn.execute("SELECT * FROM extracted_objects WHERE id = ?", (object_id,)).fetchone()

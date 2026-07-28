@@ -195,6 +195,21 @@ html, body {
   height: 100%;
 }
 
+/* Sprint 5 Knowledge Graph page: overlay the loading/empty message
+   centered on the canvas instead of letting it fall in normal flow below
+   the (100%-height) svg. Scoped to this page's own ids so the Epic 3
+   Graph page's canvas/empty-msg markup is untouched. */
+#kg-loading-msg,
+#kg-empty-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px;
+}
+
 .graph-page-sidebar {
   width: 320px;
   overflow-y: auto;

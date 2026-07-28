@@ -5,6 +5,28 @@ for someone deciding whether/how to use it, not for someone reading a
 diff. For full engineering detail, see `CHANGELOG.md` at the repo root;
 for the reasoning behind key choices, see [[DECISIONS]].
 
+## Knowledge Graph (Sprint 5)
+
+ROLE OS can now show you how your imported conversations and the
+knowledge extracted from them actually connect — a new **Knowledge
+Graph** page (sidebar → Knowledge Graph) alongside the existing Graph
+page. Every imported conversation appears as a node; every Project,
+Person, Task, Decision, Idea, Document, and Asset extracted from it
+appears as its own node, connected back to that conversation. Click any
+node to see its details — a conversation's title, source, and message
+count, or a knowledge object's value, confidence, and source conversation
+— with zoom, pan, and reset-view, plus filters for conversation and node
+type. From the Conversation Explorer, "View in Knowledge Graph" jumps
+straight to a conversation's subgraph; from the graph, "Open in
+Conversation Explorer" jumps back. This is a second, independent graph
+from the existing Graph page (which covers Projects/Advisor/Builder data)
+— not a replacement or extension of it. Nothing here is inferred or
+AI-generated: the only relationship shown is the one the extraction
+pipeline already recorded (a conversation contains the objects extracted
+from it); see [`dashboard/README.md`](../../dashboard/README.md) for the
+full node/relationship vocabulary, how the graph is generated, and known
+limitations.
+
 ## Knowledge Extraction (Sprint 4)
 
 Every imported conversation can now be turned into structured knowledge:
