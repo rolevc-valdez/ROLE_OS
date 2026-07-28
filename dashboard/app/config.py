@@ -59,7 +59,7 @@ class Settings:
             )
         ).resolve()
         self.app_name: str = "ROLE OS"
-        self.app_version: str = "1.0.0-alpha"
+        self.app_version: str = "1.0.0"
         self.license: str = "Proprietary"
         self.base_dir: Path = Path(__file__).resolve().parent
         self.static_dir: Path = self.base_dir / "static"

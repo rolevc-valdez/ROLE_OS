@@ -20,9 +20,10 @@ at all times; a small hash-based client-side router (`#/home`,
 in and out of one content area. This is a UI-only layer: every page below
 is built entirely from the existing API described in the next section —
 no new backend endpoint, database, or business logic was introduced for
-Epic 4 (the Explorer page added in Sprint B1.5 and the Knowledge Graph
-page added in Sprint 5 are the later exceptions — each is a UI-only
-consumer of its own API added alongside it, not of Epic 4 itself).
+Epic 4 (the Explorer page added in Sprint B1.5, the Knowledge Graph page
+added in Sprint 5, and the Settings page's new backend added in Sprint 8
+are the later exceptions — each is a UI-only consumer of its own API added
+alongside it, not of Epic 4 itself).
 
 ### Design system
 
@@ -234,12 +235,36 @@ then recommendation cards grouped by workspace, each with evidence,
 impact, estimated effort, and Dismiss / Mark completed actions
 (`/advisor/recommendations`).
 
-### Assets and Settings
+### Assets page
 
-- **Assets** lists every `Asset` node from the Knowledge Graph
-  (`/graph?node_type=Asset`).
-- **Settings** shows read-only system status (app name, version, database
-  connectivity) from the existing `/health` endpoint.
+Lists every `Asset` node from the Knowledge Graph (`/graph?node_type=Asset`).
+
+### Settings page (Sprint 8)
+
+Reads the new `GET /settings` overview endpoint (see
+[Settings domain (Sprint 8)](#settings-domain-sprint-8) below) instead of
+the earlier placeholder that only showed `/health`:
+
+- **General** — app name, version, default import path, search result
+  limit, and every database's configured path.
+- **System status** — total conversations, total extracted objects,
+  database location, per-database file size, last import date, last
+  extraction date.
+- **About** — version, git commit (short hash, if the app is running from
+  a git checkout), build date (always `null` — no build pipeline stamps
+  one), license.
+- **Export configuration** — downloads the current general/about settings
+  as a JSON file (`GET /settings/export`).
+- **Import configuration** — uploads a previously exported (or hand-written)
+  JSON file and previews which environment variables it maps to
+  (`POST /settings/import`); never applies anything to the running
+  process — see below for why.
+- **Maintenance** — "Rebuild graph" forces a fresh `build_graph()` call and
+  reports the resulting node/edge counts (`POST
+  /settings/maintenance/rebuild-graph`); "Clear cache" clears the
+  in-memory `get_settings()` `@lru_cache` so an updated environment
+  variable takes effect without a full process restart
+  (`POST /settings/maintenance/clear-cache`).
 
 ### Performance
 
@@ -366,6 +391,11 @@ second lookup:
 uses (`GET /conversation-graph/nodes/{id}`), so "Open Graph" needs no
 translation step.
 
+As of Sprint 8, an omitted `limit` defaults to `Settings.search_result_limit`
+(itself defaulting to 100, overridable via `ROLE_OS_SEARCH_RESULT_LIMIT`)
+instead of a value hardcoded in the query parameter; passing `limit`
+explicitly still overrides it.
+
 ### Knowledge Graph API (Epic 3 — new, namespaced under `/graph`)
 
 Entirely additive; introduces no change to any route above. The graph is
@@ -448,6 +478,46 @@ only extraction counts in aggregate:
   "errors": [{"index": 42, "reason": "no id, title, or extractable content"}],
   "started_at": "…",
   "completed_at": "…"
+}
+```
+
+### Settings API (Sprint 8 — new, namespaced under `/settings`)
+
+Entirely additive; introduces no change to any route above. Aggregates
+configuration and status information that already exists elsewhere in the
+app (database paths, live counts, Knowledge Graph status, version/commit/
+license) — no new persistence model, and no mechanism to mutate a running
+process's environment.
+
+| Method | Path                                    | Description |
+|--------|-------------------------------------------|--------------|
+| GET    | `/settings`                                 | General settings, system status, about info, and maintenance status in one response |
+| GET    | `/settings/export`                           | Download the current general/about settings as a JSON file |
+| POST   | `/settings/import`                            | Validate an uploaded configuration JSON file and preview which environment variables it maps to (never applies it) |
+| POST   | `/settings/maintenance/rebuild-graph`           | Force a fresh `build_graph()` call (Epic 3 Knowledge Graph) and report node/edge counts |
+| POST   | `/settings/maintenance/clear-cache`              | Clear the in-memory `get_settings()` cache |
+
+`GET /settings` response shape:
+
+```json
+{
+  "general": {
+    "app_name": "ROLE OS",
+    "app_version": "1.0.0",
+    "database_paths": {"builder": "...", "projects": "...", "advisor": "...", "imports": "...", "extraction": "..."},
+    "default_import_path": null,
+    "search_result_limit": 100
+  },
+  "system": {
+    "total_conversations": 0,
+    "total_extracted_objects": 0,
+    "database_location": "...",
+    "database_sizes_bytes": {"builder": null, "projects": 86016, "advisor": 28672, "imports": 32768, "extraction": 36864},
+    "last_import": null,
+    "last_extraction": null
+  },
+  "about": {"version": "1.0.0", "commit": "e1dda55", "build_date": null, "license": "Proprietary"},
+  "maintenance": {"cache_exists": true, "cache_description": "In-memory Settings cache (get_settings())"}
 }
 ```
 
@@ -1077,6 +1147,53 @@ works with zero translation.
   content, via the Explorer's existing search).
 - No saved searches, no search history, no query suggestions.
 
+## Settings domain (Sprint 8)
+
+Centralizes configuration and metadata that already exists elsewhere in
+the app so it's visible and exportable in one place. Lives entirely in a
+single `app/routers/settings.py` module — no new package, no new
+database. Two small additions to `app/config.py` back it:
+`default_import_path` (`ROLE_OS_DEFAULT_IMPORT_PATH`, purely informational
+— nothing currently pre-fills an import dialog with it) and
+`search_result_limit` (`ROLE_OS_SEARCH_RESULT_LIMIT`, which *is* wired in
+as the Advisor Search API's default `limit`, see above).
+
+### Why import can only validate and preview, never apply
+
+`POST /settings/import` parses the uploaded file, maps every recognized
+field to its environment variable name (`_ENV_VAR_MAP`), and returns that
+mapping — it never writes to the process environment or restarts
+anything. This is a deliberate boundary, not a missing feature: ROLE OS
+has no mechanism (and this sprint adds none) to safely mutate a live
+server's environment variables from an untrusted upload. The response
+tells the caller exactly which `ROLE_OS_*` variable to set for each field
+it recognized, so they can apply it themselves and restart.
+
+### Why "Rebuild graph" and "Clear cache" are the only maintenance actions
+
+The Epic 3 Knowledge Graph (`app/graph/engine.py::build_graph()`) is
+always computed fresh on every `/graph/*` request — there's nothing to
+invalidate. "Rebuild graph" exists to give that action concrete, honest
+meaning: it forces a fresh build right now and reports what it found,
+rather than pretending to warm a cache that doesn't exist. The one real,
+clearable cache in the process is `get_settings()`'s `@lru_cache`
+memoization; "Clear cache" clears exactly that, so an updated environment
+variable can take effect on the next request without a full restart.
+
+### Known limitations
+
+- Import is validate-and-preview only, by design (see above) — there is
+  no "Apply" button and none is planned for this release.
+- `default_import_path` is display-only — no import flow reads it yet to
+  pre-fill a file path.
+- `build_date` is always `null` — there is no build pipeline that stamps
+  one; `commit` is best-effort (`git rev-parse --short HEAD` against the
+  repo root) and is `null` outside a git checkout or if git isn't
+  available.
+- "Clear cache" only affects `get_settings()`'s in-memory cache — it does
+  not re-read environment variables that were already baked into a
+  running process's other state (e.g. an already-open SQLite connection).
+
 ## Setup
 
 ```bash
@@ -1146,6 +1263,7 @@ dashboard/
         stale_project.py, near_completion.py, blocked_dependency.py,
         critical_health.py, overdue_todos.py, missing_deliverables.py,
         inactive_high_priority.py, capability_opportunity.py
+      search.py, search_models.py           # Advisor Search domain (Sprint 6) — sibling module, not part of the rule engine
     graph/                        # Knowledge Graph domain (Epic 3)
       models.py                     # Node/Edge/Graph data structures + the 12 node/12 relationship types
       engine.py                      # build_graph(): reads all 3 DBs, merges every builder's output
@@ -1155,6 +1273,12 @@ dashboard/
         project_graph.py, dependency_graph.py, capability_graph.py,
         knowledge_graph.py, people_graph.py, application_graph.py,
         vendor_graph.py
+    imports/                       # ChatGPT Conversation Importer + Explorer domain (Sprint B1 / B1.5)
+      parser.py, db.py, service.py, models.py
+    extraction/                    # Knowledge Extraction domain (Sprint 4)
+      rules.py, db.py, service.py, models.py
+    conversation_graph/            # Knowledge Graph domain (Sprint 5) — separate from graph/ above
+      models.py, engine.py, api_models.py
     routers/
       health.py, projects.py, search.py, knowledge.py   # Milestone 1 API (unchanged)
       ui.py                                                # Dashboard page + /ui/recent, /ui/timeline
@@ -1162,7 +1286,12 @@ dashboard/
         workspaces.py, projects.py, collections.py,
         capabilities.py, dependencies.py, health.py
       advisor.py                                               # Advisor API, namespaced /advisor
+      advisor_search.py                                         # Advisor Search API (Sprint 6), namespaced /advisor/search
       graph.py                                                  # Knowledge Graph API, namespaced /graph
+      imports.py                                                 # ChatGPT Conversation Importer + Explorer API, namespaced /import
+      extraction.py                                               # Knowledge Extraction API, namespaced /extraction
+      conversation_graph.py                                        # Knowledge Graph (Sprint 5) API, namespaced /conversation-graph
+      settings.py                                                   # Settings API (Sprint 8), namespaced /settings
     templates/
       index.html               # Command Center app shell (Jinja2): sidebar + header + #view-root
     static/

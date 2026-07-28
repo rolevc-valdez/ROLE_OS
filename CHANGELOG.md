@@ -2,9 +2,70 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [1.0.0] - 2026-07-28
+
+ROLE OS v1.0 release. See [`RELEASE_NOTES_v1.0.md`](RELEASE_NOTES_v1.0.md)
+for the release-facing summary of highlights, known limitations, and
+roadmap.
 
 ### Added
+
+- Sprint 9: Release — the v1.0 release package. **Documentation only**: no
+  code, API, database, or UI behavior changed except the version string
+  itself.
+  - New root-level release docs: `QUICK_START.md`, `INSTALLATION.md`,
+    `ARCHITECTURE.md`, `RELEASE_NOTES_v1.0.md`, `LICENSE.md`,
+    `FINAL_RELEASE_CHECKLIST.md`, `CONTRIBUTING.md`.
+  - `README.md` reorganized with explicit Features, Architecture overview,
+    Requirements, Running locally, Repository structure, and License
+    sections (content already accurate elsewhere in the repo, now
+    consolidated in one place).
+  - `dashboard/README.md` updated to document the Settings domain
+    (Sprint 8), which had shipped in code but was undocumented: the
+    Settings page description, the `/settings/*` API table and response
+    shape, a "Settings domain (Sprint 8)" narrative section, the
+    Advisor Search default-limit change, and project-layout tree entries
+    for every router/domain package that had been added since Epic 3
+    (`imports/`, `extraction/`, `conversation_graph/`, `advisor_search.py`,
+    `settings.py`) but was missing from that tree.
+  - App version bumped from `1.0.0-alpha` to `1.0.0`
+    (`dashboard/app/config.py`, `pyproject.toml`).
+
+- Sprint 8: Settings — a Settings page backed by a real API, replacing the
+  earlier placeholder that only read `/health`. **Additive only**: one new
+  router, two new `Settings` fields, one default-value change to an
+  existing endpoint; every other endpoint and page is unchanged.
+  - Two new fields on `app/config.py`'s `Settings`: `license` (fixed
+    `"Proprietary"`, matching `pyproject.toml`), `repo_root` (for git
+    commit lookup), `default_import_path`
+    (`ROLE_OS_DEFAULT_IMPORT_PATH`, informational only — nothing pre-fills
+    an import dialog with it yet), and `search_result_limit`
+    (`ROLE_OS_SEARCH_RESULT_LIMIT`, default 100).
+  - `GET /advisor/search`'s `limit` query param now defaults to
+    `Settings.search_result_limit` instead of a value hardcoded in the
+    endpoint signature; passing `limit` explicitly still overrides it.
+  - New `dashboard/app/routers/settings.py`, namespaced under `/settings`:
+    `GET /settings` (general config, system status, about info,
+    maintenance status in one response), `GET /settings/export` (download
+    current settings as JSON), `POST /settings/import` (validate an
+    uploaded configuration file and preview which `ROLE_OS_*` environment
+    variables it maps to — never applies it to the running process, since
+    there is no mechanism to safely mutate a live server's environment),
+    `POST /settings/maintenance/rebuild-graph` (force a fresh
+    `build_graph()` call and report node/edge counts), `POST
+    /settings/maintenance/clear-cache` (clear the in-memory
+    `get_settings()` `@lru_cache`).
+  - Settings page (`dashboard/app/static/js/app.js`) rewritten to consume
+    the new API: General/System status/About tables, an Export button, an
+    Import-and-preview form, and Rebuild graph/Clear cache actions with
+    their own status panel — replacing the old four-row `/health`-only
+    table.
+  - 16 new tests: `dashboard/tests/test_settings_api.py` (overview shape,
+    export, import preview/validation/never-applies, maintenance actions,
+    regression check that other endpoints are unaffected),
+    `test_settings_ui.py` (nav/route/markup/endpoint-wiring regression
+    checks), plus 2 new tests in `test_advisor_search_api.py` covering the
+    new default-limit behavior. 386/386 passing repo-wide.
 
 - Sprint 7: Dashboard — a new executive-summary sidebar page over the
   Importer/Explorer/Extraction/Knowledge Graph/Advisor Search pipeline.
