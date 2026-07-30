@@ -1,6 +1,6 @@
 # ROLE OS
 
-**Version 1.0** — a personal Knowledge Operating System built on top of
+**Version 1.1** — a personal Knowledge Operating System built on top of
 your own ChatGPT conversation history. No external AI/LLM API is called
 anywhere in the system: every extractor, health signal, Advisor rule, and
 Graph relationship is rule-based and deterministic.
@@ -54,6 +54,13 @@ existing API, with no frontend framework.
 - **Settings** — a read-only, exportable view of configuration, live
   system status, and version/license info, with maintenance actions
   (rebuild graph, clear cache).
+- **Daily Session** — a Start/End My Day workflow: pick a date, project,
+  and operation mode (PLAN/BUILD/CREATE/LAUNCH/OPERATE/LEARN); get a
+  copyable Claude session-initialization prompt; close the day with a
+  generated, Obsidian-compatible Markdown daily record (copy, download, or
+  optionally save straight into a configured vault folder); plus a small
+  local registry of ROLE Ecosystem projects and a Recent Decisions feed
+  read live from `role-ecosystem/DECISION_LOG.md` when configured.
 - **Command Center UI** — one dark-themed, framework-free single-page app
   over all of the above.
 

@@ -7,6 +7,8 @@
  */
 
 :root {
+  color-scheme: dark;
+
   /* Surfaces */
   --bg-app: #0b0d12;
   --bg-sidebar: #0e1016;
@@ -73,4 +75,49 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.28);
   --shadow-overlay: 0 20px 60px rgba(0, 0, 0, 0.55);
   --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--brand-primary);
+}
+
+/*
+ * Light theme (Session page / MVP requirement: dark and light mode
+ * compatibility). Purely additive: every rule in layout.css,
+ * components.css, and animations.css already reads colors exclusively
+ * through the custom properties above, so redefining them here for
+ * `light` is enough to re-theme the entire Command Center -- no other
+ * file changes. Status/priority/node colors are left as-is: they already
+ * carry enough contrast against a light surface and keep their meaning
+ * consistent across both themes.
+ */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    /* Surfaces */
+    --bg-app: #f5f6f9;
+    --bg-sidebar: #ffffff;
+    --bg-header: #ffffff;
+    --bg-surface: #ffffff;
+    --bg-surface-raised: #ffffff;
+    --bg-surface-hover: #eef0f5;
+    --bg-overlay: rgba(20, 22, 30, 0.45);
+
+    /* Borders */
+    --border-subtle: #e1e4ec;
+    --border-strong: #cbd0dd;
+
+    /* Text */
+    --text-primary: #191c24;
+    --text-secondary: #565d6f;
+    --text-muted: #8a90a1;
+    --text-inverse: #ffffff;
+
+    /* Brand */
+    --brand-primary: #3a5bd9;
+    --brand-primary-strong: #2846b8;
+    --brand-primary-soft: rgba(58, 91, 217, 0.1);
+
+    /* Shadows -- lighter, since a light surface needs less depth cue */
+    --shadow-card: 0 1px 2px rgba(20, 22, 30, 0.06), 0 8px 24px rgba(20, 22, 30, 0.08);
+    --shadow-overlay: 0 20px 60px rgba(20, 22, 30, 0.22);
+    --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--brand-primary);
+  }
 }

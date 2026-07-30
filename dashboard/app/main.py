@@ -21,8 +21,13 @@ from app.routers import (
     knowledge,
     projects,
     search,
-    settings as settings_router,
     ui,
+)
+from app.routers import (
+    session as session_router,
+)
+from app.routers import (
+    settings as settings_router,
 )
 from app.routers.pi import capabilities as pi_capabilities
 from app.routers.pi import dependencies as pi_dependencies
@@ -94,5 +99,11 @@ app.include_router(conversation_graph.router)
 # Aggregates existing config/status/version info and offers export/import
 # preview and maintenance actions; introduces no new persisted store.
 app.include_router(settings_router.router)
+
+# Daily Session (ROLE OS Dashboard MVP) -- additive only, namespaced under
+# /session. Owns its own SQLite file (Start/End My Day, the project
+# registry); generates the Claude prompt and the Obsidian daily record as
+# pure text, calling no AI/LLM API.
+app.include_router(session_router.router)
 
 app.mount("/static", StaticFiles(directory=str(settings.static_dir)), name="static")

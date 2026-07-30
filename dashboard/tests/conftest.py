@@ -15,7 +15,9 @@ os.environ.setdefault(
 # schema + seeds default workspaces on first use, so tests get a fresh,
 # isolated database rather than mutating any committed sample file.
 _PROJECTS_DB_DIR = tempfile.mkdtemp(prefix="role_os_projects_test_")
-os.environ.setdefault("ROLE_OS_PROJECTS_DB_PATH", str(Path(_PROJECTS_DB_DIR) / "role_os_projects.db"))
+os.environ.setdefault(
+    "ROLE_OS_PROJECTS_DB_PATH", str(Path(_PROJECTS_DB_DIR) / "role_os_projects.db")
+)
 
 # AI Advisor (Epic 2) also owns its own SQLite file and auto-creates its
 # schema on first use, so tests get a fresh, isolated recommendations store.
@@ -31,4 +33,12 @@ os.environ.setdefault("ROLE_OS_IMPORTS_DB_PATH", str(Path(_IMPORTS_DB_DIR) / "ro
 # Knowledge Extraction (Sprint 4) also owns its own SQLite file and
 # auto-creates its schema on first use, so tests get a fresh, isolated store.
 _EXTRACTION_DB_DIR = tempfile.mkdtemp(prefix="role_os_extraction_test_")
-os.environ.setdefault("ROLE_OS_EXTRACTION_DB_PATH", str(Path(_EXTRACTION_DB_DIR) / "role_os_extraction.db"))
+os.environ.setdefault(
+    "ROLE_OS_EXTRACTION_DB_PATH", str(Path(_EXTRACTION_DB_DIR) / "role_os_extraction.db")
+)
+
+# Daily Session (ROLE OS Dashboard MVP) also owns its own SQLite file and
+# auto-creates its schema + seeds the default project registry on first
+# use, so tests get a fresh, isolated store.
+_SESSION_DB_DIR = tempfile.mkdtemp(prefix="role_os_session_test_")
+os.environ.setdefault("ROLE_OS_SESSION_DB_PATH", str(Path(_SESSION_DB_DIR) / "role_os_session.db"))

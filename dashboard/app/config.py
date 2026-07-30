@@ -59,7 +59,7 @@ class Settings:
             )
         ).resolve()
         self.app_name: str = "ROLE OS"
-        self.app_version: str = "1.0.0"
+        self.app_version: str = "1.1.0"
         self.license: str = "Proprietary"
         self.base_dir: Path = Path(__file__).resolve().parent
         self.static_dir: Path = self.base_dir / "static"
@@ -75,6 +75,31 @@ class Settings:
         # caller doesn't specify one.
         self.default_import_path: str = os.environ.get("ROLE_OS_DEFAULT_IMPORT_PATH", "")
         self.search_result_limit: int = int(os.environ.get("ROLE_OS_SEARCH_RESULT_LIMIT", "100"))
+        # Daily Session (ROLE OS Dashboard MVP) also owns its own SQLite file,
+        # separate from every other domain's store. Unlike the sample-seeded
+        # paths above, its default lives under the repo's git-ignored `var/`
+        # directory (not `samples/`) because session data is real personal
+        # data the user generates by using the dashboard, not a checked-in
+        # fixture — it must never default into a path `.gitignore` allows
+        # back into version control.
+        self.session_db_path: Path = Path(
+            os.environ.get("ROLE_OS_SESSION_DB_PATH", "var/role_os_dashboard/role_os_session.db")
+        ).resolve()
+        # Optional path to an Obsidian vault's Daily Notes folder, used only
+        # to offer writing the generated daily Markdown record directly to
+        # disk. Empty by default -- never hardcoded, never committed, and
+        # only ever read from this environment variable (the same pattern
+        # every other path in this file already uses; this repo has no
+        # `.env` file convention to accidentally commit it into either).
+        self.obsidian_daily_notes_dir: str = os.environ.get("ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR", "")
+        # Optional path to the ROLE Ecosystem's own DECISION_LOG.md, read
+        # read-only to surface recent ecosystem decisions on the Session
+        # page. Empty by default: cross-repository reading is opt-in, never
+        # assumed, and the adapter falls back to documented sample data when
+        # this is unset or the file can't be read (see app/session/decisions_adapter.py).
+        self.ecosystem_decision_log_path: str = os.environ.get(
+            "ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH", ""
+        )
 
 
 @lru_cache

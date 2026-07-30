@@ -51,6 +51,7 @@
 .header-search input,
 input[type="search"],
 input[type="text"],
+input[type="date"],
 select,
 textarea {
   background: var(--bg-surface);
@@ -63,7 +64,8 @@ textarea {
 
 .header-search input:focus,
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -71,6 +73,35 @@ select:focus {
 .header-datetime {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+/* ---- Forms (Session page: Start/End My Day, registry editing) ------------- */
+
+.field-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.field-row label,
+form > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  flex: 1 1 200px;
+}
+
+form > label textarea,
+.field-row label input,
+.field-row label select {
+  width: 100%;
+}
+
+form > label textarea {
+  resize: vertical;
+  font-family: inherit;
 }
 
 /* ---- Buttons ----------------------------------------------------------------- */

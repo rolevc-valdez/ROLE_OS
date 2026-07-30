@@ -92,12 +92,16 @@ Then open `http://127.0.0.1:8000/`.
 
 ### Environment variables
 
-All optional — each has a sensible default pointing at the bundled sample
-data (`samples/role_os_sample/00_SYSTEM/`). See
+All optional — each has a sensible default. See
 [`dashboard/README.md`](dashboard/README.md#configuration) for the full
-table (five separate SQLite database paths, one per domain) plus
-`ROLE_OS_DEFAULT_IMPORT_PATH` and `ROLE_OS_SEARCH_RESULT_LIMIT`
-(Sprint 8).
+table: six separate SQLite database paths (one per domain — five pointing
+at the bundled sample data under `samples/role_os_sample/00_SYSTEM/`, plus
+the Daily Session database under the git-ignored `var/`, since session
+data is personal, not a fixture), `ROLE_OS_DEFAULT_IMPORT_PATH` and
+`ROLE_OS_SEARCH_RESULT_LIMIT` (Sprint 8), and
+`ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR` /
+`ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH` (ROLE OS Dashboard MVP) — both
+optional, never hardcoded.
 
 ### Running the test suite
 
@@ -129,7 +133,7 @@ Runs every test under `tests/` (repo-level), `dashboard/tests/`, and
   to run any time; it exits immediately if the demo projects already
   exist.
 - **Pointing at a different knowledge database** — set `ROLE_OS_DB_PATH`
-  (and the other four `ROLE_OS_*_DB_PATH` variables, if you want the other
+  (and the other five `ROLE_OS_*_DB_PATH` variables, if you want the other
   domains isolated too) before starting `uvicorn`.
 - **Windows line-ending warnings from git** (`LF will be replaced by CRLF`)
   — informational only; they do not affect test results or application

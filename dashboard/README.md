@@ -48,9 +48,9 @@ type-based fill color.
 
 ### Sidebar navigation
 
-Persistent icons for: **Home**, **Dashboard**, **Projects**, **Knowledge**,
-**Explorer**, **Advisor**, **Graph**, **Knowledge Graph**, **Assets**,
-**Settings**.
+Persistent icons for: **Home**, **Dashboard**, **Session**, **Projects**,
+**Knowledge**, **Explorer**, **Advisor**, **Graph**, **Knowledge Graph**,
+**Assets**, **Settings**.
 ("Graph" is the Epic 3 Knowledge Graph over Projects/Advisor/Builder data;
 "Knowledge Graph" — added in Sprint 5 — is the separate, smaller graph over
 imported conversations and their extracted objects. See
@@ -503,7 +503,7 @@ process's environment.
 {
   "general": {
     "app_name": "ROLE OS",
-    "app_version": "1.0.0",
+    "app_version": "1.1.0",
     "database_paths": {"builder": "...", "projects": "...", "advisor": "...", "imports": "...", "extraction": "..."},
     "default_import_path": null,
     "search_result_limit": 100
@@ -516,10 +516,34 @@ process's environment.
     "last_import": null,
     "last_extraction": null
   },
-  "about": {"version": "1.0.0", "commit": "e1dda55", "build_date": null, "license": "Proprietary"},
+  "about": {"version": "1.1.0", "commit": "e1dda55", "build_date": null, "license": "Proprietary"},
   "maintenance": {"cache_exists": true, "cache_description": "In-memory Settings cache (get_settings())"}
 }
 ```
+
+### Daily Session API (ROLE OS Dashboard MVP — new, namespaced under `/session`)
+
+Entirely additive; introduces no change to any route above. Owns its own
+SQLite file (`role_os_session.db`) for sessions and a small local project
+registry. No AI/LLM call anywhere -- the Claude prompt and the Markdown
+daily record are pure string templating over data the user entered.
+
+| Method | Path                                    | Description |
+|--------|-------------------------------------------|--------------|
+| GET    | `/session/modes`                            | The six operation modes (PLAN/BUILD/CREATE/LAUNCH/OPERATE/LEARN), each with a purpose, expected AI behavior, and primary resources -- the single source of truth the UI reads instead of hardcoding a second copy |
+| GET    | `/session/registry`                          | The local project registry (ROLE OS, ROLE ECOSYSTEM, ROLE MASTER, ROLE Commerce Factory, Brand Character OS, RoleValdez, SUPER FACIL, seeded by default) |
+| PATCH  | `/session/registry/{id}`                     | Update a registry project's status/reference/milestone/next_action |
+| GET    | `/session/current`                           | The currently active session, or `null` |
+| GET    | `/session/recent`                            | Recently started sessions, most recent first |
+| GET    | `/session/{id}`                              | A single session |
+| POST   | `/session/start`                             | Start a new session (409 if one is already active) |
+| POST   | `/session/{id}/complete`                     | Close a session: records completed work, decisions, blockers, next step |
+| GET    | `/session/{id}/prompt`                       | The copyable Claude session-initialization prompt |
+| GET    | `/session/{id}/markdown`                     | The Obsidian-compatible daily Markdown record, as JSON |
+| GET    | `/session/{id}/markdown/download`            | The same record as a downloadable `.md` file |
+| GET    | `/session/vault/config`                      | Whether an Obsidian Daily Notes folder is configured (`ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR`) |
+| POST   | `/session/{id}/save-to-vault`                | Optionally write the record directly into the configured vault folder |
+| GET    | `/session/decisions/recent`                  | Recent ROLE Ecosystem decisions -- live from `role-ecosystem/DECISION_LOG.md` if `ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH` is set and readable, otherwise a small documented fallback snapshot |
 
 ### Knowledge Extraction API (Sprint 4 — new, namespaced under `/extraction`)
 
@@ -1212,6 +1236,9 @@ pip install -r requirements.txt
 | `ROLE_OS_ADVISOR_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_advisor.db`           | AI Advisor recommendations database (dashboard-owned; schema created automatically on first use) |
 | `ROLE_OS_IMPORTS_DB_PATH`         | `samples/role_os_sample/00_SYSTEM/role_os_imports.db`           | ChatGPT Conversation Importer database (dashboard-owned; schema created automatically on first use) |
 | `ROLE_OS_EXTRACTION_DB_PATH`      | `samples/role_os_sample/00_SYSTEM/role_os_extraction.db`        | Knowledge Extraction database (dashboard-owned; schema created automatically on first use) |
+| `ROLE_OS_SESSION_DB_PATH`         | `var/role_os_dashboard/role_os_session.db`                     | Daily Session database (dashboard-owned; schema and the default project registry are created automatically on first use). Deliberately defaults under the git-ignored `var/` directory, not `samples/` -- session data is real personal data, not a checked-in fixture |
+| `ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR`| *(empty)*                                                       | Optional path to an Obsidian vault's Daily Notes folder. When set to an existing directory, the Session page's "Save to vault" action writes the generated daily Markdown record there as `YYYY-MM-DD.md`. Never hardcode this -- it's personal and machine-specific |
+| `ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH` | *(empty)*                                                   | Optional path to the ROLE Ecosystem's own `role-ecosystem/DECISION_LOG.md`. When set and readable, the Session page's "Recent ecosystem decisions" card reads it live; otherwise it shows a small, documented fallback snapshot |
 
 To point the dashboard at a real ROLE Knowledge OS generated by the builder:
 
@@ -1279,6 +1306,11 @@ dashboard/
       rules.py, db.py, service.py, models.py
     conversation_graph/            # Knowledge Graph domain (Sprint 5) — separate from graph/ above
       models.py, engine.py, api_models.py
+    session/                       # Daily Session domain (ROLE OS Dashboard MVP)
+      modes.py                       # Source of truth for PLAN/BUILD/CREATE/LAUNCH/OPERATE/LEARN
+      db.py, models.py                # SQLite persistence + Pydantic schemas
+      markdown.py                      # Pure-function Claude prompt + Obsidian Markdown record generation
+      decisions_adapter.py              # Reads role-ecosystem/DECISION_LOG.md live, or a documented fallback
     routers/
       health.py, projects.py, search.py, knowledge.py   # Milestone 1 API (unchanged)
       ui.py                                                # Dashboard page + /ui/recent, /ui/timeline
@@ -1292,15 +1324,18 @@ dashboard/
       extraction.py                                               # Knowledge Extraction API, namespaced /extraction
       conversation_graph.py                                        # Knowledge Graph (Sprint 5) API, namespaced /conversation-graph
       settings.py                                                   # Settings API (Sprint 8), namespaced /settings
+      session.py                                                     # Daily Session API (ROLE OS Dashboard MVP), namespaced /session
     templates/
       index.html               # Command Center app shell (Jinja2): sidebar + header + #view-root
     static/
       css/
         style.css                 # 4-line @import entry point
         colors.css, layout.css,
-        components.css, animations.css   # Design system (Epic 4)
-      js/app.js                  # Hash router + every view (Home, Projects, Project detail,
-                                    # Knowledge, Advisor, Graph, Assets, Settings) + createGraphView()
+        components.css, animations.css   # Design system (Epic 4); colors.css also carries
+                                            # the light-theme @media override (ROLE OS Dashboard MVP)
+      js/app.js                  # Hash router + every view (Home, Dashboard, Session, Projects,
+                                    # Project detail, Knowledge, Advisor, Graph, Assets, Settings)
+                                    # + createGraphView()
   tests/                    # API, UI, Health Score, Projects DB, Advisor, and Graph tests (pytest + TestClient)
   requirements.txt
 ```

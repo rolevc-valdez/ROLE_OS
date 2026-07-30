@@ -41,6 +41,14 @@
     return resp.json();
   }
 
+  function postJSON(url, payload, method = "POST") {
+    return fetchJSON(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (ch) => (
       { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]
@@ -114,6 +122,7 @@
   const routes = {
     home: renderHome,
     dashboard: renderDashboardPage,
+    session: renderSessionPage,
     projects: renderProjectsList,
     project: renderProjectDetail,
     knowledge: renderKnowledge,
@@ -2373,6 +2382,389 @@
       els.conversationSelect.value = conversationIdParam;
     }
     await loadFilteredView();
+  }
+
+  // =======================================================================
+  // SESSION PAGE (ROLE OS Dashboard MVP: Start/End My Day, Claude prompt,
+  // Obsidian daily record, project registry, recent ecosystem decisions)
+  // =======================================================================
+
+  let _sessionModesCache = null;
+
+  async function getModesCached() {
+    if (!_sessionModesCache) {
+      _sessionModesCache = await fetchJSON("/session/modes");
+    }
+    return _sessionModesCache;
+  }
+
+  function todayISODate() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function sessionStatusBadge(status) {
+    if (status === "active") return '<span class="badge badge-healthy">Active</span>';
+    if (status === "completed") return '<span class="badge badge-info">Completed</span>';
+    return '<span class="badge">Not Started</span>';
+  }
+
+  function registryDefaultTag(project) {
+    if (project.is_authoritative) return '<span class="badge badge-info" title="Sourced from an actual ROLE Ecosystem document">documented</span>';
+    if (project.user_edited) return '<span class="badge badge-healthy" title="Edited by you">edited</span>';
+    return '<span class="badge" title="Placeholder value -- no authoritative source found yet">default</span>';
+  }
+
+  function renderRegistryCardHtml(projects) {
+    const rows = projects
+      .map(
+        (p) => `
+        <tr data-registry-row="${escapeHtml(p.id)}">
+          <td>
+            <strong>${escapeHtml(p.name)}</strong> ${registryDefaultTag(p)}<br/>
+            <span class="muted u-fs-12">${escapeHtml(p.reference)}</span>
+          </td>
+          <td>${escapeHtml(p.status)}</td>
+          <td>${escapeHtml(p.milestone)}</td>
+          <td>${escapeHtml(p.next_action)}</td>
+          <td><button type="button" class="btn btn-sm" data-registry-edit="${escapeHtml(p.id)}">Edit</button></td>
+        </tr>
+        <tr class="registry-edit-row" data-registry-edit-row="${escapeHtml(p.id)}" hidden>
+          <td colspan="5">
+            <form data-registry-form="${escapeHtml(p.id)}" class="field-row">
+              <label>Status<input type="text" name="status" value="${escapeHtml(p.status)}" /></label>
+              <label>Reference<input type="text" name="reference" value="${escapeHtml(p.reference)}" /></label>
+              <label>Milestone<input type="text" name="milestone" value="${escapeHtml(p.milestone)}" /></label>
+              <label>Next action<input type="text" name="next_action" value="${escapeHtml(p.next_action)}" /></label>
+              <div class="u-mt-2">
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+                <button type="button" class="btn btn-sm" data-registry-cancel="${escapeHtml(p.id)}">Cancel</button>
+              </div>
+              <div data-registry-status="${escapeHtml(p.id)}" class="muted u-fs-12 u-mt-1"></div>
+            </form>
+          </td>
+        </tr>`
+      )
+      .join("");
+
+    return `
+      <div class="card">
+        <p class="card-title">Active projects</p>
+        <p class="muted u-fs-12">Local project registry. "default" values are placeholders -- edit them, or see the linked reference document.</p>
+        <table class="kv-table">
+          <tr><th>Project</th><th>Status</th><th>Milestone</th><th>Next action</th><th></th></tr>
+          ${rows}
+        </table>
+      </div>`;
+  }
+
+  function renderDecisionsCardHtml(resp) {
+    const items = resp.decisions
+      .map((d) => `<li><strong>${escapeHtml(d.id)}</strong> (${escapeHtml(d.date)}) — ${escapeHtml(d.decision)} <span class="muted u-fs-12">[${escapeHtml(d.status)}]</span></li>`)
+      .join("");
+    const sourceNote = resp.source === "ecosystem"
+      ? '<span class="badge badge-healthy">live</span>'
+      : '<span class="badge" title="' + escapeHtml(resp.note) + '">fallback snapshot</span>';
+    return `
+      <div class="card">
+        <div class="u-flex-between"><p class="card-title">Recent ecosystem decisions</p>${sourceNote}</div>
+        <ul class="timeline-list">${items || '<li class="muted">No decisions available.</li>'}</ul>
+      </div>`;
+  }
+
+  function renderStartFormHtml(modes, projects) {
+    const projectOptions = projects
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`)
+      .join("");
+    const modeOptions = modes.map((m) => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join("");
+    return `
+      <div class="card" id="session-start-form">
+        <p class="card-title">Start My Day</p>
+        <form id="session-start-form-el">
+          <div class="field-row">
+            <label>Date<input type="date" name="date" value="${todayISODate()}" required /></label>
+            <label>Project
+              <select name="project_id" required>
+                <option value="">Select a project…</option>
+                ${projectOptions}
+              </select>
+            </label>
+            <label>Mode
+              <select name="mode" required>
+                <option value="">Select a mode…</option>
+                ${modeOptions}
+              </select>
+            </label>
+          </div>
+          <label class="u-mt-2">Today's objective<textarea name="objective" rows="2" required></textarea></label>
+          <label class="u-mt-2">Expected result<textarea name="expected_result" rows="2" required></textarea></label>
+          <label class="u-mt-2">Notes (optional)<textarea name="notes" rows="2"></textarea></label>
+          <div class="u-mt-3">
+            <button type="submit" class="btn btn-sm btn-primary">Start session</button>
+          </div>
+          <div id="session-start-status" class="u-mt-2"></div>
+        </form>
+      </div>`;
+  }
+
+  function renderPromptCardHtml(promptText) {
+    return `
+      <div class="card">
+        <div class="u-flex-between"><p class="card-title">Claude session prompt</p><button type="button" class="btn btn-sm" id="session-copy-prompt-btn">Copy</button></div>
+        <pre id="session-prompt-text" class="rec-card-body u-fs-12" style="white-space: pre-wrap;">${escapeHtml(promptText)}</pre>
+        <div id="session-copy-prompt-status" class="muted u-fs-12"></div>
+      </div>`;
+  }
+
+  function renderEndFormHtml() {
+    return `
+      <div class="card">
+        <p class="card-title">End My Day</p>
+        <form id="session-end-form-el">
+          <label>Work completed<textarea name="completed_work" rows="3" required></textarea></label>
+          <label class="u-mt-2">Decisions made<textarea name="decisions" rows="2"></textarea></label>
+          <label class="u-mt-2">Blockers<textarea name="blockers" rows="2"></textarea></label>
+          <label class="u-mt-2">Next step<textarea name="next_step" rows="2"></textarea></label>
+          <div class="u-mt-3">
+            <button type="submit" class="btn btn-sm btn-primary">Close session</button>
+          </div>
+          <div id="session-end-status" class="u-mt-2"></div>
+        </form>
+      </div>`;
+  }
+
+  function renderCompletedCardHtml(session, md) {
+    return `
+      <div class="card">
+        <div class="u-flex-between">
+          <p class="card-title">Daily record — ${escapeHtml(md.filename)}</p>
+          <div>
+            <button type="button" class="btn btn-sm" id="session-copy-md-btn">Copy</button>
+            <button type="button" class="btn btn-sm" id="session-download-md-btn">Download</button>
+            <button type="button" class="btn btn-sm" id="session-save-vault-btn">Save to vault</button>
+          </div>
+        </div>
+        <pre id="session-md-text" class="rec-card-body u-fs-12" style="white-space: pre-wrap;">${escapeHtml(md.markdown)}</pre>
+        <div id="session-vault-status" class="muted u-fs-12"></div>
+      </div>
+      <div class="u-mt-3">
+        <button type="button" class="btn btn-sm btn-primary" id="session-start-new-btn">Start a new session</button>
+      </div>`;
+  }
+
+  async function renderSessionPage() {
+    viewRoot.innerHTML = '<p class="muted loading-pulse">Loading session…</p>';
+
+    const [current, projects, modes, decisions] = await Promise.all([
+      fetchJSON("/session/current"),
+      fetchJSON("/session/registry"),
+      getModesCached(),
+      fetchJSON("/session/decisions/recent?limit=5"),
+    ]);
+
+    const summaryCard = `
+      <div class="card">
+        <div class="u-flex-between">
+          <p class="card-title">${current ? escapeHtml(current.date) : todayISODate()}</p>
+          ${sessionStatusBadge(current ? current.status : "not_started")}
+        </div>
+        <table class="kv-table">
+          <tr><th>Mode</th><td>${current ? escapeHtml(current.mode) : '—'}</td></tr>
+          <tr><th>Project</th><td>${current ? escapeHtml(current.project_name) : '—'}</td></tr>
+          <tr><th>Today's objective</th><td>${current ? escapeHtml(current.objective) : '—'}</td></tr>
+          <tr><th>Expected result</th><td>${current ? escapeHtml(current.expected_result) : '—'}</td></tr>
+        </table>
+        ${current ? "" : '<div class="u-mt-3"><button type="button" class="btn btn-sm btn-primary" id="session-quick-start-btn">Quick Start</button></div>'}
+      </div>`;
+
+    if (!current) {
+      // Not Started: show summary + Start My Day + registry + decisions.
+      viewRoot.innerHTML = `
+        <div class="section-heading"><h2>Session</h2></div>
+        <div class="home-grid">
+          <div>
+            ${summaryCard}
+            <div class="u-mt-4">${renderStartFormHtml(modes, projects)}</div>
+          </div>
+          <div>
+            ${renderRegistryCardHtml(projects)}
+            <div class="u-mt-4">${renderDecisionsCardHtml(decisions)}</div>
+          </div>
+        </div>`;
+
+      document.getElementById("session-quick-start-btn").addEventListener("click", () => {
+        document.getElementById("session-start-form").scrollIntoView({ behavior: "smooth", block: "start" });
+        document.querySelector("#session-start-form-el [name=project_id]").focus();
+      });
+
+      wireStartForm();
+      wireRegistryEditing(projects);
+      return;
+    }
+
+    if (current.status === "active") {
+      const promptResp = await fetchJSON(`/session/${encodeURIComponent(current.id)}/prompt`);
+      viewRoot.innerHTML = `
+        <div class="section-heading"><h2>Session</h2></div>
+        <div class="home-grid">
+          <div>
+            ${summaryCard}
+            <div class="u-mt-4">${renderPromptCardHtml(promptResp.prompt)}</div>
+            <div class="u-mt-4">${renderEndFormHtml()}</div>
+          </div>
+          <div>
+            ${renderRegistryCardHtml(projects)}
+            <div class="u-mt-4">${renderDecisionsCardHtml(decisions)}</div>
+          </div>
+        </div>`;
+
+      wireCopyButton("session-copy-prompt-btn", "session-prompt-text", "session-copy-prompt-status");
+      wireEndForm(current.id);
+      wireRegistryEditing(projects);
+      return;
+    }
+
+    // Completed: show the generated Markdown record.
+    const md = await fetchJSON(`/session/${encodeURIComponent(current.id)}/markdown`);
+    viewRoot.innerHTML = `
+      <div class="section-heading"><h2>Session</h2></div>
+      <div class="home-grid">
+        <div>
+          ${summaryCard}
+          <div class="u-mt-4">${renderCompletedCardHtml(current, md)}</div>
+        </div>
+        <div>
+          ${renderRegistryCardHtml(projects)}
+          <div class="u-mt-4">${renderDecisionsCardHtml(decisions)}</div>
+        </div>
+      </div>`;
+
+    wireCopyButton("session-copy-md-btn", "session-md-text", "session-vault-status");
+    document.getElementById("session-download-md-btn").addEventListener("click", () => {
+      window.location.href = `/session/${encodeURIComponent(current.id)}/markdown/download`;
+    });
+    document.getElementById("session-save-vault-btn").addEventListener("click", async () => {
+      const statusEl = document.getElementById("session-vault-status");
+      statusEl.textContent = "Saving…";
+      try {
+        const result = await fetchJSON(`/session/${encodeURIComponent(current.id)}/save-to-vault`, { method: "POST" });
+        statusEl.textContent = result.saved ? `Saved to ${result.path}` : `Not saved: ${result.reason}`;
+      } catch (err) {
+        statusEl.textContent = `Save failed: ${err.message}`;
+      }
+    });
+    document.getElementById("session-start-new-btn").addEventListener("click", () => renderSessionPage());
+  }
+
+  function wireCopyButton(buttonId, sourceId, statusId) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.addEventListener("click", async () => {
+      const text = document.getElementById(sourceId).textContent;
+      const statusEl = document.getElementById(statusId);
+      try {
+        await navigator.clipboard.writeText(text);
+        statusEl.textContent = "Copied to clipboard.";
+      } catch (err) {
+        statusEl.textContent = `Could not copy automatically: ${err.message}`;
+      }
+    });
+  }
+
+  function wireStartForm() {
+    const form = document.getElementById("session-start-form-el");
+    const statusEl = document.getElementById("session-start-status");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const projectSelect = form.querySelector('[name="project_id"]');
+      const payload = {
+        date: data.get("date"),
+        project_id: data.get("project_id") || null,
+        project_name: projectSelect.options[projectSelect.selectedIndex]?.text || "",
+        mode: data.get("mode"),
+        objective: data.get("objective"),
+        expected_result: data.get("expected_result"),
+        notes: data.get("notes") || "",
+      };
+      if (!payload.project_id || !payload.mode) {
+        statusEl.innerHTML = '<p class="error-box">Select a project and a mode.</p>';
+        return;
+      }
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      statusEl.innerHTML = '<p class="muted loading-pulse">Starting session…</p>';
+      try {
+        await postJSON("/session/start", payload);
+        await renderSessionPage();
+      } catch (err) {
+        statusEl.innerHTML = `<p class="error-box">${escapeHtml(err.message)}</p>`;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  function wireEndForm(sessionId) {
+    const form = document.getElementById("session-end-form-el");
+    const statusEl = document.getElementById("session-end-status");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const payload = {
+        completed_work: data.get("completed_work"),
+        decisions: data.get("decisions") || "",
+        blockers: data.get("blockers") || "",
+        next_step: data.get("next_step") || "",
+      };
+      if (!payload.completed_work || !payload.completed_work.trim()) {
+        statusEl.innerHTML = '<p class="error-box">Describe what was completed before closing the session.</p>';
+        return;
+      }
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      statusEl.innerHTML = '<p class="muted loading-pulse">Closing session…</p>';
+      try {
+        await postJSON(`/session/${encodeURIComponent(sessionId)}/complete`, payload);
+        await renderSessionPage();
+      } catch (err) {
+        statusEl.innerHTML = `<p class="error-box">${escapeHtml(err.message)}</p>`;
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  function wireRegistryEditing(projects) {
+    document.querySelectorAll("[data-registry-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelector(`[data-registry-edit-row="${btn.dataset.registryEdit}"]`).hidden = false;
+      });
+    });
+    document.querySelectorAll("[data-registry-cancel]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelector(`[data-registry-edit-row="${btn.dataset.registryCancel}"]`).hidden = true;
+      });
+    });
+    document.querySelectorAll("[data-registry-form]").forEach((form) => {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = form.dataset.registryForm;
+        const data = new FormData(form);
+        const payload = {
+          status: data.get("status"),
+          reference: data.get("reference"),
+          milestone: data.get("milestone"),
+          next_action: data.get("next_action"),
+        };
+        const statusEl = document.querySelector(`[data-registry-status="${id}"]`);
+        try {
+          await postJSON(`/session/registry/${encodeURIComponent(id)}`, payload, "PATCH");
+          await renderSessionPage();
+        } catch (err) {
+          if (statusEl) statusEl.innerHTML = `<span class="error-box">Could not save: ${escapeHtml(err.message)}</span>`;
+        }
+      });
+    });
   }
 
   // ---------------------------------------------------------------------

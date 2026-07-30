@@ -2,6 +2,67 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.1.0] - 2026-07-30
+
+### Added
+
+- ROLE OS Dashboard MVP: Daily Session — the first functional MVP of a
+  personal-operating-system daily workflow, per the ROLE Ecosystem's
+  `SYSTEM.md`/`PRODUCT_LIFECYCLE.md` Build stage. **Additive only**: one
+  new domain, one new router, one new SQLite file, one new sidebar page;
+  every existing endpoint, page, and database is unchanged.
+  - New `dashboard/app/session/` domain: `modes.py` (the single reusable
+    source of truth for the six operation modes — PLAN, BUILD, CREATE,
+    LAUNCH, OPERATE, LEARN — each with a name, purpose, expected AI
+    behavior, and primary ROLE Ecosystem resources), `db.py` (SQLite
+    persistence for sessions and a local project registry, following the
+    exact same idempotent-schema/seed pattern as `app/projects/db.py`),
+    `models.py` (Pydantic schemas), `markdown.py` (pure-function
+    generation of the Claude session-initialization prompt and the
+    Obsidian-compatible daily Markdown record — no AI/LLM call anywhere),
+    and `decisions_adapter.py` (an adapter that reads the ROLE Ecosystem's
+    own `DECISION_LOG.md` live when `ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH`
+    is configured, falling back to a small, explicitly-labeled snapshot
+    otherwise — never duplicates the full log).
+  - New `dashboard/app/routers/session.py`, namespaced under `/session`:
+    `GET /session/modes`; `GET`/`PATCH /session/registry[/{id}]`; `GET
+    /session/current`, `GET /session/recent`, `GET /session/{id}`, `POST
+    /session/start` (409 if a session is already active), `POST
+    /session/{id}/complete`; `GET /session/{id}/prompt`, `GET
+    /session/{id}/markdown`, `GET /session/{id}/markdown/download`, `POST
+    /session/{id}/save-to-vault` (writes the record into an optional,
+    never-hardcoded `ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR`), `GET
+    /session/vault/config`; `GET /session/decisions/recent`.
+  - Three new `Settings` fields (`app/config.py`): `session_db_path`
+    (`ROLE_OS_SESSION_DB_PATH`, defaulting under the git-ignored `var/`
+    directory rather than `samples/`, since session data is real personal
+    data, not a checked-in fixture), `obsidian_daily_notes_dir`
+    (`ROLE_OS_OBSIDIAN_DAILY_NOTES_DIR`, empty by default), and
+    `ecosystem_decision_log_path` (`ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH`,
+    empty by default).
+  - New sidebar page, **Session** (`#/session`), in
+    `dashboard/app/static/js/app.js`: shows today's date, mode, project,
+    objective, expected result, and session status (Not Started / Active
+    / Completed) at a glance; a Start My Day form; the copyable Claude
+    prompt once a session is active; an End My Day form; the generated
+    Markdown record (copy, download, or optional save-to-vault) once
+    completed; the local project registry (seeded with ROLE OS, ROLE
+    ECOSYSTEM, ROLE MASTER, ROLE Commerce Factory, Brand Character OS,
+    RoleValdez, and SUPER FACIL, editable inline); and Recent ecosystem
+    decisions. Built as its own page rather than folded into the existing
+    Home page, per the same reasoning as the Sprint 7 Dashboard decision
+    (see `docs/product/DECISIONS.md`) — different data, different
+    question, no natural shared layout.
+  - Light-theme support added to `app/static/css/colors.css` via a
+    `@media (prefers-color-scheme: light)` override block, purely
+    additive: every existing rule already reads color exclusively through
+    the custom properties that block redefines, so this alone re-themes
+    the entire Command Center for a light OS preference, not just the new
+    Session page.
+  - 48 new tests: `test_session_db.py`, `test_session_markdown.py`,
+    `test_session_decisions_adapter.py`, `test_session_api.py`,
+    `test_session_ui.py`. Full suite: 464 passed, 0 failed.
+
 ## [1.0.0] - 2026-07-28
 
 ROLE OS v1.0 release. See [`RELEASE_NOTES_v1.0.md`](RELEASE_NOTES_v1.0.md)

@@ -6,6 +6,81 @@ shipped) — this records *why* it was built that way. Newest first.
 
 ---
 
+## The Session domain is a new top-level domain, not folded into Project Intelligence
+
+**Decision**: The ROLE OS Dashboard MVP's Start/End My Day feature lives in
+a new `app/session/` domain with its own SQLite file
+(`role_os_session.db`), rather than as new fields on `app/projects`
+(Project Intelligence) or a new collection type alongside `notes`/
+`decisions`/`todos`.
+
+**Why**: A daily session (date, mode, objective, expected result, one
+active-at-a-time constraint, a generated Claude prompt, a generated
+Markdown record) is a different kind of object from a Project Intelligence
+project or its collections — it has its own lifecycle (Not Started →
+Active → Completed) and its own uniqueness constraint (at most one active
+session system-wide) that doesn't map onto any existing table. Reusing
+`app/projects` would have meant either bending its schema to fit an
+unrelated concept, or adding session logic to a module whose job is
+already fully defined (health scoring, capabilities, dependencies).
+
+**How to apply**: This follows the same test as the Sprint 5 Knowledge
+Graph precedent below: a new capability gets its own top-level domain when
+it has its own data shape and lifecycle with no logic to share, even if it
+superficially touches an existing concept ("projects"). The local project
+*registry* the Session page also introduces is deliberately lightweight
+(name/status/reference/milestone/next_action) and does not attempt to
+replace or sync with Project Intelligence's much richer project model —
+they answer different questions ("what ROLE Ecosystem product is this?"
+vs. "how healthy is this Project Intelligence project?").
+
+---
+
+## The Session page is a new page, not an extension of Home
+
+**Decision**: The Session page is a new sidebar item/route (`#/session`,
+`renderSessionPage()`) rendering entirely separate content from Home.
+Home's own markup, data sources, and layout are untouched.
+
+**Why**: Same reasoning as the Sprint 7 Dashboard decision below — Home
+already *is* a dashboard, built over Project Intelligence/Advisor/Graph
+data. The Session page needs an entirely different question answered
+("what am I doing today, and what's my status?") from an entirely
+different, brand-new data source (the Session domain), with no natural
+shared layout with Home's Today's Focus/Workspace Overview/Health
+Dashboard.
+
+**How to apply**: See the Sprint 7 entry below for the general rule this
+follows.
+
+---
+
+## Cross-repository reads (ROLE Ecosystem decisions) are opt-in, never path-guessed
+
+**Decision**: `app/session/decisions_adapter.py` only reads
+`role-ecosystem/DECISION_LOG.md` live when the user explicitly sets
+`ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH`. It never guesses a relative path
+between the two repositories, even though on this machine, today, one
+exists.
+
+**Why**: `role-ecosystem` and `ROLE_OS` are separate repositories with no
+guaranteed common location — a different clone, a different machine, or a
+CI runner would break a guessed relative path silently or loudly. Every
+other environment-derived value in `app/config.py` already follows this
+"explicit env var, honest fallback if unset" pattern; this is the same
+seam applied to a cross-repository read for the first time.
+
+**How to apply**: Any future feature that wants to read something from
+another ROLE Ecosystem repository should follow this same shape: a
+dedicated adapter function, an explicit, documented environment variable
+with no default guess, and a clearly-labeled fallback (not a crash, not a
+silent empty result) when it isn't configured or the read fails. See
+[[../architecture/06_DEVELOPMENT_RULES]]'s "Never duplicate data into a
+new store" rule — the fallback here is a deliberately small snapshot, not
+a second copy of the full log.
+
+---
+
 ## No external AI/LLM API is called anywhere in the system
 
 **Decision**: Every extractor, Health Score signal, Advisor rule, and
