@@ -622,6 +622,39 @@ deletion interact this way.
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
 
+### Discovery Engine (Sprint 1 — read-only, CLI-only, `dashboard/app/discovery/`)
+
+Answers "what already exists on disk?" before anything is imported into
+Project Intelligence. Strictly read-only against the scanned root: it only
+ever calls `os.scandir`/`Path.exists`/local read-only `git` subcommands, and
+never follows a symlink or NTFS junction into a cycle. No API route yet and
+no database writes — see `docs/architecture/08_IMPORT_ENGINE_PROPOSAL.md`
+for the full architecture and rollout plan; this is Phase 1/Sprint 1 of
+that plan only.
+
+```bash
+cd dashboard
+python -m app.discovery audit --root "C:\Users\you\Documents" --output "C:\path\to\reports" --max-depth 2
+```
+
+For each candidate folder it reports: classification (`Software Project`,
+`Website`, `Mixed Project`, `Documentation Project`, `Brand / Asset
+Project`, `Unknown`, or `Non-project`) with a confidence score; git
+metadata (branch, remote, last commit, dirty state); README/ROADMAP/
+CHANGELOG/TODO/LICENSE presence; languages, tech markers, tests, Docker/CI;
+image/video/document/design-file/font counts; a **move-safety** rating
+(`low`/`medium`/`high`) explaining exactly which hardcoded absolute paths,
+`.env` files, launcher scripts, Obsidian vaults, or VS Code workspace files
+would break on relocation; a **Health Score** (0-100, weighted across
+documentation/tests/recent activity/roadmap/architecture/automation/
+commercial-readiness/deployment, each signal individually inspectable in
+`health.py`); and one of six **recommendations** (`Leave where it is`,
+`Move into IA PROJECTS`, `Archive`, `Merge with another project`, `Rename`,
+`Requires manual review`), always paired with the specific reasons behind
+it. `--output` writes `discovery_audit.json` and `discovery_audit.md`
+(refused if it resolves inside `--root`, so the audit's own output can
+never pollute a rescan of the tree it just read).
+
 ## Project Intelligence domain (Epic 1)
 
 ### Workspaces

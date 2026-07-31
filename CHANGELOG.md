@@ -2,6 +2,88 @@
 
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Discovery Engine, Sprint 1** (`dashboard/app/discovery/`) — a strictly
+  read-only, CLI-only audit of an arbitrary folder tree (configurable
+  `--root`, never hardcoded), implementing Phase 1/Sprint 1 of
+  `docs/architecture/08_IMPORT_ENGINE_PROPOSAL.md`. Never moves, renames,
+  edits, deletes, or creates a file under the scanned root, initializes
+  git, or writes to a database — the only writes it can perform are the
+  optional `discovery_audit.json`/`.md` report files under a caller-chosen
+  `--output` directory, refused if that directory would resolve inside
+  `--root`.
+  - **Scanner** (`scanner.py`): depth-limited candidate discovery that
+    skips VCS/dependency/build directories, never follows symlinks or
+    Windows junctions (recorded, not descended into — cycle-safe), and
+    looks one level deeper inside "container" folders that have no
+    project markers of their own (monorepo-style `packages/*`).
+  - **Detectors** (`detectors.py`): one read-only pass per folder producing
+    languages (extension histogram), tech markers, README/ROADMAP/
+    CHANGELOG/TODO/LICENSE presence, test file/folder detection, Docker/
+    Docker Compose/GitHub Actions presence, image/video/SQLite/`.env`/
+    launcher (`.bat`/`.ps1`) file inventories, image/document/design-file/
+    font counts, Obsidian vault (`.obsidian`) and VS Code
+    (`*.code-workspace`) detection, and a budgeted absolute-path-reference
+    scan (Windows and POSIX patterns) over text/config files.
+  - **Git Reader** (`git_reader.py`): branch, remote, last commit hash/
+    date/message, commit count, and dirty-worktree state via local
+    read-only `git` subcommands only (no fetch/pull/push/clone).
+  - **Classifier** (`classifier.py`): explainable, non-ML weighted scoring
+    — confidence, kind (`Software Project`/`Website`/`Mixed Project`/
+    `Documentation Project`/`Brand / Asset Project`/`Unknown`/
+    `Non-project`), **move-risk** (`low`/`medium`/`high`, reasoning over
+    hardcoded absolute paths, `.env` files, launcher scripts, a
+    local-filesystem git remote, an Obsidian vault, or a VS Code workspace
+    file with absolute paths), maturity (`prototype`/`active`/`mature`/
+    `stale`), and commercial readiness (`not-commercial`/`early`/
+    `client-ready`/`production`) — every score paired with the specific
+    reasons behind it.
+  - **Health Score** (`health.py`): a 0-100 weighted score over eight
+    independently-inspectable signals (documentation, tests, recent
+    activity, roadmap, architecture, automation, commercial readiness,
+    deployment), renormalized over whichever signals are available —
+    mirrors the shape of `dashboard/app/projects/health/`'s existing
+    Health Score engine (Epic 1) but scores filesystem evidence instead of
+    a DB-backed project dict.
+  - **Recommendation** (`recommendation.py`): one of six actions per
+    folder (`Leave where it is`, `Move into IA PROJECTS`, `Archive`,
+    `Merge with another project`, `Rename`, `Requires manual review`),
+    each with the specific reasons behind it. A corpus-level pass
+    (`apply_container_child_overrides`) flags a container folder whose
+    *only* nested project shares its name (e.g. a folder wrapping a single
+    same-named subfolder) as `Rename`, without touching the nested
+    project's own recommendation.
+  - **Reporters** (`reporters.py`): JSON, Markdown, and console-table
+    renderers — the Markdown report's Summary section reports folders
+    scanned, projects detected, git repositories, static websites, Python/
+    Node projects, unknown folders, and safe-to-move/needs-review/
+    high-risk counts; the Projects table is `| Project | Type | Git |
+    Health | Move Risk | Recommendation |`; a Recommendations section
+    lists every folder's action and reasoning; high-risk findings and
+    skipped/inaccessible paths get their own sections.
+  - **CLI** (`__main__.py`): `python -m app.discovery audit --root <path>
+    [--output <dir>] [--max-depth N] [--basename NAME] [--quiet]`.
+  - 38 new tests (`dashboard/tests/test_discovery.py`,
+    `test_discovery_health_and_recommendation.py`) covering nested
+    projects, git repos and non-git folders, paths with spaces/
+    parentheses, absolute-path detection (Windows/POSIX), asset/document/
+    design-file/font counting, LICENSE/Obsidian-vault/VS-Code-workspace
+    detection, every classification/move-risk/maturity/commercial-
+    readiness/health-score/recommendation branch, the container/child
+    rename override, that the audit never modifies the scanned tree
+    (byte-for-byte snapshot before/after), that reports only ever land
+    outside `--root`, invalid/non-directory roots, permission-denied
+    folders (recorded, not fatal), and symlink/junction cycles (verified
+    to terminate and to never descend into the link). No database, no
+    API route, and no external AI/LLM call anywhere in this module — see
+    `docs/architecture/08_IMPORT_ENGINE_PROPOSAL.md` for what Sprints 2-4
+    would add on top of this (classifier-confirmed writes into Project
+    Intelligence, health/advisor wiring, Mission Control ranking). Full
+    suite: 651 passed, 0 failed.
+
 ## [1.1.0] - 2026-07-30
 
 ### Added
