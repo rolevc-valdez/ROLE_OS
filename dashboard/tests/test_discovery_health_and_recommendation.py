@@ -6,9 +6,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.discovery.classifier import classify
+import pytest
+
+from app.discovery.classifier import (
+    classify,
+    classify_commercial_readiness,
+    classify_confidence,
+    classify_kind,
+    classify_maturity,
+    classify_move_risk,
+)
 from app.discovery.detectors import analyze_folder
 from app.discovery.health import compute_health
+from app.discovery.pipeline import PipelineStage, PipelineStageError
 from app.discovery.recommendation import apply_container_child_overrides, recommend
 
 
@@ -101,10 +111,40 @@ def test_recent_activity_signal_none_without_any_file(tmp_path: Path):
     project = tmp_path / "truly-empty"
     project.mkdir()
     analyzed = analyze_folder(project)
+    classify_confidence(analyzed)
+    classify_kind(analyzed)
+    classify_move_risk(analyzed)
+    classify_maturity(analyzed)
+    classify_commercial_readiness(analyzed)
+    analyzed.stage = PipelineStage.CLASSIFIED
+
     score, breakdown = compute_health(analyzed)
     assert breakdown["recent_activity"] is None
     assert "recent_activity" not in {} or True  # weighting excludes it; score still computed
     assert isinstance(score, int)
+
+
+def test_compute_health_refuses_project_that_has_not_been_classified(tmp_path: Path):
+    project = tmp_path / "raw"
+    _write(project / "README.md", "hi")
+    analyzed = analyze_folder(project)  # only DETECTED, never classified
+    with pytest.raises(PipelineStageError):
+        compute_health(analyzed)
+
+
+def test_recommend_refuses_project_that_has_not_been_scored(tmp_path: Path):
+    project = tmp_path / "raw2"
+    _write(project / "README.md", "hi")
+    analyzed = analyze_folder(project)
+    classify_confidence(analyzed)
+    classify_kind(analyzed)
+    classify_move_risk(analyzed)
+    classify_maturity(analyzed)
+    classify_commercial_readiness(analyzed)
+    analyzed.stage = PipelineStage.CLASSIFIED
+    # health.compute_health deliberately not called -- stage never reaches SCORED
+    with pytest.raises(PipelineStageError):
+        recommend(analyzed)
 
 
 # ---------------------------------------------------------------------------

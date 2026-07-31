@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.discovery.pipeline import PipelineStage
+
 
 @dataclass
 class GitInfo:
@@ -96,6 +98,12 @@ class DiscoveredProject:
 
     recommendation: str = "Requires manual review"
     recommendation_reasons: list[str] = field(default_factory=list)
+
+    # Sprint 1.5: which pipeline stages have run for this project so far.
+    # See `app.discovery.pipeline` -- `compute_health`/`recommend` refuse to
+    # run against a project that hasn't reached their prerequisite stage,
+    # instead of silently scoring incomplete data.
+    stage: PipelineStage = PipelineStage.NEW
 
 
 @dataclass

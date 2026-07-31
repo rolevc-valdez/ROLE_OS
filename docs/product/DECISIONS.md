@@ -6,6 +6,84 @@ shipped) — this records *why* it was built that way. Newest first.
 
 ---
 
+## Discovery Engine Sprint 1.5: detectors and recommendations moved to registry/rule-engine architecture, no product behavior changed
+
+**Decision**: Sprint 1.5 was scoped as structural hardening only (no new
+features, no persistence, no API). Three refactors:
+
+1. **Detector registry** (`dashboard/app/discovery/detectors/`, replacing
+   the single flat `detectors.py`): one shared, read-only `FolderInventory`
+   walk (`inventory.py`) records raw structural facts only (which files/
+   dirs exist, names, extensions) with zero interpretation; twelve
+   independent detector modules (`documentation.py`, `testing.py`,
+   `environment.py`, `scripts.py`, `docker.py`, `ci.py`, `databases.py`,
+   `obsidian.py`, `vscode_workspace.py`, `markers.py`, `assets.py`,
+   `absolute_paths.py`) each own a small `Findings` dataclass and a pure
+   `detect(inventory) -> Findings` function; `registry.run_all()` merges
+   them with a collision guard (`DetectorFieldCollisionError`) so two
+   detectors can never silently claim the same `DiscoveredProject` field.
+   This mirrors `app/projects/health/` and `app/advisor/rules/`'s existing
+   "one signal, one file, one registry" shape — Discovery had reinvented a
+   worse version of a pattern this codebase already solved.
+2. **Recommendation rule engine** (`dashboard/app/discovery/recommendation/`,
+   replacing the flat `recommendation.py`'s if/elif ladder): six rules
+   (`rules/non_project.py`, `high_move_risk.py`, `brand_asset_project.py`,
+   `documentation_project.py`, `real_project.py`, `fallback.py`), each an
+   independent `evaluate(project) -> RecommendationCandidate | None` with
+   an explicit `PRIORITY` int. `engine.recommend()` runs every rule and
+   keeps the highest-priority candidate that fired — precedence is an
+   inspectable number on each rule, documented in a table in
+   `rules/__init__.py`, not implicit if/elif ordering. Verified (test:
+   `test_rule_order_in_list_does_not_affect_precedence`) that reversing
+   the rules' list order doesn't change any outcome.
+3. **Pipeline-stage safety** (`dashboard/app/discovery/pipeline.py`, new,
+   ~60 lines): a `PipelineStage` `IntEnum` (`NEW` → `DETECTED` →
+   `CLASSIFIED` → `SCORED` → `RECOMMENDED`) stamped onto
+   `DiscoveredProject.stage` as each stage completes, and a
+   `require_stage()` guard called at the top of `health.compute_health()`
+   (needs `CLASSIFIED`) and `recommendation.recommend()` (needs `SCORED`).
+   Calling either out of order now raises `PipelineStageError` instead of
+   silently scoring against incomplete/default data (e.g.
+   `commercial_readiness == "unknown"` quietly mapping to a plausible-
+   looking 20). This was the smallest safeguard that closed the gap, not a
+   `DiscoveredProject` model rewrite — its shape is unchanged.
+
+Behavioral parity was proven, not assumed: re-running the CLI against both
+real corpora used in the Sprint 1 report (`Documents`, `1 - IA PROJECTS`)
+produced byte-for-byte identical Markdown reports before/after the
+refactor (the one line that differed was `ROLE_OS`'s own git commit hash,
+which changed because of an unrelated checkpoint commit made between
+runs — not a behavior change). Two known pre-existing quirks were
+preserved deliberately rather than "fixed": `go.mod` files are still
+double-counted in `tech_markers` (a Sprint 1 bug now documented in
+`detectors/markers.py`, left alone because fixing it would silently change
+`confidence_score` and possibly classification for Go projects), and
+`DiscoveredProject.frameworks` is still always empty (never had a detector
+in Sprint 1 either).
+
+**Why**: The architecture review after Sprint 1 identified detectors.py's
+single ~150-line `analyze_folder()` and recommendation.py's if/elif ladder
+as the two places that would not scale as more detectors/rules were added
+— every addition meant editing a shared function, with no isolation
+between unrelated concerns and no way to test one detector without the
+whole walk. Pipeline-stage safety closed a related but separate risk: nothing
+enforced that `compute_health`/`recommend` were only ever called after
+classification, which worked today only because `classifier.classify()`
+happens to be the sole call site.
+
+**How to apply**: A new Discovery Engine detector is a new file with a
+`Findings` dataclass + `detect()` function, plus one line in
+`detectors/registry.py::DETECTOR_REGISTRY` — never edit
+`inventory.py`'s walk itself. A new recommendation rule is a new file with
+an `evaluate()` function and a `PRIORITY` constant, plus one line in
+`recommendation/rules/__init__.py::RULES`, with its precedence reasoning
+added to that file's table. Any future stage added to the Discovery
+pipeline (e.g. a Sprint 2 "confirmed" stage) should extend
+`PipelineStage` and guard its own entry point with `require_stage()`,
+following the same pattern rather than inventing a new one.
+
+---
+
 ## The Session domain is a new top-level domain, not folded into Project Intelligence
 
 **Decision**: The ROLE OS Dashboard MVP's Start/End My Day feature lives in

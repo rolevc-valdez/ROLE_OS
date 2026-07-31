@@ -266,6 +266,48 @@ is still correct) but should be fixed before Sprint 2 wires this into a
 UI, e.g. by naming the action relative to the scanned root instead of a
 hardcoded destination string.
 
+## 7c. Sprint 1.5 — Structural Hardening (registry/rule-engine architecture)
+
+Pure refactor, no new product behavior, per the Sprint 1.5 brief (see
+`docs/product/DECISIONS.md`'s "Discovery Engine Sprint 1.5" entry for the
+full why/how):
+
+- `detectors.py` (one ~150-line function) → `detectors/` package: a shared
+  `inventory.py` walk (raw facts, zero interpretation) + twelve independent
+  detector modules, each a `Findings` dataclass and a pure `detect()`
+  function, merged by `registry.run_all()` with a field-collision guard.
+- `recommendation.py` (if/elif ladder) → `recommendation/` package: six
+  independent rules (`rules/*.py`), each with an explicit `PRIORITY`;
+  `engine.recommend()` runs all of them and keeps the highest-priority
+  match. Precedence is a documented table in `rules/__init__.py`, not
+  implicit code-flow ordering — verified rule-order-independent by test.
+- New `pipeline.py`: a `PipelineStage` enum stamped onto
+  `DiscoveredProject.stage`, guarding `health.compute_health()` (requires
+  `CLASSIFIED`) and `recommendation.recommend()` (requires `SCORED`) so
+  calling either out of sequence raises `PipelineStageError` instead of
+  silently scoring incomplete data.
+- `analyze_folder()`, `classify()`, `compute_health()`, `recommend()`, and
+  `apply_container_child_overrides()` all kept their exact Sprint 1
+  signatures — `scanner.py`, `service.py`, and every existing test needed
+  zero changes to their import statements.
+
+**Parity, proven not assumed**: re-ran the CLI against both real corpora
+from §4 (`Documents`, `1 - IA PROJECTS`) after the refactor. Markdown
+output was byte-for-byte identical to the pre-refactor reports, except one
+line — `ROLE_OS`'s own git commit hash, which changed because of an
+unrelated commit made between runs, not a behavior change. 25 new tests
+added (`test_discovery_sprint1_5_structure.py`,
+`test_discovery_sprint1_5_parity.py`, plus 2 more in
+`test_discovery_health_and_recommendation.py` for the new pipeline guard);
+zero existing Discovery tests were modified. Full repo suite: 718 passed,
+0 failed.
+
+Two pre-existing Sprint 1 quirks were deliberately preserved rather than
+quietly fixed, since either would have changed observable output:
+`go.mod` files are double-counted in `tech_markers` (documented in
+`detectors/markers.py`), and `DiscoveredProject.frameworks` remains always
+empty (no detector ever populated it, in Sprint 1 or here).
+
 ## 8. Recommended Sprint 2
 
 Per the proposal's own rollout plan (§18 Phase 2/3, §19 Sprint 2), and

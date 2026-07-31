@@ -14,6 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.discovery.models import DiscoveredProject
+from app.discovery.pipeline import PipelineStage, require_stage
 
 # Relative importance of each signal. Only signals that produced a value
 # (not None) count toward the score -- weights are renormalized over the
@@ -138,6 +139,8 @@ def compute_health(project: DiscoveredProject) -> tuple[int, dict[str, int | Non
     from both the breakdown and the weighted average, exactly like
     `projects/health/compute_health_score`'s `commit_dates=None` case.
     """
+    require_stage(project, PipelineStage.CLASSIFIED, "health.compute_health")
+
     breakdown: dict[str, int | None] = {
         "documentation": score_documentation(project),
         "tests": score_tests(project),
@@ -155,4 +158,5 @@ def compute_health(project: DiscoveredProject) -> tuple[int, dict[str, int | Non
     weighted_sum = sum(available[k] * active_weights[k] for k in available)
     score = round(max(0.0, min(100.0, weighted_sum / total_weight)))
 
+    project.stage = PipelineStage.SCORED
     return score, breakdown

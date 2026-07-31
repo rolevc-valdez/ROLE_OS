@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 from app.discovery.health import compute_health
 from app.discovery.models import DiscoveredProject
+from app.discovery.pipeline import PipelineStage
 from app.discovery.recommendation import recommend
 
 WEB_FRAMEWORK_HINTS = {"next.config", "vite.config", "nuxt.config", "astro.config", "gatsby-config"}
@@ -259,6 +260,8 @@ def classify(project: DiscoveredProject) -> DiscoveredProject:
     classify_move_risk(project)
     classify_maturity(project)
     classify_commercial_readiness(project)
+    project.stage = PipelineStage.CLASSIFIED
+
     project.health_score, project.health_breakdown = compute_health(project)
     project.recommendation, project.recommendation_reasons = recommend(project)
     return project
