@@ -6,6 +6,111 @@ shipped) — this records *why* it was built that way. Newest first.
 
 ---
 
+## A formal Discovery Engine Domain Model was written before any persistence, identity resolution, or API work began
+
+**Decision**: `docs/architecture/11_DISCOVERY_ENGINE_DOMAIN_MODEL.md`
+(renumbered from an initial `10_` that collided with the unrelated,
+already-uncommitted `10_WORKSPACE_ADOPTION_SPRINT2_REPORT.md`, left
+untouched) defines 26 domain concepts (Workspace through Workspace Graph
+Edge), their boundaries, invariants, lifecycles, a conceptual identity-
+resolution model, a source-of-truth matrix, and a logical (not physical)
+persistence/API boundary — with zero code, schema, or endpoint changes.
+Several consequential decisions from that document (and its architectural
+review) are recorded here:
+
+1. **Discovered Project and Managed Project are, and will remain, separate
+   concepts** — a Discovered Project is recomputed evidence, owned
+   entirely by Discovery; a Managed Project is a human's curated decision,
+   owned by Project Intelligence. Linking them (once Identity Resolution
+   exists) creates a *reference* between two records that keep their own
+   lifecycles — it never merges their schemas into one row, and discovered
+   data may only ever fill a gap in a Managed Project, never overwrite a
+   field a human already set.
+2. **Identity resolution requires human confirmation in its initial
+   implementation, regardless of confidence score.** Even "exact evidence"
+   (matching git remote, matching path history) produces an Identity
+   Candidate awaiting a Human Confirmation, not an automatic link. No
+   confidence threshold promotes a candidate to confirmed on its own.
+3. **Discovery owns its own persisted scan records** (a future
+   `discovery_*` SQLite file, never `role_os_projects.db`), following the
+   same "each domain owns its own database" convention already used by
+   Projects, Advisor, Imports, and Extraction — not a new pattern, a
+   continuation of an existing one.
+4. **Discovery's Recommendation stays advisory, not an executable
+   action**, matching how Advisor's `suggested_action` already works —
+   nothing in Discovery, today or proposed, moves, renames, merges, or
+   archives a folder in response to a Recommendation. Only a human,
+   acting entirely outside Discovery's own read-only guarantee, ever
+   performs the actual filesystem operation.
+5. **A Recommendation's `action`/`reasons`/generated timestamp/rule-or-
+   engine-version may be retained as part of a future persisted scan
+   result or Snapshot** — but full recommendation *lifecycle* (dismiss,
+   accept, snooze, a history UI) is explicitly deferred past Sprint 2, and
+   is not the same commitment as Advisor's already-built
+   persist-and-dismiss model. Recording the value is in scope; managing
+   its lifecycle is not, yet.
+6. **`Merge with another project` stays a reserved, valid action in the
+   six-action vocabulary — not deleted, and not required to be emitted by
+   any current rule.** No rule may emit it without strong identity *and*
+   relationship evidence, and — like every other action — it never
+   executes anything on its own; a human confirms it before any
+   consolidation happens. It is documented in the Domain Model as
+   reserved/inactive, not as a gap to silently paper over.
+7. **The Projects domain is the sole authority for *confirmed* Project
+   Relationships and Project Families.** Discovery may only produce
+   *candidate* relationships from discovered evidence — labeled
+   distinctly (`possible duplicate of`, `possible archived copy of`,
+   `possible fork of`, `possible child module of`, `possible member of
+   project family`, `possible successor/predecessor`) so a candidate is
+   never mistaken for a confirmed fact. A Discovery candidate relationship
+   becomes an authoritative one only through the same explicit Human
+   Confirmation step Identity Resolution already requires (decision 2) —
+   Discovery never silently creates or overwrites an authoritative
+   relationship.
+8. **Managed Project Health and Discovered Project Health remain two
+   separate, separately-explainable scores — never silently merged into
+   one number.** Managed Project Health evaluates the curated,
+   human-maintained record (`projects/health/`, unchanged); Discovered
+   Project Health evaluates technical/structural filesystem evidence
+   (`discovery/health.py`, unchanged). Either may be *displayed* alongside
+   the other once a link exists, but any future single composite score
+   combining them must be its own explicitly-defined, explainable, and
+   versioned computation — not an implicit average or a silent
+   replacement of one by the other.
+
+**Why**: Sprint 1/1.5 built a real, tested, read-only audit engine, but
+its only formal vocabulary lived in code (`DiscoveredProject`'s ~50 flat
+fields) and one architecture proposal that pre-dated the actual
+implementation and used "Project" ambiguously for both discovered and
+managed projects. Persistence, an API, and identity resolution were all
+about to be designed next — and each of those would have had to invent
+(or silently assume) this vocabulary under implementation pressure,
+exactly the situation that produces terminology drift (three different
+meanings of "Project" across three modules) and safety gaps (the kind of
+"confidence score alone shouldn't merge two real projects" rule that's
+easy to skip when it's not written down anywhere before the merge code
+exists). Writing the domain model first, with no code attached, let this
+get reviewed and challenged before it was load-bearing — decisions 5-8
+above are exactly that review's output: each one closes a specific gap
+(recommendation persistence scope, the unused `Merge` action, relationship
+authority, and health-score conflation) the initial draft had left
+implicit or only partially resolved.
+
+**How to apply**: Before Sprint 2 (or any future Discovery work) adds a
+table, endpoint, or algorithm, check it against
+`11_DISCOVERY_ENGINE_DOMAIN_MODEL.md`'s vocabulary, invariants, and open
+questions first — in particular: persisting a Recommendation's *value* is
+fine in Sprint 2; building dismiss/accept/snooze is not, yet. Any rule
+that emits `Merge with another project` needs both strong identity
+evidence and human confirmation, no exceptions. Any Discovery-derived
+relationship must be labeled as a candidate (`possible ...`) until a human
+confirms it into the Projects domain. And any UI or scoring work touching
+"health" must keep Managed and Discovered health visibly distinct unless
+a new, explicit composite score has been separately designed and
+versioned.
+
+---
+
 ## Discovery Engine Sprint 1.5: detectors and recommendations moved to registry/rule-engine architecture, no product behavior changed
 
 **Decision**: Sprint 1.5 was scoped as structural hardening only (no new
