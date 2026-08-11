@@ -49,8 +49,8 @@ type-based fill color.
 ### Sidebar navigation
 
 Persistent icons for: **Home**, **Dashboard**, **Session**, **Projects**,
-**Knowledge**, **Explorer**, **Advisor**, **Graph**, **Knowledge Graph**,
-**Assets**, **Settings**.
+**Cockpit**, **Knowledge**, **Explorer**, **Advisor**, **Graph**,
+**Knowledge Graph**, **Assets**, **Settings**.
 ("Graph" is the Epic 3 Knowledge Graph over Projects/Advisor/Builder data;
 "Knowledge Graph" — added in Sprint 5 — is the separate, smaller graph over
 imported conversations and their extracted objects. See
@@ -62,7 +62,61 @@ executive summary over the newer Importer / Explorer / Extraction /
 Knowledge Graph / Advisor Search pipeline instead. Neither page's content
 changed to make room for the other.)
 
-### Home
+### Mission Control — the primary Home experience (Sprint C5)
+
+The default route ROLE OS opens to. Answers, within one screen: what should
+I work on today, where did I left off, what changed since my last session,
+what needs attention, and what's closest to producing real value. One
+endpoint, `GET /mission-control` (`app/mission_control/service.py`),
+returns the entire already-shaped payload — the frontend
+(`renderMissionControlPage` in `static/js/app.js`) performs no ranking,
+joining, or deduplication itself.
+
+- **Primary Focus** — one dominant card: the same project Home's ranking
+  (`suggested_project_to_continue`) recommends, with its canonical
+  `ProjectContext` embedded (health, status, next action, latest snapshot,
+  latest AI session, resume state) plus the human-readable reasons behind
+  the recommendation. An honest empty state (with the best available
+  action) when nothing qualifies.
+- **Today's Focus** — up to 3 deduplicated, highest-priority items from
+  the Workspace Advisor's rule engine (`workspace.advisor.generate_
+  recommendations`) — the same rules Dashboard's Needs Attention uses, not
+  a second engine.
+- **Since Last Time** — real changes (commits, snapshots, AI sessions,
+  adoptions, discovered assets) since the user's last Daily Session
+  (`app.session.db`), or a clearly labeled 24h fallback window when no
+  session has ever been recorded. Filesystem-mtime-only noise is excluded.
+- **Needs Attention** — unresolved issues, most severe first, plus a
+  workspace-wide item when the Discovery scan itself is stale.
+- **Value Signal ("Closest to Launch")** — surfaces the Workspace
+  Advisor's `rule_near_completion` output when a project actually
+  qualifies (health score + client-ready/production commercial readiness);
+  an honest "insufficient evidence" message otherwise. No revenue/market
+  potential is ever fabricated.
+- **Portfolio strip** — a compact, one-row-per-adopted-project overview;
+  clicking opens the canonical Project Detail/Cockpit, never a second
+  Projects page.
+- **Recent Activity**, **Daily Session** state (Start/End My Day, reusing
+  the existing `/session` domain as-is), **Snapshot Continuity** (prompts
+  for a snapshot before switching/ending the day when the recommended
+  project has none), and **Quick Actions** (Resume Work, Start New AI
+  Session, Create Snapshot, Rescan Workspace, Open Explorer/Assets, Review
+  Advisor).
+
+Performance: both this endpoint and `GET /dashboard/summary` used to walk
+every adopted project's filesystem for assets 3-4 times per request
+(`ProjectContext.assets_count`, Home/Mission Control's recent-assets list,
+the activity feed, called twice). `app.assets.service.request_scope()`, a
+`contextvars`-backed cache keyed by resolved root path, collapses this to
+one walk per adopted project per request when either endpoint's handler
+runs inside it.
+
+### Home (superseded by Mission Control, Sprint C5 — kept for reference)
+
+Home's route (`#/home`) now renders Mission Control; the sections below
+describe the original "Command Center" page, whose render function
+(`renderHome`) is still in `static/js/app.js` but no longer reachable from
+the sidebar.
 
 - **Header**: global search (instant, grouped results), a workspace
   selector, a live date/time display, and quick actions (jump to the
@@ -89,38 +143,63 @@ changed to make room for the other.)
   Applications, Vendors, and Assets — the same six node types the
   Knowledge Graph already models, so no new grouping endpoint was needed.
 
-### Dashboard page (Sprint 7)
+### Dashboard page — Dashboard 2.0 (Sprint C2, replacing Sprint 7)
 
-An executive summary over the Importer/Explorer/Extraction/Knowledge
-Graph/Advisor Search pipeline (Sprints B1-6) — deliberately separate from
-Home above, which summarizes the older Project Intelligence/Advisor/Epic 3
-Graph pipeline instead. Every number on this page is read directly from an
-existing endpoint; nothing is recomputed client-side:
+The executive dashboard over the real workspace: adopted projects, health,
+recommendations, activity, assets, and sessions — answering "what's
+active," "what needs attention," "what changed recently," "what should I
+continue," and "how healthy is the portfolio." Sprint 7's Dashboard showed
+`GET /import/metrics` (Explorer's own extracted-knowledge-object counts)
+under this nav item; those numbers were honestly zero whenever no ChatGPT
+conversation had been imported, even though the real workspace already had
+adopted projects, commits, and sessions. That rendering path has been
+**removed**, not left underneath the new one — `renderDashboardPage` is
+now backed entirely by one endpoint, `GET /dashboard/summary`
+(`app/dashboard/service.py`), which composes `ProjectContext` and the
+existing Home/Advisor/Activity/Assets/Knowledge services rather than
+introducing a parallel aggregation engine. Every value on this page is
+presentation of an already-shaped field; nothing (health tier, next
+action, resume availability, recommendation priority) is recalculated
+client-side.
 
-- **Summary cards** (`health-dashboard-grid`, same animated count-up
-  pattern as Home's Health Dashboard and the Explorer's metrics strip):
-  Conversations, Projects, People, Tasks, Decisions, Ideas, Documents,
-  Assets, Graph Nodes, Graph Edges — all ten fields come straight out of
-  the existing `GET /import/metrics` response (introduced in Sprint B1.5,
-  filled in with real values across Sprints 4-5).
-- **Quick Actions** — four buttons that just navigate: Import Conversation
-  (→ Knowledge page, where the import panel lives), Conversation Explorer,
-  Knowledge Graph, Search Knowledge (→ the Advisor page's search section).
-- **Recent Activity** — Recent Conversations (`GET /import/conversations`,
-  sorted by import date) and Recent Extracted Objects (`GET
-  /extraction/recent`, a new thin endpoint — see below).
-- **System Status** — Last import (`GET /import/history`), Last extraction
-  (`GET /extraction/runs`, a new thin endpoint), Graph status (derived
-  from the same `graph_nodes`/`graph_edges` already in `/import/metrics`),
-  and Database status (`Connected` once every other panel's fetch has
-  succeeded — if any fetch fails, the page shows an error instead, which
-  *is* the "database unreachable" signal; no separate health-check call
-  was added since the existing panels already require every database to
-  be reachable).
-- Loading, empty ("No conversations imported yet.", "Nothing extracted
-  yet.", "No imports/extraction runs/graph data yet"), and error states
-  are all handled explicitly, matching the pattern established by the
-  Explorer and Knowledge Graph pages.
+- **Executive summary cards**: Adopted Projects, Healthy, Needs Attention,
+  Dirty Repositories, With Next Action, Active AI Sessions, Recent
+  Snapshots, Reusable Assets, Knowledge Cards, Recent Commits — all real
+  counts over the same `ProjectContext` list every other project-oriented
+  screen uses (see the Project Context section below), plus `app.db`'s
+  Knowledge count for the one genuinely separate domain.
+- **Portfolio Status** — Healthy/Warning/Critical (from `ProjectContext.
+  health`), Active/Inactive (`workspace.advisor.last_activity_age_days`/
+  `INACTIVE_DAYS_THRESHOLD`, the same threshold `rule_inactive` already
+  uses), and Launch-ready (`workspace.advisor.rule_near_completion`,
+  called directly — not a new heuristic). Groups, not a strict partition:
+  a project can appear in more than one.
+- **Continue Work** — one recommendation, reusing `workspace.portfolio.
+  suggested_project_to_continue` verbatim (the same ranking Home's Quick
+  Resume already uses), with the project's canonical `ProjectContext`
+  embedded for its Resume Work button/next action/latest snapshot/reasons.
+- **Needs Attention** — `workspace.advisor.generate_recommendations`'s
+  full rule set (dirty git tree, no tests, no roadmap, inactive, high move
+  risk, near-completion, **plus one rule added this sprint**,
+  `rule_snapshot_blocker`, surfacing a blocker recorded in a project's
+  latest AI session snapshot — real evidence no prior rule exposed), each
+  item linking to its canonical project identity via an embedded
+  `project_context`.
+- **Recent Activity** — `workspace.service.list_activity_feed`'s existing,
+  deduplicated feed (git commits, snapshots, AI sessions, assets, adoption
+  events, filesystem changes).
+- **Recent Assets** — a compact list from `workspace.service.
+  list_project_assets` (no Asset Library redesign).
+- **Recent Knowledge** — real `app.db` Knowledge counts and recent cards;
+  Knowledge stays a separate domain (a different SQLite file, matched to
+  projects only by a soft, free-text name cross-reference), reflected
+  honestly rather than pretended to be unified.
+- **Empty states** are explicit and honest, never a misleading zero: "No
+  reusable assets detected.", "Knowledge has not been imported yet.", "No
+  recent activity yet.", "Nothing needs attention right now.", "Not yet
+  defined -- no project has an open next action yet."
+- A stale-discovery-data banner appears when `workspace.service.
+  get_freshness()` reports the last scan is past its staleness threshold.
 
 ### Project page
 
@@ -235,9 +314,44 @@ then recommendation cards grouped by workspace, each with evidence,
 impact, estimated effort, and Dismiss / Mark completed actions
 (`/advisor/recommendations`).
 
-### Assets page
+### Assets page — Assets OS (Sprint C4)
 
-Lists every `Asset` node from the Knowledge Graph (`/graph?node_type=Asset`).
+A visual Asset Library over real files discovered inside adopted
+projects — never a listing derived from the Knowledge Graph. Backed by
+the canonical `/assets` API (`app/routers/assets.py`) and the shared
+`AssetRecord` model (`app/assets/model.py`), the same model Explorer's
+Asset results and Project Hub's Assets summary use — one asset index,
+reused everywhere.
+
+- **Gallery (default) and list views**, remembered locally
+  (`localStorage`), with real thumbnails for supported raster/SVG images
+  (`GET /assets/{id}/preview`) and a type-specific placeholder for
+  everything else, including previews that fail (unsupported format, an
+  oversized/corrupt source file).
+- **Deterministic classification** (`app/assets/classification.py`, no
+  LLM): 16 categories from filename/folder-path regex, image dimensions,
+  and extension, in a fixed priority order — every category has a reason
+  a human can verify by reading the filename/folder themselves.
+- **Reusable-by-default rules** with user overrides (reusable, category,
+  favorite) stored only in `role_os_assets.db`'s `asset_overrides` table
+  — a scanned source file is never modified, copied, moved, renamed,
+  edited, or deleted.
+- **Duplicate detection** via partial-content hash, grouped but never
+  auto-consolidated — the user decides what to do with a duplicate.
+- **Server-side filters/search/pagination**; the frontend never computes
+  category, reusable status, duplicates, or MIME type client-side.
+- **Asset Detail panel**: large preview, full metadata, duplicate-group
+  membership, override controls, and Open File / Open Folder / Copy Path
+  / Open Project actions — no destructive action anywhere in this
+  feature.
+- **Security**: every preview/file/open request resolves exclusively
+  through `resolve_safe_path`, which re-derives the real filesystem path
+  from a validated `asset_id` already present in the live index and
+  checks it resolves inside a currently-adopted project root — a client
+  can never submit an arbitrary path. See
+  [`docs/architecture/17_ASSETS_OS_SPRINT_C4_REPORT.md`](../docs/architecture/17_ASSETS_OS_SPRINT_C4_REPORT.md)
+  for the full security model, classification rules, and known
+  limitations.
 
 ### Settings page (Sprint 8)
 
@@ -331,6 +445,31 @@ string, while `/pi/projects` are first-class, persisted Project records.
 | GET    | `/pi/projects/{id}/dependents`                                        | Reverse lookup: who depends on this project |
 | GET    | `/pi/projects/{id}/health`                                              | Recompute (live) and persist the Health Score |
 | POST   | `/pi/health/recalculate`                                                 | Recompute and persist every project's score |
+| GET/PUT | `/pi/projects/{id}/ai-workspace`                                       | Get / Save Conversation: this project's saved Claude/ChatGPT/Gemini URL, role, preferred model (v1.3) |
+| POST   | `/pi/projects/{id}/ai-workspace/open`                                    | `{"tool": "claude"\|"chatgpt"\|"both"}` — the saved URL per tool, or its homepage if none is saved (v1.3) |
+
+### AI Sessions API (v1.4 "Context Engine" — new, nested under `/pi/projects/{id}`)
+
+Entirely additive; introduces no change to any route above, including
+the v1.3 AI Workspace routes directly above this section (both APIs
+coexist — see `docs/product/DECISIONS.md`). Two new tables in the
+existing `role_os_projects.db`; v1.3's saved URLs are copied forward
+into this collection once, at upgrade time, by a tracked migration.
+
+| Method | Path                                                     | Description |
+|--------|-----------------------------------------------------------|--------------|
+| GET    | `/pi/projects/{id}/ai-sessions?assistant=&status=&favorite=` | List this project's AI Sessions (filterable) |
+| POST   | `/pi/projects/{id}/ai-sessions`                              | Create a session (`assistant` required: claude/chatgpt/gemini/other) |
+| GET    | `/pi/projects/{id}/ai-sessions/{session_id}`                  | Get a session |
+| PATCH  | `/pi/projects/{id}/ai-sessions/{session_id}`                   | Update title/URL/role/preferred_model/status/favorite/notes |
+| DELETE | `/pi/projects/{id}/ai-sessions/{session_id}`                    | Delete a session (cascades its snapshots) |
+| POST   | `/pi/projects/{id}/ai-sessions/{session_id}/set-current`          | Mark current for its (project, assistant) pair |
+| POST   | `/pi/projects/{id}/ai-sessions/{session_id}/open`                  | Saved `conversation_url`, or the assistant's homepage |
+| POST   | `/pi/projects/{id}/ai-sessions/{session_id}/snapshots`              | Record a Session Snapshot |
+| GET    | `/pi/projects/{id}/ai-sessions/{session_id}/snapshots`               | List snapshots, most recent first |
+| GET    | `/pi/projects/{id}/ai-sessions/{session_id}/resume`                   | Resumes this specific, explicitly-chosen session -- prompt built from Project Memory (Sprint C7.1), not the session/snapshot alone |
+| GET    | `/pi/projects/{id}/memory`                                              | Sprint C7.1: Project Memory -- Cockpit's primary card |
+| GET    | `/pi/projects/{id}/timeline`                                            | Project Timeline: all sessions + snapshots for this project, in order |
 
 ### Advisor API (Epic 2 — new, namespaced under `/advisor`)
 
@@ -340,6 +479,7 @@ Entirely additive; introduces no change to any route above.
 |--------|-------------------------------------------------------------|--------------|
 | GET    | `/advisor/recommendations?workspace=&project_id=&recommendation_type=&minimum_priority_score=&include_dismissed=` | List recommendations (filterable) |
 | GET    | `/advisor/recommendations/{id}`                                | Get one recommendation |
+| GET    | `/advisor/operational-intelligence`                                | Sprint C6: the full canonical Operational Intelligence Engine output (stateless, always fresh) |
 | GET    | `/advisor/daily-brief?workspace=`                                | Structured Daily Brief |
 | POST   | `/advisor/recommendations/{id}/dismiss`                            | Dismiss a recommendation (persists forever) |
 | POST   | `/advisor/recommendations/{id}/complete`                             | Mark a recommendation completed (persists forever) |
@@ -347,7 +487,9 @@ Entirely additive; introduces no change to any route above.
 `GET /advisor/recommendations` and `GET /advisor/daily-brief` both refresh
 the recommendation engine for the requested scope before reading — so the
 data is always current without a separate "generate" endpoint, the same
-pattern Epic 1 uses for `GET /pi/projects/{id}/health`.
+pattern Epic 1 uses for `GET /pi/projects/{id}/health`. `GET /advisor/
+operational-intelligence` (Sprint C6) is additive and does not replace or
+change either of the above -- see "Operational Intelligence Engine" below.
 
 ### Advisor Search API (Sprint 6 — new, namespaced under `/advisor/search`)
 
@@ -545,6 +687,17 @@ daily record are pure string templating over data the user entered.
 | POST   | `/session/{id}/save-to-vault`                | Optionally write the record directly into the configured vault folder |
 | GET    | `/session/decisions/recent`                  | Recent ROLE Ecosystem decisions -- live from `role-ecosystem/DECISION_LOG.md` if `ROLE_OS_ECOSYSTEM_DECISION_LOG_PATH` is set and readable, otherwise a small documented fallback snapshot |
 
+### AI Launcher API (v1.2 — new, namespaced under `/launcher`)
+
+Entirely additive; introduces no change to any route above. Owns no
+persistence -- reads the active session (`/session/current`) and recent
+ecosystem decisions. Never touches the clipboard or the browser itself;
+returns text and URLs only, for `static/js/app.js` to act on client-side.
+
+| Method | Path                | Description |
+|--------|----------------------|--------------|
+| POST   | `/launcher/start`     | Body `{"tool": "claude" \| "chatgpt" \| "both"}`. Returns the assembled session prompt and the target URL(s). 409 if no session is active; 422 for an unrecognized tool. |
+
 ### Knowledge Extraction API (Sprint 4 — new, namespaced under `/extraction`)
 
 Entirely additive; introduces no change to any route above. Rule-based
@@ -622,19 +775,20 @@ deletion interact this way.
 Interactive API docs (including the full Project Intelligence schema) are
 available at `/docs` once the app is running.
 
-### Discovery Engine (Sprint 1 — read-only, CLI-only, `dashboard/app/discovery/`)
+### Discovery Engine (Sprints 1-3, `dashboard/app/discovery/`)
 
 Answers "what already exists on disk?" before anything is imported into
 Project Intelligence. Strictly read-only against the scanned root: it only
 ever calls `os.scandir`/`Path.exists`/local read-only `git` subcommands, and
-never follows a symlink or NTFS junction into a cycle. No API route yet and
-no database writes — see `docs/architecture/08_IMPORT_ENGINE_PROPOSAL.md`
-for the full architecture and rollout plan; this is Phase 1/Sprint 1 of
-that plan only.
+never follows a symlink or NTFS junction into a cycle. See
+`docs/architecture/08_IMPORT_ENGINE_PROPOSAL.md` for the full architecture
+and rollout plan, and `09_DISCOVERY_ENGINE_SPRINT1_REPORT.md` /
+`10_WORKSPACE_ADOPTION_SPRINT2_REPORT.md` /
+`11_PROJECT_BOUNDARY_SPRINT3_REPORT.md` for what shipped in each sprint.
 
 ```bash
 cd dashboard
-python -m app.discovery audit --root "C:\Users\you\Documents" --output "C:\path\to\reports" --max-depth 2
+python -m app.discovery audit --root "C:\Users\you\Documents" --output "C:\path\to\reports" --max-depth 2 --exclude "Old Stuff"
 ```
 
 For each candidate folder it reports: classification (`Software Project`,
@@ -648,14 +802,757 @@ image/video/document/design-file/font counts; a **move-safety** rating
 would break on relocation; a **Health Score** (0-100, weighted across
 documentation/tests/recent activity/roadmap/architecture/automation/
 commercial-readiness/deployment, each signal individually inspectable in
-`health.py`); and one of six **recommendations** (`Leave where it is`,
+`health.py`); one of six **recommendations** (`Leave where it is`,
 `Move into IA PROJECTS`, `Archive`, `Merge with another project`, `Rename`,
-`Requires manual review`), always paired with the specific reasons behind
-it. `--output` writes `discovery_audit.json` and `discovery_audit.md`
-(refused if it resolves inside `--root`, so the audit's own output can
-never pollute a rescan of the tree it just read).
+`Requires manual review`); and, since Sprint 3, a **project-boundary /
+hierarchy** classification (`app/discovery/boundary/`) -- see below.
+`--output` writes `discovery_audit.json` and `discovery_audit.md` (refused
+if it resolves inside `--root`), now including Top-level/Nested/Internal/
+Excluded/Needs-review sections and a false-positive-reduction comparison.
 
-## Project Intelligence domain (Epic 1)
+#### Project Boundary / Hierarchy (Sprint 3, `app/discovery/boundary/`)
+
+Distinguishes a real top-level project from a nested repository/component,
+an internal structure folder, an excluded folder, and a non-project --
+deliberately a **separate field** (`item_kind`) from `classification`
+(which answers "what kind of thing is this", not "where does it sit in the
+real project tree"). Every `DiscoveredProject` gains: `item_id` (stable
+`sha1(root_path)[:16]`), `item_kind`, `parent_item_id`, `project_root_id`,
+`hierarchy_depth`, `is_top_level_project`/`is_nested_repository`/
+`is_internal_folder`/`is_excluded`, `exclusion_reason`,
+`boundary_confidence`, and `boundary_evidence` (the specific reasons, same
+explainability principle as Health Score/Recommendation).
+
+- A folder is a **top-level project** if it has its own `.git`/tech-stack
+  marker, **or** contains a nested folder that does (a "factory"/monorepo
+  container, e.g. `ROLE Commerce Factory` holding two adapter components),
+  **or** has a README plus substantial internal structure (3+ internal
+  folders, or a roadmap/changelog).
+- A nested folder with its own `.git` is a **repository**; with just a
+  package manifest, a **component** -- unless it *also* has strong
+  independent-product evidence of its own (own remote, roadmap/changelog,
+  high confidence), in which case it's promoted to its own top-level
+  project instead.
+- A nested folder matching a known internal-structure name (numbered
+  `01_*` prefixes, `docs`, `assets`, `src`, `tests`, ... --
+  `boundary/rules.py`) becomes **internal_folder**/**documentation**/
+  **asset_library** -- unless it has its own markers, which always wins.
+- **Exclusions** (`boundary/exclusions_config.json`, the one source-of-truth
+  config file): exact names, case-insensitive names, glob patterns, and
+  relative-path patterns. Defaults include common technical folders and
+  `OTROS - no proyectos`. An excluded folder is reported (with its reason)
+  but never walked recursively. Extra exclusions: `ROLE_OS_DISCOVERY_EXTRA_EXCLUSIONS`
+  (comma-separated names/globs; never an absolute path) or CLI `--exclude`.
+
+### Workspace Adoption (Sprints 2-3, `dashboard/app/workspace/`, `/workspace/*` API)
+
+The first writable layer over the read-only Discovery Engine. Own SQLite
+file (`role_os_workspace.db`): a cache of the last scan, and a small
+per-folder overlay (`priority`/`business_value`/`status`/`tags`/`notes`/
+`ignored`/boundary `override_action`) -- **never** discovery metadata
+(name/git/health/classification/hierarchy), which is always re-read live
+from the cached scan. `ROLE_OS_DISCOVERY_ROOT` configures the default scan
+root (defaults to this checkout's own parent directory).
+
+- `GET /workspace/summary` — Last Scan / Projects Found / Adopted / Ignored.
+- `GET /workspace/discovered[?view=top_level|repositories|excluded|needs_review|all][&include_ignored=]` —
+  omitting `view` returns the original Sprint 2 flat list (unchanged
+  contract); `view=top_level` (what the Workspace page uses by default)
+  groups nested repositories/components/internal folders underneath their
+  parent, each with rolled-up counts.
+- `GET /workspace/discovered/{id}` — full detail (Review).
+- `POST /workspace/rescan` — runs a real scan, preserving every adopted/
+  ignored/override state by id; a renamed folder gets a new id (its old
+  overlay is orphaned, harmlessly); a removed folder simply disappears.
+- `POST /workspace/discovered/{id}/adopt|ignore|unignore`,
+  `PATCH /workspace/discovered/{id}`, `POST .../notes`.
+- `POST /workspace/discovered/{id}/override` (`{"action": "top_level"}` or
+  `{"action": "attach_to_parent", "parent_id": "..."}`) / `.../override/clear`
+  — a user correction to the Discovery Engine's computed grouping, stored
+  only in the overlay; the computed `item_kind`/`parent_item_id` are never
+  altered, so "detected boundary" vs. "your override" stay comparable.
+- `GET /workspace/adopted` — adopted items reshaped like `/pi/projects`, so
+  the Projects page can show manually-created and discovered projects
+  side by side (labeled "Discovered") without special-casing either.
+- `POST /workspace/discovered/{item_id}/resume-work` (Sprint 5) — the
+  primary Resume Work action; 404 until the item is adopted. See "Project
+  Unification (Sprint 5)" below.
+
+The Workspace sidebar page has four filter tabs (Top-level projects /
+Nested repositories / Ignored & excluded / Needs review), an Expand action
+per top-level project to reveal its children indented underneath, and a
+Review detail panel showing the full boundary evidence plus override
+actions.
+
+#### Project Intelligence Wiring (Sprint 4)
+
+Wires the Sprint 1-3 data into Projects, Home, Advisor, and Assets, which
+previously showed empty/zero-centric content whenever no manually-created
+Project Intelligence data existed. Scoped to **adopted top-level projects
+only** (`list_enriched_top_level_projects(adopted_only=True)`) -- adoption
+is the existing, explicit "track this" signal, so excluded/internal-folder
+items can never leak into any of these views.
+
+- **Next Action** (`app/discovery/next_action.py`): a deterministic,
+  non-LLM search, in priority order -- AI Session Snapshot hint (passed in
+  by the caller; this module has no DB access) → `NEXT_ACTION.md` →
+  `TODO.md`/a `## TODO` section → `ROADMAP.md`'s current milestone →
+  README's "Next Steps" → `CHANGELOG.md`'s unreleased section → the
+  latest git commit message. Every result carries its source, source
+  path, confidence, and extraction timestamp; nothing found means
+  `text: None` ("Not yet defined"), never an invented value.
+- **Assets** (`app/workspace/assets_index.py`): real discovered asset
+  records (PNG/JPG/JPEG/WEBP/SVG/PDF/MP4/MOV/PSD/AI/fonts) per adopted
+  project -- filename/path/type/size/modified/category/reusable/a
+  partial-hash (first 1MB) duplicate signal. No thumbnails, no copying.
+- **Workspace Advisor 2.0** (`app/workspace/advisor.py`): 11 evidence-only
+  rules (inactive-N-days, dirty git tree, no README/roadmap/tests,
+  next-action-available, high-value-but-inactive, high move risk,
+  momentum, assets-without-commercial-output, near-completion) -- a
+  sibling to `app/advisor/` (Epic 2, which has no filesystem/git
+  knowledge), not a rewrite. Every recommendation carries project/reason/
+  evidence/priority/confidence/action_link; nothing fires without real
+  supporting data.
+- **Recent Activity** (`app/workspace/activity.py`): merges git commits
+  (`git log -5` per repo), filesystem mtimes, adoption events, AI
+  Sessions/Snapshots, and discovered assets into one deduplicated,
+  time-sorted feed.
+- **Home portfolio** (`app/workspace/portfolio.py`): Last Active Project,
+  Most Recently Modified, Projects Needing Attention, Recent Commits,
+  Recent Assets, Latest AI Session, a Suggested Project to Continue
+  (explainable: has a next action + recent activity + business value),
+  and a Quick Resume action.
+- API (additive): `GET /workspace/home`, `GET /workspace/advisor`,
+  `GET /workspace/assets[?project_id=]`, `GET /workspace/activity[?limit=]`;
+  `GET /workspace/discovered?view=top_level` is now enriched with
+  `next_action`/`documentation_status`/`test_status`/`asset_count`;
+  `GET /workspace/discovered/{id}` now includes `next_action`/
+  `ai_sessions`; `GET /workspace/summary` gained `is_stale`/
+  `hours_since_scan`/`stale_threshold_hours` (stale after 24h).
+- UI: Projects page cards show the full field set (git/docs/tests/assets/
+  next action/adoption status), linking to a new Discovered Project Detail
+  view (`#/dproject/{id}`, parallel to and never touching the existing
+  manual-project detail view) with Overview/Git/Documentation/
+  Repositories-Components/Assets/Tests/Recent Activity/AI Sessions/Latest
+  Snapshot/Next Action/Risks-Blockers sections. Home gained a "Your
+  Projects" section above the untouched Today's Focus. Advisor gained a
+  "Discovered Projects" section. Assets was rebuilt from an inert
+  placeholder into a real table.
+- **Known gap**: AI Sessions/Snapshots cannot yet be *created* for a
+  purely-discovered project -- `app.projects.db.create_ai_session`
+  requires a real row in the `projects` table (enforced by both an
+  explicit check and a SQLite foreign key), which a discovered-only item
+  never has. The read side is fully wired (a discovered item's `ai_
+  sessions` correctly returns empty/`None` today, never an error), so
+  this surfaces honestly as "Not yet defined" rather than breaking --
+  but starting a new AI session *from* a discovered project's detail page
+  isn't possible until a future sprint decides how the two id schemes
+  should relate.
+
+#### Project Unification (Sprint 5)
+
+Closes Sprint 4's "known gap" above by removing the conceptual split
+between manually-created Projects and discovered/adopted projects
+entirely -- from the user's side there is now exactly one concept,
+"Project," bridged rather than merged.
+
+- **Canonical Project Identity** (`app/workspace/identity.py`): a
+  bidirectional nullable bridge -- `projects.discovery_item_id` (Project →
+  discovery item) and `adopted_projects.canonical_project_id` (discovery
+  item → Project) -- resolved lazily and idempotently by
+  `get_or_create_canonical_project_id()`: reuse an existing valid link →
+  link an unlinked manual Project with a matching name (case-insensitive;
+  never overwrites existing Project fields) → create a minimal new
+  Project (name + `Discovered` workspace only, never a copy of discovery
+  metadata). A stale link (its Project row deleted out-of-band) silently
+  re-resolves rather than returning a dangling id. `adopt_item` now
+  resolves a canonical identity as part of adoption itself, and
+  `enrich_project_item` self-heals one for any already-adopted item that
+  doesn't have one yet -- so AI Sessions now work for every adopted
+  project with zero manual setup, closing Sprint 4's gap.
+- **Resume Work** (`app/workspace/resume.py`, `POST /workspace/discovered/
+  {item_id}/resume-work`): the one primary action on a project. **Redesigned
+  in Sprint C7.1** -- resumes the *Project* via Project Memory
+  (`app/project_memory/`), not the AI Session; see "Resume Work Refactor"
+  below for the full design. Selects (or creates) the best AI Session,
+  marks it current, builds the Resume Prompt from Project Memory, resolves
+  the assistant conversation URL (or a homepage fallback), and touches
+  `last_used_at`. 404s until the item is adopted. Wired as the primary
+  action on the Discovered Project Detail view, Home's Quick Resume card,
+  Mission Control's Primary Focus card, and every Workspace Advisor
+  recommendation -- all trigger real session creation, not just
+  navigation.
+- **History wiring fix**: `get_enriched_item` previously queried AI
+  Sessions using the raw discovery-item hash, which never matched a real
+  `projects.id` and silently returned empty results (Sprint 4's
+  documented gap). It now resolves the canonical id first, and also
+  surfaces a `timeline` field (`projects_db.list_project_timeline`) on
+  the Discovered Project Detail view.
+- **Backward compatibility**: existing manually-created projects are
+  unaffected; the projects list dedupes so a project linked to a
+  discovered item never appears twice.
+- **Known limitation**: the identity match for backward-compat migration
+  is exact-name (case-insensitive) only -- a manual Project named
+  differently from its matching folder will not auto-link and instead
+  gets its own new canonical Project on first adoption. See
+  `docs/architecture/13_PROJECT_UNIFICATION_SPRINT5_REPORT.md` for the
+  full write-up.
+
+#### Project Context (Sprint C1: Consolidation)
+
+`app/project_context/` -- a single, reusable service that assembles
+everything a UI screen needs to describe one project (identity, health,
+git, commits, next action, a normalized advisor summary, assets/
+documents/knowledge counts, timeline, resume state), reusing Discovery/
+Workspace/Project Intelligence/Advisor exactly as they already work. Not
+a new "project" concept -- a composition layer over the existing ones.
+
+- `build_project_context(item_id=..., project_id=...)`: resolves either
+  identity (or both) to the same object. `build_project_contexts_for_
+  workspace()`: the bulk variant for list pages, reusing the existing
+  enrichment pass at no extra per-item cost (it skips the Epic 2 advisor
+  call and full timeline -- cost knobs, not shape differences).
+- API: `GET /project-context` (bulk, adopted-only by default),
+  `GET /project-context/{identifier}` (item id or canonical/PI project
+  id; 404 if neither resolves).
+- Two real bugs fixed while centralizing this (not rewrites -- the same
+  functions, called correctly instead of inconsistently):
+  `get_home_portfolio`'s `latest_ai_session` was silently always `None`
+  (nothing had ever attached the AI session summary `enrich_project_item`
+  already computed); `get_enriched_item` looked up the same AI session
+  summary twice per call.
+- `GET /workspace/activity` and `GET /workspace/assets` both gained an
+  optional `project_id` filter, applied server-side (restricting the
+  underlying git/filesystem work), replacing the Discovered Project
+  Detail page's previous approach of fetching every adopted project's
+  activity and filtering it client-side.
+- Cockpit's "Next Action" card now consults `/project-context/{id}`
+  first (falling back to its prior snapshot-only computation on any
+  fetch failure), so a project linked to a discovered folder shows the
+  same richer, multi-source next action Workspace's own detail view
+  already had.
+- **Sprint C1B (Rewiring)**: a consolidation audit found the above wiring
+  was the module's *only* production caller -- every other screen
+  (Home, Projects, Workspace, Advisor) still independently assembled its
+  own project data, and the module's own health-tier thresholds (80/50)
+  disagreed with the frontend's (70/40). C1B made `ProjectContext` load-
+  bearing: `GET /workspace/discovered?view=top_level`, `GET /workspace/
+  home`, `GET /workspace/discovered/{id}`, `GET /pi/projects`,
+  `GET /pi/projects/{id}`, `GET /workspace/advisor`, and
+  `GET /advisor/recommendations` now all embed a real `project_context`
+  per project/recommendation; Cockpit reads it off the `/pi/projects` row
+  it already fetched instead of a separate call. Health-tier thresholds
+  now live in one place (`app/project_context/health.py`); the inline
+  next-action mini-extractor and the disconnected `resume_state` stub were
+  removed in favor of the same canonical extractor
+  (`discovery.next_action.extract_next_action`) and a new read-only
+  `workspace.resume.preview_resume_state()`; `assets_count` now matches
+  the real Assets index exactly. See the Sprint C1B completion report
+  (delivered as a published artifact) for the full before/after.
+
+### Dashboard 2.0 (Sprint C2)
+
+`app/dashboard/service.py` -- one additive endpoint, `GET /dashboard/
+summary`, composing `ProjectContext` (workspace + manual PI projects),
+`workspace.service.get_home_portfolio`, `workspace.advisor.
+generate_recommendations`, `workspace.service.list_activity_feed`/
+`list_project_assets`, and `app.db`'s Knowledge counts into one already-
+shaped executive-dashboard payload. Replaces the legacy Sprint 7 Dashboard
+(`/import/metrics`-backed, zero-centric) -- see "Dashboard page" above for
+the full breakdown of what the page shows. Not a new aggregation engine:
+every field is produced by calling an existing service exactly once and
+counting/grouping its output. The one new rule, `rule_snapshot_blocker`
+(a project's latest AI-session-snapshot blocker), was added to the
+existing `workspace/advisor.py` rule set because no existing service
+surfaced that evidence -- not a new engine, the same pure-function-per-
+enriched-item shape as the other eleven rules.
+
+### Explorer 2.0 (Sprint C3)
+
+`app/routers/explorer.py` / `app/explorer/service.py` -- `GET /explorer/
+search?q=` is a universal `ProjectContext` search across 13 result types
+(project, discovered folder, AI session, decision, document, asset,
+person, application, task, idea, deliverable, note, activity), each with
+its own `actions` (e.g. an Asset result's primary action opens the real
+Asset Detail panel). Replaces the legacy Conversation Explorer browsing
+UI (Imported Conversations list, conversation database counters, import
+statistics) entirely -- Explorer no longer has any dependency on the
+imports domain. `GET /explorer/project-hub/{id}` composes the same
+`ProjectContext` plus a per-project assets summary into one hub view. No
+duplicated aggregation: both reuse `app.project_context.builder.
+all_project_contexts()` and `app.assets.service.list_all_assets()`, the
+same functions every other screen calls.
+
+### Assets OS (Sprint C4)
+
+`app/assets/` / `app/routers/assets.py` -- replaces the Assets page's
+flat technical file listing (`Asset` nodes from the Knowledge Graph) with
+a real visual Asset Library over files discovered inside adopted
+projects. See "Assets page" above for the full feature breakdown and
+[`docs/architecture/17_ASSETS_OS_SPRINT_C4_REPORT.md`](../docs/architecture/17_ASSETS_OS_SPRINT_C4_REPORT.md)
+for the canonical `AssetRecord` model, preview security model, cache
+location, classification rules, and known limitations. `app.workspace.
+assets_index` (Sprint 4) is now a thin backward-compatible shim
+delegating to `app.assets.service` -- one asset index, not two.
+
+| Method | Path                                          | Description |
+|--------|------------------------------------------------|--------------|
+| GET    | `/assets?q=&category=&project_id=&reusable=&favorite=&duplicates_only=&page=&page_size=` | List/search/filter/paginate assets |
+| GET    | `/assets/freshness`                           | Last scan time / staleness |
+| GET    | `/assets/duplicates/{group_id}`               | Every member of a duplicate group |
+| GET    | `/assets/{id}`                                | Full asset detail |
+| GET    | `/assets/{id}/preview`                        | Cached, resized preview image (or 422 if unsupported/unsafe) |
+| GET    | `/assets/{id}/file`                           | Raw file stream |
+| PATCH  | `/assets/{id}`                                | Set reusable/category/favorite override |
+| POST   | `/assets/{id}/open-file`, `/assets/{id}/open-folder` | OS-integration actions (this machine only, Windows) |
+
+#### Assets Canonicalization Audit (Sprint C4.1)
+
+An audit sprint verifying `app.assets` is the *only* place asset
+classification/duplicate-detection/counting logic lives across Assets,
+Explorer, Project Hub, Home, Dashboard, and ProjectContext -- confirmed
+via a full symbol-level caller audit, with 9 new architectural guard
+tests (`test_assets_canonical_architecture.py`) that inspect the source
+tree itself so a second implementation can't quietly reappear. Found and
+fixed one real cross-screen bug: `index_project_assets` (called directly
+by Dashboard/Home/`ProjectContext.assets_count`/Project Hub, not just the
+`/assets` API) never resolved `duplicate_group_id` to `None` for a
+genuinely unique file. See
+[`docs/architecture/18_ASSETS_CANONICALIZATION_SPRINT_C41_REPORT.md`](../docs/architecture/18_ASSETS_CANONICALIZATION_SPRINT_C41_REPORT.md)
+for the full audit findings, including the deliberate distinction between
+`app.assets.AssetRecord` (real files) and the Knowledge Graph's `"Asset"`
+node type (an unrelated, pre-existing knowledge-extraction concept with
+no id/endpoint overlap).
+
+### Mission Control (Sprint C5)
+
+`app/mission_control/service.py` / `app/routers/mission_control.py` -- one
+additive endpoint, `GET /mission-control`, composing `ProjectContext`,
+Home's ranking (`get_home_portfolio`/`suggested_project_to_continue`),
+`workspace.advisor.generate_recommendations`, `workspace.service.
+list_activity_feed`, and `app.session.db` into the daily operating
+surface's already-shaped payload -- see "Mission Control" above for the
+full section-by-section breakdown. No new ranking/recommendation engine:
+every field is produced by calling an existing service exactly once.
+Fixes the Sprint C4.1 finding (`GET /dashboard/summary` walking every
+adopted project's assets twice) with `app.assets.service.request_scope()`,
+a request-scoped filesystem-walk cache both this endpoint and Dashboard's
+now use -- see `docs/product/DECISIONS.md` for the full reasoning and known
+limitations (Since Last Time cannot yet surface status/blocker/roadmap
+changes as discrete events, only what the existing Recent Activity feed
+tracks).
+
+| Method | Path               | Description |
+|--------|--------------------|--------------|
+| GET    | `/mission-control` | The entire Mission Control payload (primary focus, today's focus, since last time, needs attention, value signal, portfolio, recent activity, daily session, snapshot continuity, quick actions) |
+
+### Operational Intelligence Engine (Sprint C6)
+
+`app/operational_intelligence/` -- one canonical service,
+`get_operational_intelligence()`, that turns evidence about a project (or
+the workspace as a whole) into a recommendation. No LLM, no embeddings, no
+vector database, no external AI API -- every recommendation traces back to
+a deterministic rule over already-computed evidence. Every recommendation
+carries exactly seven fields: `recommendation`, `priority` (0-100),
+`confidence` (0.0-1.0), `evidence` (list of concrete facts), `project`
+(a reference, or `None` for a workspace-wide item), `expected_benefit`
+(a static, documented keyword-lookup sentence -- never generated), and
+`suggested_action` -- plus `reason`/`action_link`/`source`/`rule_id` extras.
+
+Not a new engine so much as one composition over the two that already
+existed:
+
+- **Discovery pack** -- `workspace.advisor.generate_recommendations`
+  (git status, health, README/roadmap/tests presence, next action,
+  business value, move risk, momentum, commercial readiness, snapshot
+  blockers), reused verbatim.
+- **PI pack** -- `app.advisor.engine.get_recommendations` (dependencies,
+  capabilities, TODOs, deliverables, decisions, staleness, near-
+  completion), called once for the whole workspace and reused verbatim --
+  its persisted dismiss/complete/TTL lifecycle (Advisor-specific state)
+  is untouched.
+- **New evidence pack** (`app/operational_intelligence/rules.py`) --
+  three previously-uncovered evidence dimensions: Knowledge freshness (new
+  -- how long since the last ChatGPT conversation import,
+  `KNOWLEDGE_STALE_DAYS = 30`), Discovery scan freshness (already computed
+  by `workspace.service.get_freshness`, now turned into an actionable
+  recommendation), and workspace status crossed with pending work (a
+  paused/archived project that still has open next-action/pending-snapshot
+  work).
+
+**Conflict resolution**: recommendations are deduplicated by `(project,
+recommendation title)` -- an identical title firing for the same project
+(or workspace-wide) from two different rule packs collapses to whichever
+has the higher priority, then confidence. **Priority**: no new scoring
+formula -- every rule pack already returns a 0-100 integer; the engine only
+sorts by it.
+
+**Consumers**: Mission Control's Today's Focus/Needs Attention/Value
+Signal/Daily-Session-suggestion-text; the additive `GET /advisor/
+operational-intelligence` endpoint; Explorer's Recommendation search
+results (now carrying an `evidence` field). See `docs/product/DECISIONS.md`
+for the full reasoning, including why Resume Work and Dashboard were
+deliberately left as lighter-touch integration points this sprint.
+
+| Method | Path                             | Description |
+|--------|-----------------------------------|--------------|
+| GET    | `/advisor/operational-intelligence` | The full canonical recommendation list (all three rule packs, normalized, deduped, sorted) |
+
+### Resume Work Refactor (Sprint C7.1)
+
+`app/project_memory/` -- fixes a real product flaw real-world validation
+surfaced: Resume Work resumed an *AI Session*, not a Project. A thin or
+generic session/snapshot meant a thin, generic prompt, and the assistant
+had to ask what the project even was. Corrected flow:
+
+```
+Project -> Project Memory -> Resume Prompt -> locate best AI Session
+-> open conversation -> copy prompt
+```
+
+The AI Session is now only ever the transport (where the conversation
+happens to live); Project Memory is the one source of truth for the
+prompt.
+
+- **Project Memory** (`service.py`) composes the same already-computed
+  `ProjectContext` (next action, git, latest snapshot) plus, for a real
+  Resume Work click, the Operational Intelligence Engine's top
+  recommendation for that project -- never recomputed independently.
+- **Resume Prompt** (`prompt.py`) always begins with exactly `Project:`,
+  `Current Objective:`, `Where We Left Off:`, `Pending Work:`,
+  `Next Action:`, `Operational Recommendation:`, `Conversation:`, in that
+  order. Session data (title, assistant) appears *only* in the
+  `Conversation:` section, alongside why that session was picked -- never
+  as a source for any other section.
+- **Conversation selection** (`session_selection.py`): prefers 1) the
+  latest active session, 2) a pinned session (`favorite` -- the only
+  "pin"-like field that exists on `AISession`; no second concept was
+  invented), 3) a preferred session (`current` -- the closest existing
+  concept to a per-project "preferred" session), 4) the newest session.
+  Every choice returns a plain-English reason, never a silent decision.
+- **Session naming** (`naming.py`): every session Resume Work creates (or
+  retitles, if it inherited a generic name from the old flow) is named
+  `<Project Name> — <Objective>` (e.g. "ROLE Commerce Factory — Shopify
+  Adapter") -- never "Resume Work", "Untitled", or "Session 1". A session
+  already titled "Resume Work" (the exact bug this sprint fixes) is
+  retitled the moment it's next resumed.
+- **Cockpit**: Project Memory (`GET /pi/projects/{id}/memory`) replaces
+  the old Today's Objective/Next Action/Last Snapshot insight cards as the
+  primary card; AI Sessions is now a secondary section below it.
+- **Mission Control**: no frontend changes needed -- Resume Work's
+  existing endpoint (`POST /workspace/discovered/{id}/resume-work`) now
+  builds its prompt from Project Memory automatically.
+- **A real recursion, fixed with two cost knobs, not a parallel builder**:
+  `ProjectContext`'s `resume_state` builds Project Memory (for an accurate
+  preview prompt), which itself calls `build_project_context` for the same
+  project. Two new parameters on `build_project_context`/`_assemble`
+  (`include_resume_state`, `include_epic2_recs`), both defaulting to
+  `True`, let `app.project_memory` opt out of both (avoiding the
+  recursion, and avoiding a redundant Epic 2 Advisor refresh Project
+  Memory never needs) without changing behavior for any other caller.
+- **Performance**: the real Resume Work click intentionally pays for one
+  whole-workspace Operational Intelligence pass (needed for `Operational
+  Recommendation:`); every more-frequent caller (`preview_resume_state`,
+  Cockpit's memory card, the per-session `/resume` endpoint) skips it and
+  stays cheap -- a real regression caught by this sprint's own full
+  regression run before it shipped (see `docs/product/DECISIONS.md`).
+- **Removed, not deprecated**: the old session-only
+  `app.services.resume.build_resume_prompt` and its test file --
+  "the AI Session never owns the prompt" is an invariant now, not a
+  preference.
+
+### Project Ecosystem Engine (Sprint C8)
+
+`app/project_ecosystem/` -- understands how adopted projects relate to
+each other (dependencies, shared assets/knowledge/documentation/prompts/
+sessions, blocking relationships) from deterministic evidence only. No
+LLM, no embeddings, no vector database.
+
+**Canonical relationship model** (`models.py`): every relationship
+carries `relationship_id, source_project, target_project,
+relationship_type, confidence, evidence, detector, discovered_at,
+last_verified, manual_override, status`. `relationship_type` is always
+exactly one of `SUPPORTED_TYPES`: `depends_on, uses, consumes, produces,
+extends, shares_assets, shares_prompts, shares_documentation,
+shares_knowledge, shares_sessions, blocks, blocked_by, related`.
+
+**Detectors** (`detectors.py`), each reusing an existing canonical domain
+rather than re-deriving it:
+
+- **`detect_dependencies` / `detect_capabilities`** -- PI's existing
+  explicit dependency/capability tables (`app.projects.db`), reused
+  verbatim (confidence 1.0). `blocks`/`blocked_by` are derived from a
+  dependency whose target project's own status/health looks blocked --
+  not a separate detector.
+- **`detect_shared_assets`** -- the canonical Assets index
+  (`app.assets.service.list_all_assets`); two projects sharing a
+  `duplicate_group_id` share an asset.
+- **`detect_shared_knowledge`** -- Knowledge cards (`app.db.
+  list_all_cards`), soft-matched to a project via the same case-
+  insensitive `card['project']` name convention `ProjectContext`/Explorer
+  already use.
+- **`detect_shared_documentation` / `detect_git_remote_references`** --
+  bounded (20KB, same cap as `discovery.next_action`) reads of each
+  project's own README/ROADMAP/CHANGELOG/TODO/NEXT_ACTION and git remote
+  URL, searched for another project's name as a literal text reference.
+- **`detect_shared_prompts_and_sessions`** -- a project's latest Session
+  Snapshot/AI Session mentioning another project by name.
+- **`detect_sibling_projects`** -- two adopted projects under the same
+  parent folder (`related`, low confidence).
+
+**Conflict resolution & manual overrides** (`relationships.py`, `db.py`):
+same-pair-same-type relationships from different detectors merge (union
+of evidence, higher confidence kept). A small overlay table
+(`role_os_ecosystem.db`) stores only manual dismiss/confirm overrides,
+keyed by the relationship's own deterministic id -- the relationships
+themselves are never persisted, always recomputed fresh.
+
+**Impact Summary** (`graph.py`): `affected_projects, shared_assets,
+shared_documents, shared_prompts, shared_knowledge, shared_sessions, risk,
+confidence` -- bounded to direct (1-hop) relationships only, no multi-hop
+graph traversal, no destructive action ever taken.
+
+**Consumers**:
+
+- **Project Detail** -- Explorer's Project Hub (`GET /explorer/
+  project/{id}`) gained an Ecosystem section: Dependencies, Consumers,
+  Blocked By, Blocks, Shared Assets, Shared Prompts, Shared Knowledge,
+  Shared Documentation, Impact Summary -- clean cards, never a graph
+  visualization, each linking to the related project.
+- **Explorer search** -- a new result type, `"Ecosystem Relationship"`
+  (`_search_ecosystem`): searching a project name surfaces "Used by ..."
+  results (its dependents); searching a relationship keyword (e.g. "shared
+  assets", "depends on") surfaces every relationship of that type.
+- **Mission Control** -- the Operational Intelligence Engine gained
+  `rule_unblocks_dependents` ("Complete X to unblock Y, Z"), reading only
+  the cheap dependency detector (plain SQL) rather than the full ecosystem
+  (which also runs filesystem/knowledge scans), preserving OI's own
+  no-repeated-scans contract.
+- **Project Memory** -- a small, bounded `related_projects` section (top
+  dependencies/consumers/recent shared decisions -- never a graph dump).
+
+**Real bug found and fixed** while building `detect_shared_assets`:
+`app.assets.service.group_duplicates` only ever *cleared* a record's
+`duplicate_group_id`, never (re)set it -- since `list_all_assets` calls it
+a second time on records that already passed through it once (inside each
+project's own `index_project_assets` call), a file whose only duplicate
+lived in a *different* project could never be resolved back to a shared
+group id, contradicting `list_all_assets`'s own docstring promise. Fixed
+at the root; covered by a new regression test in `test_assets_os.py`.
+
+**Performance**: every whole-workspace pass (`compute_relationships`,
+Explorer's `search()`/`project_hub()`, Resume Work, Cockpit's memory card)
+runs inside `app.assets.service.request_scope()` so the shared-assets
+detector's filesystem walk is never repeated within one request.
+
+| Method | Path                          | Description |
+|--------|--------------------------------|--------------|
+| GET    | `/project-ecosystem/{project_id}` | A project's full ecosystem view (relationships, dependencies, consumers, blocks, blocked_by, shared_assets/prompts/documents/knowledge/sessions, impact_summary) |
+
+**Known limitations**: no import/package-reference (source-code parsing)
+detection -- too language-specific and too expensive to do safely at this
+sprint's scope; only filesystem/git/documentation/knowledge/PI-data
+evidence is detected. Shared-prompts/shared-sessions detection is a
+simple name-mention scan (low confidence), not a semantic match. See
+`docs/product/DECISIONS.md` for the full reasoning.
+
+### Impact Analysis Engine (Sprint C9)
+
+`app/impact_analysis/` -- answers "if this project changes, what else is
+affected?" entirely by reading the Project Ecosystem Engine's (Sprint C8)
+already-computed relationship graph, `ProjectContext`, Assets, Knowledge,
+Operational Intelligence (Sprint C6), and Project Memory (Sprint C7.1). No
+new relationship-detection pass, no new graph, no LLM/embeddings/vector
+database. Note: this is unrelated to the pre-existing Knowledge Graph
+endpoint `GET /graph/impact/{id}` (Epic 3's node-level cascading
+traversal over the Knowledge Graph) -- a separate, older concept with no
+overlap in code or data source.
+
+**Canonical `ImpactReport`** (`models.py`): `project, generated_at,
+overall_risk, confidence, affected_projects, direct_dependencies,
+transitive_dependencies, shared_assets, shared_prompts,
+shared_documentation, shared_knowledge, shared_sessions,
+operational_effects, release_effects, recommended_actions, evidence,
+limitations`. `direct_dependencies`/`transitive_dependencies` name the
+projects *affected by* a change to this project (who depends on it, not
+what it depends on).
+
+**Risk scoring** (`scoring.py`): five explainable levels -- `none, low,
+medium, high, critical` -- each reached by a fixed, documented count
+threshold (already-blocking dependents, direct/transitive dependent
+counts, total shared-evidence count), never a weighted formula. Every
+level returns the exact reason string(s) that produced it.
+
+**Bounded transitive traversal** (`service.py`): a cycle-safe BFS over the
+Ecosystem Engine's `depends_on` edges (reversed: who depends on this
+project, then who depends on those, ...), bounded to 3 hops -- covers the
+brief's own worked example (ROLE OS -> ROLE Commerce Factory ->
+RoleValdez.com) with headroom. A visited set keyed by project identity
+guarantees no cycle is ever re-entered and no project listed twice.
+
+**Consumers**:
+
+- **Project Detail** -- Explorer's Project Hub (`GET /explorer/
+  project/{id}`) gained an Impact Analysis section: Overall Risk, Affected
+  Projects, Top Reasons, Recommended Actions -- concise cards, never a
+  diagram.
+- **Mission Control** -- the Operational Intelligence Engine gained
+  `rule_high_impact_change` ("Changing X today will affect N project(s) --
+  schedule accordingly"), reading only the cheap dependency-only
+  relationships already in `bundle["ecosystem_dependencies"]` and doing
+  its own bounded traversal -- never calling the full Impact Analysis
+  Engine, preserving OI's own no-repeated-scans contract.
+- **Project Memory** -- a compact "Potential Impact" line (risk, affected
+  count, up to 3 affected names).
+- **Explorer search** -- a new result type, `"Impact"` (`_search_impact`):
+  searching a project name surfaces "Impact of changing X: <risk> risk".
+
+**Two real bugs found and fixed** while building this engine: (1)
+`project_ecosystem/models.py`'s `BLOCKING_STATUSES` incorrectly included
+`"critical"`, and `detectors.py`'s `detect_dependencies` also matched a
+target's computed *health tier* of `"critical"` -- conflating an explicit
+`blocked`/`at_risk` status with a fresh project's default `health_score=0`
+tier, falsely flagging nearly every brand-new project as blocking its
+dependents. Fixed at the root in `project_ecosystem`, re-verified against
+the brief's own worked example; `test_project_ecosystem.py`'s 23 tests
+unaffected. (2) `build_project_memory()` was calling
+`get_operational_intelligence()` (a whole-workspace Epic 2 Advisor
+refresh) twice per invocation once Impact Analysis's
+`operational_effects` needed its own copy -- fixed by computing it once
+per call and threading the same result through both the Operational
+Recommendation field and Impact Analysis.
+
+**Performance**: reuses the Project Ecosystem graph and
+`request_scope()`-cached asset/knowledge data; every consumer that
+already computed `all_contexts`/`relationships`/
+`operational_intelligence_recs` in the same request passes them straight
+through -- no repeated filesystem scan, no repeated relationship
+detection, no repeated Operational Intelligence pass.
+
+| Method | Path                          | Description |
+|--------|--------------------------------|--------------|
+| GET    | `/impact-analysis/{project_id}` | A project's full Impact Analysis report (overall risk, affected projects, direct/transitive dependencies, shared assets/prompts/documentation/knowledge/sessions, operational/release effects, recommended actions, evidence, limitations) |
+
+**Known limitations**: transitive traversal follows only explicit
+`depends_on` relationships (Sprint C8) -- an undeclared dependency with no
+PI edge is not traversed. Shared-evidence detection inherits the Project
+Ecosystem Engine's own limitations (no import/package-reference parsing;
+name-mention detectors are literal substring matches). Operational/
+release effects are read from each affected project's existing
+Operational Intelligence recommendation and business_value/health, never
+independently assessed. See `docs/product/DECISIONS.md` for the full
+reasoning.
+
+### Executive Decision Engine (Sprint C10)
+
+`app/executive_decision/` -- ROLE OS's move from an information
+dashboard to a deterministic decision system. One call answers "what
+should I work on next?" using evidence from every existing domain
+(Project Context, Operational Intelligence, Project Ecosystem, Impact
+Analysis, Project Memory) -- no LLM, no embeddings, no AI API, no hidden
+weighting. `api.py` lives inside the package itself, matching Sprint
+C9's own deviation from the `app/routers/` convention.
+
+**Canonical `ExecutiveDecision`** (`models.py`): `generated_at,
+recommended_project, decision_score, confidence, reason,
+expected_benefit, estimated_effort, estimated_duration,
+blocking_projects, projects_unblocked, commercial_value, technical_value,
+risk, dependencies, today_plan, expected_result, evidence, limitations`.
+
+**Scoring** (`scoring.py`): a fixed, additive, fully-documented point
+table -- never a learned/hidden weighting. Nine contributors, each a pure
+function returning `(points, reason | None)`:
+
+| Contributor | Points | Source |
+|---|---|---|
+| Operational Intelligence priority | priority × 0.4 (max 40) | Sprint C6 |
+| Business value / launch-readiness | 10-25, +15 bonus | `ProjectContext.business_value` / OI's "Consider shipping/launching" |
+| Projects unblocked | 5 each, capped at 15 | Project Ecosystem `dependents_of` |
+| Already blocking dependents | +10 | Project Ecosystem `blocks_of` |
+| Impact Analysis risk | 2-15 by level | Sprint C9 `overall_risk` |
+| Pending work recorded | +5 | Project Memory's own `_pending_work` |
+| Recent activity / staleness | +5 / -5 | `ProjectContext.latest_activity` |
+| Project health score | health × 0.1 (max 10) | `ProjectContext.health_score` |
+| Paused/blocked status | -20 / -15 | `ProjectContext.status` |
+
+Every non-zero contribution is named in `evidence`, in the fixed order
+the function evaluates them above -- a score is always reconstructable
+by re-reading `scoring.py` top to bottom, never a black box. Stale
+Discovery data (`workspace.get_freshness().is_stale`) discounts
+*confidence*, never the score itself.
+
+**Conflict resolution** (`service._sort_key`): every adopted project is
+scored once and sorted by `(decision_score desc, health_score desc,
+canonical_project_id asc)` -- a total order with no ties possible, ever.
+
+**Today's Plan** (`planner.py`): a single deterministic step for the
+recommended project. `"09:00"` is a fixed label, not a real-clock
+computation -- no scheduling engine, no calendar integration. Estimated
+effort/duration come from a static keyword lookup over the recommended
+action's own title, the same convention
+`operational_intelligence.models.expected_benefit_for` already
+established.
+
+**No duplicate logic**: reuses `all_project_contexts`, `get_operational_
+intelligence`, `compute_relationships`/the Project Ecosystem graph
+(`dependents_of`/`blocks_of`/`dependencies_of`), and `get_impact_
+analysis` exactly once per request -- each threaded through as an
+optional parameter, the same "compute once at the outermost caller"
+pattern established across Sprints C7.1/C8/C9. Pending Work and Next
+Action text are not re-derived either: `app.project_memory.service`'s own
+`_pending_work`/`_next_action_output` functions are imported and called
+directly.
+
+**Consumers**:
+
+- **Mission Control** -- `GET /mission-control` gained
+  `executive_decision`/`ranked_projects` fields, computed inside the same
+  `request_scope()` that already collapses the shared-assets filesystem
+  walk to once per request. The frontend now leads with a "TODAY" card
+  (recommended project, reason, expected benefit, estimated effort/
+  duration, next action, expected result, evidence) and a "Portfolio
+  Ranking" section (every adopted project, ranked, each with its own top
+  reasons) above the pre-existing operational cards, which are now
+  supporting information.
+- **Explorer search** -- a new result type, `"Executive Decision"`:
+  searching `"today"`/`"decision"`/`"recommend"`/`"priority"`/`"focus"`/
+  `"next"`, or the recommended project's own name, surfaces one card
+  summarizing the current decision.
+
+**Two real bugs found and fixed**: (1) the first Mission Control wiring
+placed the new `get_executive_decision` call just after the existing
+`request_scope()` block closed, so Executive Decision's own `compute_
+relationships` call re-walked the filesystem for shared assets once per
+adopted project instead of reusing the single walk already collapsed --
+caught immediately by the pre-existing
+`test_no_double_asset_walk_per_project_per_request` regression test;
+fixed by moving the call inside the shared scope. (2) Live browser
+verification found the frontend's `RESULT_TYPE_ORDER` array (Explorer's
+render-order list, separate from the backend's `RESULT_TYPES`) had never
+been updated for Sprint C8/C9's `"Ecosystem Relationship"`/`"Impact"`
+result types either -- both had been silently un-renderable in the UI
+since those sprints shipped; fixed by adding all three missing types
+together.
+
+**Performance**: reuses `all_project_contexts`/Operational Intelligence/
+`compute_relationships`/Impact Analysis exactly once per request;
+Executive Decision's own scoring/ranking/planning logic adds ~2ms on top
+(profiled on the real workspace). End-to-end latency is dominated by the
+pre-existing `all_project_contexts` (~750ms)/`compute_relationships`
+(~570ms) costs already documented in the C6/C8 reports -- the brief's
+500ms target is not met on this real, ~18-project workspace as a result,
+an inherited rather than introduced cost.
+
+| Method | Path                | Description |
+|--------|----------------------|--------------|
+| GET    | `/executive-decision` | The current `ExecutiveDecision` plus `ranked_projects` (the full portfolio ranking) |
+
+**Known limitations**: no scheduling engine or calendar integration (by
+design); estimated effort/duration are a static per-keyword lookup, not a
+per-project estimate; the 500ms performance target is not met on this
+real workspace (see Performance above); Today's Plan is always exactly
+one step, never a multi-item day plan. See `docs/product/DECISIONS.md`
+for the full reasoning.
 
 ### Workspaces
 
@@ -1344,12 +2241,17 @@ dashboard/
       db.py, models.py                # SQLite persistence + Pydantic schemas
       markdown.py                      # Pure-function Claude prompt + Obsidian Markdown record generation
       decisions_adapter.py              # Reads role-ecosystem/DECISION_LOG.md live, or a documented fallback
+    services/                       # Cross-cutting services that own no persistence (v1.2)
+      launcher.py                      # AI Launcher: prompt assembly + tool-to-URL resolution
+      resume.py                        # Resume Engine (v1.4): continuation prompt from a session's latest snapshot
     routers/
       health.py, projects.py, search.py, knowledge.py   # Milestone 1 API (unchanged)
       ui.py                                                # Dashboard page + /ui/recent, /ui/timeline
       pi/                                                    # Project Intelligence routers, namespaced /pi
         workspaces.py, projects.py, collections.py,
-        capabilities.py, dependencies.py, health.py
+        capabilities.py, dependencies.py, health.py,
+        ai_workspace.py                                          # AI Workspace (v1.3): saved Claude/ChatGPT/Gemini links
+        ai_sessions.py                                             # AI Sessions + Snapshots + Resume + Timeline (v1.4)
       advisor.py                                               # Advisor API, namespaced /advisor
       advisor_search.py                                         # Advisor Search API (Sprint 6), namespaced /advisor/search
       graph.py                                                  # Knowledge Graph API, namespaced /graph
@@ -1358,6 +2260,7 @@ dashboard/
       conversation_graph.py                                        # Knowledge Graph (Sprint 5) API, namespaced /conversation-graph
       settings.py                                                   # Settings API (Sprint 8), namespaced /settings
       session.py                                                     # Daily Session API (ROLE OS Dashboard MVP), namespaced /session
+      launcher.py                                                     # AI Launcher API (v1.2), namespaced /launcher
     templates/
       index.html               # Command Center app shell (Jinja2): sidebar + header + #view-root
     static/

@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.advisor import engine
 from app.advisor.models import DailyBrief, Recommendation
 from app.config import Settings, get_settings
+from app.operational_intelligence import get_operational_intelligence
+from app.project_context.builder import build_project_contexts_for_pi_projects
 
 router = APIRouter(prefix="/advisor", tags=["advisor"])
 
@@ -25,6 +27,10 @@ def list_recommendations(
     include_dismissed: bool = Query(False),
     settings: Settings = Depends(get_settings),
 ) -> list[Recommendation]:
+    """Sprint C1B (Rewiring): each recommendation carries an embedded
+    `project_context`, keyed off its `project_id` (a canonical PI project
+    id), so its action link resolves through the same canonical
+    resume-state/next-action every other screen uses."""
     recs = engine.get_recommendations(
         workspace=workspace,
         project_id=project_id,
@@ -33,15 +39,40 @@ def list_recommendations(
         include_dismissed=include_dismissed,
         settings=settings,
     )
+    project_ids = list({r["project_id"] for r in recs if r.get("project_id")})
+    contexts = (
+        build_project_contexts_for_pi_projects(project_ids=project_ids, settings=settings)
+        if project_ids
+        else {}
+    )
+    for r in recs:
+        r["project_context"] = contexts.get(r.get("project_id"))
     return [Recommendation(**r) for r in recs]
 
 
 @router.get("/recommendations/{recommendation_id}", response_model=Recommendation)
-def get_recommendation(recommendation_id: str, settings: Settings = Depends(get_settings)) -> Recommendation:
+def get_recommendation(
+    recommendation_id: str, settings: Settings = Depends(get_settings)
+) -> Recommendation:
     rec = engine.get_recommendation(recommendation_id, settings)
     if not rec:
-        raise HTTPException(status_code=404, detail=f"Recommendation '{recommendation_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Recommendation '{recommendation_id}' not found"
+        )
     return Recommendation(**rec)
+
+
+@router.get("/operational-intelligence")
+def operational_intelligence(settings: Settings = Depends(get_settings)) -> list[dict]:
+    """Sprint C6: the full canonical Operational Intelligence Engine output
+    -- every rule pack (discovery/git evidence, PI dependencies/
+    capabilities/TODOs/deliverables, and Knowledge/Discovery freshness +
+    workspace status), already normalized, deduped, and sorted. Additive:
+    `GET /advisor/recommendations` above is unchanged and keeps its own
+    persisted dismiss/complete/TTL lifecycle (Advisor-specific state, not
+    something this stateless engine reinterprets) -- this endpoint is the
+    read-only, always-fresh view the brief asks Advisor to expose."""
+    return get_operational_intelligence(settings=settings)
 
 
 @router.get("/daily-brief", response_model=DailyBrief)
@@ -54,16 +85,24 @@ def daily_brief(
 
 
 @router.post("/recommendations/{recommendation_id}/dismiss", response_model=Recommendation)
-def dismiss_recommendation(recommendation_id: str, settings: Settings = Depends(get_settings)) -> Recommendation:
+def dismiss_recommendation(
+    recommendation_id: str, settings: Settings = Depends(get_settings)
+) -> Recommendation:
     rec = engine.dismiss_recommendation(recommendation_id, settings)
     if not rec:
-        raise HTTPException(status_code=404, detail=f"Recommendation '{recommendation_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Recommendation '{recommendation_id}' not found"
+        )
     return Recommendation(**rec)
 
 
 @router.post("/recommendations/{recommendation_id}/complete", response_model=Recommendation)
-def complete_recommendation(recommendation_id: str, settings: Settings = Depends(get_settings)) -> Recommendation:
+def complete_recommendation(
+    recommendation_id: str, settings: Settings = Depends(get_settings)
+) -> Recommendation:
     rec = engine.complete_recommendation(recommendation_id, settings)
     if not rec:
-        raise HTTPException(status_code=404, detail=f"Recommendation '{recommendation_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Recommendation '{recommendation_id}' not found"
+        )
     return Recommendation(**rec)

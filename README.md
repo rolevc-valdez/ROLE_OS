@@ -191,15 +191,36 @@ only using data already computed elsewhere. See
 for supported formats, deduplication behavior, and known limitations per
 feature.
 
+## One-Click Windows Startup
+
+On Windows, you don't need a terminal at all:
+
+1. Double-click **`Start ROLE OS.bat`** in the repository root. It finds
+   a Python environment (preferring a local `.venv`), starts the server
+   in a minimized window, waits for it to become healthy, and opens
+   `http://127.0.0.1:8000` in your default browser. If ROLE OS is already
+   running, it just opens the browser — it never starts a second server.
+2. *(Optional, once)* Run **`CREATE_DESKTOP_SHORTCUT.ps1`** to add a
+   **ROLE OS** shortcut to your Desktop that does the same thing.
+3. To stop it, double-click **`Stop ROLE OS.bat`**. It only ever stops
+   the ROLE OS process it started — never an unrelated Python process.
+
+See [`INSTALLATION.md`](INSTALLATION.md#one-click-windows-startup) for
+the full walkthrough, where logs and the PID file are stored, and
+troubleshooting.
+
 ## Repository structure
 
 ```
 ROLE_OS/
+  Start ROLE OS.bat, Stop ROLE OS.bat   # One-click Windows launcher (see above)
+  CREATE_DESKTOP_SHORTCUT.ps1            # Optional: adds a Desktop shortcut
   builder/      # CLI tool: builds the ROLE Knowledge OS + SQLite DB from a ChatGPT export
   dashboard/    # FastAPI app: read-only API + web UI over the generated SQLite database(s)
   docs/         # Project documentation (architecture, product decisions, changelog)
   tests/        # Repo-level / integration tests
-  scripts/      # Utility and automation scripts (Alpha demo, ChatGPT import CLI)
+  scripts/      # Utility and automation scripts: Alpha demo, ChatGPT import CLI, and
+                #   Start-RoleOS.ps1 / Stop-RoleOS.ps1 / RoleOS.Common.ps1 (launcher implementation)
   samples/      # Sample ChatGPT export + generated output for local testing
   var/          # Local, git-ignored runtime data (e.g. the Alpha demo's databases)
 ```
@@ -207,7 +228,7 @@ ROLE_OS/
 ## Documentation
 
 - [`QUICK_START.md`](QUICK_START.md) — first-time walkthrough
-- [`INSTALLATION.md`](INSTALLATION.md) — dependencies, environment, troubleshooting
+- [`INSTALLATION.md`](INSTALLATION.md) — dependencies, environment, troubleshooting, and [One-Click Windows Startup](INSTALLATION.md#one-click-windows-startup)
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — how every domain interacts
 - [`CHANGELOG.md`](CHANGELOG.md) — full sprint-by-sprint release history
 - [`RELEASE_NOTES_v1.0.md`](RELEASE_NOTES_v1.0.md) — v1.0 highlights, known limitations, roadmap

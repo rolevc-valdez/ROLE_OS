@@ -90,9 +90,15 @@ class Recommendation(BaseModel):
     dismissed: bool
     completed: bool
 
+    # Sprint C1B (Rewiring): the canonical ProjectContext for `project_id`,
+    # so this recommendation's action link resolves through the same
+    # resume-state/next-action every other screen uses instead of only
+    # carrying `project_id` for the caller to re-look-up on its own.
+    project_context: dict | None = None
+
     # "ignore" (not "allow"): internal storage details like dedupe_key must
-    # not leak into the API response — the fields above are the complete,
-    # documented contract.
+    # not leak into the API response — the fields above (plus
+    # `project_context`) are the complete, documented contract.
     model_config = ConfigDict(extra="ignore")
 
 

@@ -124,3 +124,14 @@ def test_is_code_action_helper_matches_the_briefs_named_verbs():
 def test_is_code_action_helper_rejects_conversational_phrasing():
     for action in [None, "", "Brainstorm marketing angles", "Discuss pricing strategy"]:
         assert not is_code_action(action)
+
+
+def test_claude_code_constant_matches_prompt_modules_literal_copy():
+    """`app.project_memory.prompt` cannot import this module (it must stay
+    a pure, dependency-free string builder -- see
+    `test_prompt_never_calls_any_external_api`), so it keeps its own
+    literal copy of this value instead. This test is the tripwire that
+    catches the two ever drifting apart."""
+    from app.project_memory import prompt as prompt_module
+
+    assert prompt_module._CLAUDE_CODE_TARGET == CLAUDE_CODE

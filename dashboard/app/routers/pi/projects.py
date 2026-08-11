@@ -7,6 +7,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.config import Settings, get_settings
+from app.project_context.builder import build_project_contexts_for_pi_projects
 from app.projects import db
 from app.projects.models import (
     ConversationLink,
@@ -35,7 +36,20 @@ def list_projects(
     priority: str | None = Query(None),
     settings: Settings = Depends(get_settings),
 ) -> list[ProjectSummary]:
-    projects = db.list_projects(workspace=workspace, status=status, tag=tag, priority=priority, settings=settings)
+    """Sprint C1B (Rewiring): Cockpit's project switcher and the manual
+    side of the Projects page both read `/pi/projects` -- each project now
+    carries an embedded `project_context` (a real `ProjectContext`, cheap
+    variant: no Epic 2 recs, no timeline) so those screens can source
+    health/next-action/resume-state/asset-count through the one canonical
+    builder instead of computing their own."""
+    projects = db.list_projects(
+        workspace=workspace, status=status, tag=tag, priority=priority, settings=settings
+    )
+    contexts = build_project_contexts_for_pi_projects(
+        project_ids=[p["id"] for p in projects], settings=settings
+    )
+    for p in projects:
+        p["project_context"] = contexts.get(p["id"])
     return [ProjectSummary(**p) for p in projects]
 
 
@@ -56,11 +70,18 @@ def create_project(payload: ProjectCreate, settings: Settings = Depends(get_sett
 
 @router.get("/{project_id}", response_model=Project)
 def get_project(project_id: str, settings: Settings = Depends(get_settings)) -> Project:
-    return Project(**_get_or_404(project_id, settings))
+    project = _get_or_404(project_id, settings)
+    contexts = build_project_contexts_for_pi_projects(
+        project_ids=[project_id], settings=settings, include_epic2_recs=True, include_timeline=True
+    )
+    project["project_context"] = contexts.get(project_id)
+    return Project(**project)
 
 
 @router.patch("/{project_id}", response_model=Project)
-def update_project(project_id: str, payload: ProjectUpdate, settings: Settings = Depends(get_settings)) -> Project:
+def update_project(
+    project_id: str, payload: ProjectUpdate, settings: Settings = Depends(get_settings)
+) -> Project:
     _get_or_404(project_id, settings)
     patch = {k: v for k, v in payload.model_dump().items() if v is not None}
     updated = db.update_project(project_id, patch, settings)
@@ -80,14 +101,18 @@ def list_conversations(project_id: str, settings: Settings = Depends(get_setting
 
 
 @router.post("/{project_id}/conversations", status_code=201)
-def link_conversation(project_id: str, payload: ConversationLink, settings: Settings = Depends(get_settings)) -> dict:
+def link_conversation(
+    project_id: str, payload: ConversationLink, settings: Settings = Depends(get_settings)
+) -> dict:
     _get_or_404(project_id, settings)
     result = db.link_conversation(project_id, payload.conversation_id, settings)
     return result
 
 
 @router.delete("/{project_id}/conversations/{conversation_id}", status_code=204)
-def unlink_conversation(project_id: str, conversation_id: str, settings: Settings = Depends(get_settings)) -> None:
+def unlink_conversation(
+    project_id: str, conversation_id: str, settings: Settings = Depends(get_settings)
+) -> None:
     _get_or_404(project_id, settings)
     if not db.unlink_conversation(project_id, conversation_id, settings):
         raise HTTPException(status_code=404, detail="Conversation not linked to this project")

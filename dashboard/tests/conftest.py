@@ -42,3 +42,13 @@ os.environ.setdefault(
 # use, so tests get a fresh, isolated store.
 _SESSION_DB_DIR = tempfile.mkdtemp(prefix="role_os_session_test_")
 os.environ.setdefault("ROLE_OS_SESSION_DB_PATH", str(Path(_SESSION_DB_DIR) / "role_os_session.db"))
+
+# Workspace Adoption (Discovery Engine Sprint 2) also owns its own SQLite
+# file and auto-creates its schema on first use, so tests get a fresh,
+# isolated store. Tests always pass an explicit `root` to /workspace/rescan
+# pointing at their own tmp_path fixtures, so no default discovery root is
+# set here.
+_WORKSPACE_DB_DIR = tempfile.mkdtemp(prefix="role_os_workspace_test_")
+os.environ.setdefault(
+    "ROLE_OS_WORKSPACE_DB_PATH", str(Path(_WORKSPACE_DB_DIR) / "role_os_workspace.db")
+)

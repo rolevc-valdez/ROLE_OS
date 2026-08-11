@@ -368,6 +368,67 @@ button {
   color: var(--text-secondary);
 }
 
+.timeline-icon {
+  display: inline-block;
+  width: 1.4em;
+  text-align: center;
+}
+
+/* ---- Cockpit (UX-001 redesign) ---------------------------------------------- */
+
+.cockpit-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+}
+
+.cockpit-header-main h2 {
+  margin: 0 0 6px;
+}
+
+.cockpit-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.cockpit-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-resume-work {
+  font-weight: 600;
+  padding: 10px 20px;
+  font-size: 14px;
+}
+
+.btn-icon {
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.overflow-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+#cockpit-overflow-menu {
+  flex-basis: 100%;
+}
+
+.cockpit-session-current {
+  border-color: var(--status-info, var(--border-strong));
+  box-shadow: 0 0 0 1px var(--status-info, var(--border-strong));
+}
+
 /* ---- Overlay / modal --------------------------------------------------------------------- */
 
 .overlay {
@@ -550,6 +611,30 @@ table.explorer-table tbody tr:hover { background: var(--bg-surface-raised); }
 }
 .link-btn:hover { text-decoration: underline; }
 
+/* ---- Toast (AI Launcher: "Prompt copied. Press Ctrl+V and Enter.") ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 12px);
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 13px;
+  box-shadow: var(--shadow-overlay);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 100;
+  pointer-events: none;
+}
+.toast-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
 table.kv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.kv-table th { text-align: left; color: var(--text-muted); padding: 4px 8px 4px 0; width: 40%; vertical-align: top; }
 table.kv-table td { padding: 4px 0; }
@@ -565,9 +650,105 @@ table.kv-table td { padding: 4px 0; }
 .u-mt-4 { margin-top: 16px; }
 .u-mb-2 { margin-bottom: 8px; }
 .u-mb-3 { margin-bottom: 12px; }
+.u-pl-4 { padding-left: 16px; }
+.workspace-filter-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .u-fs-12 { font-size: 12px; }
 .u-fs-26 { font-size: 26px; font-weight: 700; }
 .u-pre-wrap { white-space: pre-wrap; font-family: inherit; }
 .u-max-w-480 { max-width: 480px; }
 .u-full-width { width: 100%; }
 .u-pad-sm { padding: 8px 12px; }
+
+/* ---- Assets OS (Sprint C4): gallery cards, thumbnails, detail panel ------------------------ */
+
+.asset-view-toggle { display: flex; gap: 4px; }
+
+.asset-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.asset-card { padding: 10px; }
+
+.asset-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-inset, rgba(255, 255, 255, 0.04));
+  margin-bottom: 8px;
+}
+
+.asset-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.asset-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  gap: 4px;
+  color: var(--text-muted, #8892a0);
+}
+
+.asset-thumb-ext {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.asset-badge-duplicate {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.asset-badge-favorite {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  color: #f5c518;
+  font-size: 16px;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+}
+
+.asset-filename {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-card-meta { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0; }
+
+.asset-thumb-tiny {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.asset-detail-preview {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--bg-inset, rgba(255, 255, 255, 0.04));
+}
+
+.asset-detail-placeholder {
+  width: 100%;
+  height: 200px;
+  font-size: 48px;
+}

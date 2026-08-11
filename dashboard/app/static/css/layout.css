@@ -152,6 +152,18 @@ html, body {
   align-items: start;
 }
 
+/* ---- Mission Control (Sprint C5) -------------------------------------- */
+
+.mc-primary-card {
+  max-width: 640px;
+}
+
+.mc-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* ---- Project page three-column layout -------------------------------------- */
 
 .project-layout {
@@ -221,6 +233,16 @@ html, body {
 @media (max-width: 1100px) {
   .home-grid {
     grid-template-columns: 1fr;
+  }
+  .cockpit-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cockpit-header-actions {
+    justify-content: stretch;
+  }
+  .cockpit-header-actions .btn-resume-work {
+    flex: 1;
   }
   .project-layout {
     grid-template-columns: 1fr 1fr;

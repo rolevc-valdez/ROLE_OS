@@ -1,11 +1,56 @@
 # 08 — Import Engine: Architecture Proposal
 
-Status: **Sprint 1 (§18 Phase 1) SHIPPED** — see `CHANGELOG.md` ("Discovery
-Engine, Sprint 1") and [[07_ROADMAP]]. `dashboard/app/discovery/` is
-CLI-only and read-only per §18 Phase 1: scanner, detectors, git reader,
-classifier, Health Score, and Recommendation engine. Sprints 2-4 (§19) —
-schema migration + API + confirm/reject UI, health/advisor wiring, Mission
-Control ranking — remain **PROPOSAL, not implemented**.
+Status: **Sprints 1-5 + C1 SHIPPED** — see `CHANGELOG.md` ("Discovery
+Engine, Sprint 1", "Workspace Adoption, Sprint 2", "Project Boundary,
+Sprint 3", "Project Intelligence Wiring, Sprint 4", "Project Unification,
+Sprint 5", "Project Context, Sprint C1") and [[07_ROADMAP]].
+`dashboard/app/discovery/` remains CLI-only and read-only per §18 Phase 1.
+`dashboard/app/workspace/` (Sprint 2, §18 Phase 2-3) adds the first
+writable layer on top of it: a cached scan + a per-folder overlay
+(priority/business value/status/tags/notes/ignored/boundary override),
+the `/workspace/*` API, and a Workspace page with Adopt/Ignore/Review/
+Rescan — deliberately scoped down from §14/§15's "write into the
+`projects` table" design to a separate, additive overlay table instead
+(see this doc's §14 note below the original text). Sprint 3 adds
+`dashboard/app/discovery/boundary/`: a project-boundary/hierarchy model
+(top-level project / nested repository / component / documentation /
+asset library / internal folder / excluded / non-project) so the
+Workspace page groups real project structure instead of a flat list, plus
+configurable exclusions — this was requested and scoped independently of
+§6/§19's original wording, not a literal implementation of either. Sprint 4
+wires that data into Projects/Home/Advisor/Assets (§12's original "Health/
+Advisor Integration" and §13's "Mission Control Integration" sections,
+reinterpreted at Sprint-4 scope — a Workspace Advisor sibling to Epic 2's,
+not a Mission Control rewrite, which remains explicitly out of scope): a
+Next Action extractor, an asset discovery index, a unified Recent Activity
+feed, and Home portfolio aggregation. Sprint 5 removes the remaining
+conceptual split between manually-created and discovered/adopted
+projects via a canonical Project Identity bridge (`app/workspace/
+identity.py`) and a Resume Work orchestration
+(`app/workspace/resume.py`) — not part of this document's original
+proposal, but the natural completion of Sprint 4's "known gap" (AI
+Sessions couldn't be created for a purely-discovered project). See
+`docs/architecture/09_DISCOVERY_ENGINE_SPRINT1_REPORT.md` /
+`10_WORKSPACE_ADOPTION_SPRINT2_REPORT.md` /
+`11_PROJECT_BOUNDARY_SPRINT3_REPORT.md` /
+`12_PROJECT_INTELLIGENCE_WIRING_SPRINT4_REPORT.md` /
+`13_PROJECT_UNIFICATION_SPRINT5_REPORT.md` /
+`14_PROJECT_CONTEXT_SPRINT_C1_REPORT.md` for what actually shipped in
+each sprint vs. what this document originally proposed. Sprint C1 (a
+"Consolidation" sprint, not part of this document's original phases) adds
+one composition layer, `app/project_context/`, over the identity bridge
+Sprint 5 built — a single builder every page can request a project's full
+context from, instead of each independently reassembling a subset of it.
+Mission Control ranking (§13) is **SHIPPED as of Sprint C5** — see
+`CHANGELOG.md` ("Mission Control, Sprint C5") and [[07_ROADMAP]] — but not
+as a literal implementation of §13's proposal below. Sprint C5 built one
+new endpoint, `GET /mission-control` (`app/mission_control/service.py`),
+composing `ProjectContext`, Home's existing ranking, the Workspace
+Advisor, Recent Activity, and the Daily Session domain into a "what should
+I work on today" home page; §13's own "last worked on / ranked by business
+value" framing is superseded by that real implementation rather than
+built as separately described here. §13 is left below unedited as a
+historical record of the original proposal.
 Author framing: Chief Product Architect review, requested 2026-07-31.
 
 ---
