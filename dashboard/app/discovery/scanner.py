@@ -10,6 +10,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.discovery.boundary.exclusions import is_excluded
 from app.discovery.detectors import IGNORE_DIR_NAMES, has_own_strong_markers, is_candidate_signal
 
 
@@ -18,6 +19,8 @@ class Candidate:
     path: Path
     depth: int
     parent_path: Path | None
+    excluded: bool = False
+    exclusion_reason: str | None = None
 
 
 def _safe_subdirs(path: Path, skipped: list[str]) -> list[os.DirEntry]:
@@ -51,7 +54,7 @@ def _safe_subdirs(path: Path, skipped: list[str]) -> list[os.DirEntry]:
 
 
 def discover_candidates(
-    root: Path, max_depth: int = 2
+    root: Path, max_depth: int = 2, extra_exclusions: list[str] | None = None
 ) -> tuple[list[Candidate], list[str]]:
     """Return direct (depth 1) folders under `root`, plus nested (depth 2+)
     project folders found inside any depth-1 folder that doesn't already
@@ -61,6 +64,11 @@ def discover_candidates(
     as Non-project) so the report can show what was found and rejected.
     Deeper folders are only returned if they show a minimal project signal,
     to avoid flooding the report with every subfolder of a container.
+
+    An excluded folder (§5: `app.discovery.boundary.exclusions`) is still
+    returned -- so it can be reported with its exclusion reason -- but its
+    children are never enumerated: exclusion is not recursively re-checked
+    or re-scanned, by design.
     """
     root = Path(root)
     if not root.exists():
@@ -73,7 +81,12 @@ def discover_candidates(
 
     for entry in _safe_subdirs(root, skipped):
         depth1_path = Path(entry.path)
-        candidates.append(Candidate(path=depth1_path, depth=1, parent_path=None))
+        excluded, reason = is_excluded(depth1_path, root, extra_exclusions)
+        candidates.append(
+            Candidate(path=depth1_path, depth=1, parent_path=None, excluded=excluded, exclusion_reason=reason)
+        )
+        if excluded:
+            continue  # never descend into an excluded folder's children
 
         if max_depth < 2:
             continue
@@ -82,6 +95,18 @@ def discover_candidates(
 
         for nested_entry in _safe_subdirs(depth1_path, skipped):
             nested_path = Path(nested_entry.path)
+            nested_excluded, nested_reason = is_excluded(nested_path, root, extra_exclusions)
+            if nested_excluded:
+                candidates.append(
+                    Candidate(
+                        path=nested_path,
+                        depth=2,
+                        parent_path=depth1_path,
+                        excluded=True,
+                        exclusion_reason=nested_reason,
+                    )
+                )
+                continue
             if is_candidate_signal(nested_path):
                 candidates.append(
                     Candidate(path=nested_path, depth=2, parent_path=depth1_path)

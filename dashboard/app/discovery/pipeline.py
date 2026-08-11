@@ -38,6 +38,7 @@ class PipelineStage(IntEnum):
     CLASSIFIED = 2  # classifier.classify_* has set kind/move_risk/maturity/commercial_readiness
     SCORED = 3  # health.compute_health has set health_score/health_breakdown
     RECOMMENDED = 4  # recommendation engine has set recommendation/recommendation_reasons
+    BOUNDARY = 5  # boundary.assign_boundaries has set item_kind/parent/hierarchy fields
 
 
 class PipelineStageError(RuntimeError):

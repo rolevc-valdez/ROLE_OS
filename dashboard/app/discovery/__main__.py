@@ -4,10 +4,13 @@ Usage (run from the `dashboard/` directory, or with `dashboard` on
 PYTHONPATH — same convention as `uvicorn app.main:app`):
 
     python -m app.discovery audit --root "<path>" --output "<path>"
+    python -m app.discovery audit --root "<path>" --exclude "Old Stuff" --exclude "*.bak"
 
 Strictly read-only against `--root`: the only filesystem writes this
 command ever performs are the report files under `--output`, which must
-not be located inside `--root`.
+not be located inside `--root`. `--exclude` folders are reported (with
+their exclusion reason) but never walked recursively -- see
+`app.discovery.boundary.exclusions`.
 """
 
 from __future__ import annotations
@@ -50,6 +53,17 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Suppress the console table (still writes reports if --output is set).",
     )
+    audit.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="NAME_OR_GLOB",
+        help=(
+            "Extra folder name or glob pattern to exclude, on top of the default "
+            "exclusion list (app/discovery/boundary/exclusions_config.json). "
+            "Repeatable, e.g. --exclude 'Old Stuff' --exclude '*.bak'."
+        ),
+    )
     return parser
 
 
@@ -78,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
     try:
-        result = run_audit(root, max_depth=args.max_depth)
+        result = run_audit(root, max_depth=args.max_depth, extra_exclusions=args.exclude)
     except (FileNotFoundError, NotADirectoryError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

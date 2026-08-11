@@ -1,12 +1,23 @@
-"""Project Health Score for discovered folders.
+"""Discovery Health Score for discovered folders.
 
-Mirrors `dashboard/app/projects/health/__init__.py`'s shape (weighted 0-100
-signals, renormalized over whichever are available) but scores a
-`DiscoveredProject` from filesystem evidence instead of a DB-backed project
-dict. Each signal is a small pure function so any one of them can be
-inspected or unit-tested independently; `compute_health` combines them and
-returns the exact reasoning behind every number, per the Discovery Audit
-requirement that every score be explainable.
+Sprint C1B: this is deliberately named and modeled as a *distinct* score
+from `app.projects.health.compute_health_score` ("Project Intelligence
+Health"), not an unlabeled duplicate of it -- they answer different
+questions (is this scanned folder in good shape by filesystem/git evidence,
+vs. is this manually-tracked project's PI data healthy by TODOs/decisions/
+conversations) over disjoint evidence. `ProjectContext.health_score_source`
+(`app.project_context.builder`) records which of the two produced a given
+project's `health_score` so a consumer never has to guess. Both still
+mirror the same shape (weighted 0-100 signals, renormalized over whichever
+are available) and both numbers are bucketed into the same "healthy" /
+"warning" / "critical" tier by the one shared `app.project_context.health.
+health_tier` function -- only the tier thresholds are unified, not the two
+scoring algorithms themselves.
+
+Each signal is a small pure function so any one of them can be inspected or
+unit-tested independently; `compute_health` combines them and returns the
+exact reasoning behind every number, per the Discovery Audit requirement
+that every score be explainable.
 """
 
 from __future__ import annotations

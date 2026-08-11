@@ -14,6 +14,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from app.discovery.boundary import assign_boundaries, build_excluded_project
 from app.discovery.classifier import classify
 from app.discovery.detectors import analyze_folder
 from app.discovery.git_reader import read_git_info
@@ -22,15 +23,24 @@ from app.discovery.recommendation import apply_container_child_overrides
 from app.discovery.scanner import discover_candidates
 
 
-def run_audit(root: Path, max_depth: int = 2) -> ScanResult:
+def run_audit(
+    root: Path, max_depth: int = 2, extra_exclusions: list[str] | None = None
+) -> ScanResult:
     root = Path(root)
     started = time.monotonic()
 
-    candidates, skipped = discover_candidates(root, max_depth=max_depth)
+    candidates, skipped = discover_candidates(root, max_depth=max_depth, extra_exclusions=extra_exclusions)
 
     projects = []
     errors: list[str] = []
     for candidate in candidates:
+        if candidate.excluded:
+            projects.append(
+                build_excluded_project(
+                    candidate.path, candidate.depth, candidate.parent_path, candidate.exclusion_reason or "excluded"
+                )
+            )
+            continue
         try:
             project = analyze_folder(candidate.path)
         except OSError as exc:
@@ -43,6 +53,7 @@ def run_audit(root: Path, max_depth: int = 2) -> ScanResult:
         projects.append(project)
 
     apply_container_child_overrides(projects)
+    assign_boundaries(projects)
 
     duration = time.monotonic() - started
     return ScanResult(

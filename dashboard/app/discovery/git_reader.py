@@ -9,7 +9,9 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from app.discovery.models import GitInfo
+from app.discovery.models import CommitInfo, GitInfo
+
+_RECENT_COMMIT_COUNT = 5
 
 _TIMEOUT = 5
 _READ_ONLY_ENV_GUARD = {"GIT_TERMINAL_PROMPT": "0"}
@@ -62,5 +64,16 @@ def read_git_info(path: Path) -> GitInfo:
     code, out, _ = _run(["git", "status", "--porcelain"], path)
     if code == 0:
         info.is_dirty = bool(out.strip())
+
+    code, out, _ = _run(
+        ["git", "log", f"-{_RECENT_COMMIT_COUNT}", "--format=%H%x1f%aI%x1f%s"], path
+    )
+    if code == 0 and out:
+        for line in out.splitlines():
+            parts = line.split("\x1f")
+            if len(parts) == 3:
+                info.recent_commits.append(
+                    CommitInfo(hash=parts[0], date=parts[1], message=parts[2])
+                )
 
     return info

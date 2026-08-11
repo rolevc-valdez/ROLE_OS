@@ -48,6 +48,7 @@ TOP_LEVEL_MARKER_FILES = {
     "go.mod",
     "Gemfile",
     "composer.json",
+    "pom.xml",
 }
 
 MAX_FILES = 20_000

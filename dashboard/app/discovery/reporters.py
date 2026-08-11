@@ -28,6 +28,119 @@ def to_json(result: ScanResult) -> str:
     return json.dumps(dataclasses.asdict(result), indent=2, default=str)
 
 
+_NESTED_KINDS = ("repository", "component")
+_INTERNAL_KINDS = ("internal_folder", "documentation", "asset_library")
+
+
+def _hierarchy_sections(result: ScanResult) -> list[str]:
+    """§10 of the Sprint 3 brief: separate the flat project list above into
+    a real hierarchy, plus a false-positive comparison against the
+    Sprint 1/2 flat view (where every discovered folder, regardless of
+    kind, was shown as a peer row)."""
+    lines: list[str] = []
+
+    top_level = [p for p in result.projects if p.item_kind == "project"]
+    nested = [p for p in result.projects if p.item_kind in _NESTED_KINDS]
+    internal = [p for p in result.projects if p.item_kind in _INTERNAL_KINDS]
+    excluded = [p for p in result.projects if p.item_kind == "excluded"]
+    needs_review = [p for p in result.projects if p.item_kind == "unknown"]
+    non_project = [p for p in result.projects if p.item_kind == "non_project"]
+
+    by_id = {p.item_id: p for p in result.projects}
+
+    lines.append("## Project Hierarchy")
+    lines.append("")
+    lines.append(f"- Top-level projects: {len(top_level)}")
+    lines.append(f"- Nested repositories/components: {len(nested)}")
+    lines.append(f"- Internal/documentation/asset folders: {len(internal)}")
+    lines.append(f"- Excluded folders: {len(excluded)}")
+    lines.append(f"- Ambiguous items requiring review: {len(needs_review)}")
+    lines.append(f"- Non-project folders: {len(non_project)}")
+    lines.append("")
+
+    lines.append("### Top-level projects")
+    lines.append("")
+    for project in sorted(top_level, key=lambda p: p.name.lower()):
+        children = [c for c in result.projects if c.parent_item_id == project.item_id]
+        repo_count = sum(1 for c in children if c.item_kind == "repository")
+        component_count = sum(1 for c in children if c.item_kind == "component")
+        internal_count = sum(1 for c in children if c.item_kind in _INTERNAL_KINDS)
+        lines.append(
+            f"- **{project.name}** (`{project.root_path}`) -- "
+            f"{repo_count} repositor{'y' if repo_count == 1 else 'ies'}, "
+            f"{component_count} component(s), {internal_count} internal/doc/asset folder(s); "
+            f"boundary confidence {project.boundary_confidence}"
+        )
+        for reason in project.boundary_evidence:
+            lines.append(f"  - {reason}")
+    lines.append("")
+
+    if nested:
+        lines.append("### Nested repositories/components")
+        lines.append("")
+        lines.append("| Name | Kind | Parent | Path |")
+        lines.append("|---|---|---|---|")
+        for project in sorted(nested, key=lambda p: p.name.lower()):
+            parent = by_id.get(project.parent_item_id)
+            lines.append(
+                f"| {project.name} | {project.item_kind} | {parent.name if parent else '?'} | "
+                f"`{project.root_path}` |"
+            )
+        lines.append("")
+
+    if internal:
+        lines.append("### Internal folders")
+        lines.append("")
+        lines.append("| Name | Kind | Parent | Path |")
+        lines.append("|---|---|---|---|")
+        for project in sorted(internal, key=lambda p: p.name.lower()):
+            parent = by_id.get(project.parent_item_id)
+            lines.append(
+                f"| {project.name} | {project.item_kind} | {parent.name if parent else '?'} | "
+                f"`{project.root_path}` |"
+            )
+        lines.append("")
+
+    if excluded:
+        lines.append("### Excluded folders")
+        lines.append("")
+        for project in sorted(excluded, key=lambda p: p.name.lower()):
+            lines.append(f"- **{project.name}** (`{project.root_path}`) -- {project.exclusion_reason}")
+        lines.append("")
+
+    if needs_review:
+        lines.append("### Ambiguous items requiring review")
+        lines.append("")
+        for project in sorted(needs_review, key=lambda p: p.name.lower()):
+            parent = by_id.get(project.parent_item_id)
+            where = f"nested under {parent.name}" if parent else "top-level"
+            lines.append(f"- **{project.name}** (`{project.root_path}`, {where})")
+            for reason in project.boundary_evidence:
+                lines.append(f"  - {reason}")
+        lines.append("")
+
+    lines.append("### False-positive reduction vs. the Sprint 1/2 flat view")
+    lines.append("")
+    lines.append(
+        "Before Sprint 3, every discovered folder was shown as a peer row "
+        "regardless of kind -- nested repositories, internal structure "
+        "folders, and folders that should have been excluded all appeared "
+        "next to real top-level projects."
+    )
+    lines.append("")
+    lines.append(f"- Flat rows before (Sprint 1/2): {len(result.projects)}")
+    lines.append(f"- Top-level rows now (Sprint 3 default view): {len(top_level)}")
+    lines.append(
+        f"- Rows removed from the default view by proper nesting/exclusion: "
+        f"{len(result.projects) - len(top_level)} "
+        f"({len(nested)} nested repo/component, {len(internal)} internal/doc/asset, "
+        f"{len(excluded)} excluded, {len(non_project) + len(needs_review)} non-project/ambiguous)"
+    )
+    lines.append("")
+
+    return lines
+
+
 def to_markdown(result: ScanResult) -> str:
     lines: list[str] = []
     lines.append(f"# Discovery Audit — `{result.root}`")
@@ -99,6 +212,8 @@ def to_markdown(result: ScanResult) -> str:
         )
     lines.append("")
 
+    lines.extend(_hierarchy_sections(result))
+
     lines.append("## Recommendations")
     lines.append("")
     for project in sorted(result.projects, key=lambda p: (p.depth, p.name.lower())):
@@ -139,14 +254,15 @@ def _truncate(text: str, width: int) -> str:
 
 
 def to_console_table(result: ScanResult) -> str:
-    headers = ["Name", "Kind", "Conf", "Risk", "Maturity", "Commercial", "Depth"]
-    widths = [28, 20, 5, 6, 9, 12, 5]
+    headers = ["Name", "Boundary", "Kind", "Conf", "Risk", "Maturity", "Commercial", "Depth"]
+    widths = [28, 14, 20, 5, 6, 9, 12, 5]
     rows = []
-    for project in sorted(result.projects, key=lambda p: (p.depth, p.name.lower())):
+    for project in sorted(result.projects, key=lambda p: (p.hierarchy_depth, p.name.lower())):
         rows.append(
             [
                 _truncate(project.name, widths[0]),
-                _truncate(project.classification, widths[1]),
+                _truncate(project.item_kind, widths[1]),
+                _truncate(project.classification, widths[2]),
                 f"{project.confidence_score:.2f}",
                 project.move_risk,
                 project.maturity,

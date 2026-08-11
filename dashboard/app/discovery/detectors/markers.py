@@ -56,7 +56,7 @@ def detect(inventory: FolderInventory) -> MarkerFindings:
         # behavioral parity; see the Sprint 1.5 completion report.
         if f.name in TOP_LEVEL_MARKER_FILES:
             findings.tech_markers.append(f.path)
-        if f.stem_lower.endswith(".csproj") or f.stem_lower == "go.mod":
+        if f.stem_lower.endswith(".csproj") or f.stem_lower.endswith(".sln") or f.stem_lower == "go.mod":
             findings.tech_markers.append(f.path)
 
         if f.ext in LANGUAGE_EXT_MAP:

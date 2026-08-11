@@ -1,0 +1,39 @@
+{
+  "exact_names": [
+    "OTROS - no proyectos"
+  ],
+  "case_insensitive_names": [
+    "otros - no proyectos",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mypy_cache",
+    ".git",
+    ".hg",
+    ".svn",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    ".idea",
+    ".vscode",
+    "target",
+    "bin",
+    "obj",
+    ".cache",
+    "site-packages",
+    "$recycle.bin",
+    "system volume information"
+  ],
+  "glob_patterns": [
+    "*.egg-info",
+    "~$*",
+    "Thumbs.db",
+    ".DS_Store"
+  ],
+  "relative_path_patterns": []
+}
