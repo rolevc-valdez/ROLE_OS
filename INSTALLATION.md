@@ -188,46 +188,59 @@ state lives in one place):
 
 ### Which database does the launcher use? Is the bundled sample data my permanent workspace?
 
-**No — `samples\role_os_sample\` is demo data only.** It's a bundled
+**No — `samples\role_os_sample\` is demo data only, and it is no longer
+the launcher's default.** (Role OS 2.0 Phase 1 Task 2B; see
+`docs/product/DECISIONS.md` for the full history.) It's a bundled
 demo/testing fixture, checked into the repository (`.gitignore`
 explicitly excepts `samples\**\*.db` from its general `*.db` rule
-specifically so *this fixture* stays committed) — it's what the launcher
-uses **by default** so ROLE OS runs out of the box with no setup, but it
-is not meant to accumulate your real data, and nothing about it should be
+specifically so *this fixture* stays committed), reachable only by
+explicitly setting `ROLE_OS_WORKSPACE_DIR` to it (see below) — it is not
+meant to accumulate your real data, and nothing about it should be
 treated as durable storage for anything you'd mind losing.
+
+**The launcher's own default runtime data root is `var\role_os\`** — the
+same canonical location `dashboard\app\config.py` itself defaults into.
+On a fresh checkout this folder starts out empty, so `Start ROLE OS.bat`
+will refuse to start with a clear "Knowledge database was not found"
+message until you either run the Builder against your own ChatGPT export
+(see "Using your own data" in [`README.md`](README.md)) so `role_os.db`
+lands there, or point the launcher at an existing workspace via
+`ROLE_OS_WORKSPACE_DIR` (below) — including the bundled sample data, for
+an immediate, explicit demo run.
 
 **`ROLE_OS_WORKSPACE_DIR` is the recommended configuration for real use.**
 Your permanent workspace is whatever folder `builder\builder.py`
-generates when you run it against your own ChatGPT export (see
-"Using your own data" in [`README.md`](README.md)) — a folder containing
-a `00_SYSTEM\` subfolder with `role_os.db` and friends, conventionally
-named `ROLE_KNOWLEDGE_OS\` and typically kept *outside* this repository
-(so it isn't tied to the repo's own git history or `samples\` fixture).
-Once you have one, point the launcher at it — see "Configuring your
-workspace" below — rather than continuing to run against the sample data.
+generates when you run it against your own ChatGPT export — a folder
+containing a `00_SYSTEM\` subfolder with `role_os.db` and friends,
+conventionally named `ROLE_KNOWLEDGE_OS\` and typically kept *outside*
+this repository (so it isn't tied to the repo's own git history or
+`samples\` fixture). Once you have one, point the launcher at it — see
+"Configuring your workspace" below.
 
-**Auto-created domain databases belong in your real workspace, not in the
-committed sample fixture.** Project Intelligence (`role_os_projects.db`)
-and AI Advisor (`role_os_advisor.db`) are dashboard-owned: they create
-their own schema automatically the first time the app runs against a
-given `00_SYSTEM\` folder, regardless of whether that folder is the
-sample fixture or your real workspace. If the launcher is ever pointed at
-`samples\role_os_sample\00_SYSTEM\` (its default), those two files will
-be recreated there as an empty starting point — this is expected, and
-`.gitignore` deliberately re-excludes exactly those two filenames inside
-`samples\` (while still allowing the curated `role_os.db` fixture itself
-to be committed) specifically so this normal auto-create behavior can
-never end up staged for a commit. If you notice either file present and
-untracked inside `samples\role_os_sample\00_SYSTEM\`, that's a sign the
-launcher ran against the sample workspace rather than
-`ROLE_OS_WORKSPACE_DIR` — configure your workspace (below) rather than
-committing or manually curating those files.
+**Auto-created domain databases belong in your real workspace (or
+`var\role_os\`), not in the committed sample fixture.** Project
+Intelligence (`role_os_projects.db`) and AI Advisor (`role_os_advisor.db`)
+are dashboard-owned: they create their own schema automatically the first
+time the app runs against a given `00_SYSTEM\` folder (or `var\role_os\`),
+regardless of which one. If the launcher is ever explicitly pointed at
+`samples\role_os_sample\00_SYSTEM\` via `ROLE_OS_WORKSPACE_DIR`, those two
+files will be recreated there as an empty starting point — this is
+expected, and `.gitignore` deliberately re-excludes exactly those two
+filenames inside `samples\` (while still allowing the curated `role_os.db`
+fixture itself to be committed) specifically so this normal auto-create
+behavior can never end up staged for a commit. If you notice either file
+present and untracked inside `samples\role_os_sample\00_SYSTEM\`, that's a
+sign `ROLE_OS_WORKSPACE_DIR` was pointed at the sample workspace —
+harmless, but not a place to manually curate those files.
 
 #### Configuring your workspace
 
 Set **`ROLE_OS_WORKSPACE_DIR`** to your workspace folder (the one
 *containing* `00_SYSTEM\`, not `00_SYSTEM\` itself) before running
-`Start ROLE OS.bat`. The simplest reliable way to do this on Windows,
+`Start ROLE OS.bat` — required for a real workspace, and also the way to
+explicitly opt into the bundled sample data (point it at this
+repository's own `samples\role_os_sample\` folder) instead of the
+default `var\role_os\`. The simplest reliable way to do this on Windows,
 so it's set every time without editing any file or repeating a step:
 
 ```powershell
@@ -246,15 +259,16 @@ The launcher derives all five database paths from
 `%ROLE_OS_WORKSPACE_DIR%\00_SYSTEM\`, logs exactly which paths it
 resolved to `launcher.log`, and refuses to start if the Knowledge
 database isn't there — it never copies, moves, or otherwise migrates
-data between the sample workspace and your real one; switching is purely
-a matter of which folder the environment variable points at.
+data between any of these locations; switching is purely a matter of
+which folder the environment variable points at (or leaving it unset,
+for the `var\role_os\` default).
 
 To change it later: run `setx ROLE_OS_WORKSPACE_DIR "C:\new\path"` again
 (it overwrites the previous value), or remove it entirely with
 `[Environment]::SetEnvironmentVariable("ROLE_OS_WORKSPACE_DIR", $null,
-"User")` in PowerShell to go back to the bundled sample data. Either way,
-`launcher.log`'s "Database source:" line always tells you which one is
-actually in effect.
+"User")` in PowerShell to go back to the `var\role_os\` default. Either
+way, `launcher.log`'s "Database source:" line always tells you which one
+is actually in effect.
 
 If you already run ROLE OS from a terminal with `ROLE_OS_DB_PATH` (and
 the other four `ROLE_OS_*_DB_PATH` variables) set yourself, the launcher
@@ -285,10 +299,13 @@ respects that and does not override any variable you've already set.
   checks for the Knowledge database (`role_os.db`) before starting the
   server, using an absolute path anchored to the repository root (or to
   `ROLE_OS_WORKSPACE_DIR`, if you've set it) — never relative to
-  `dashboard\`. If you see this, either the repository's
-  `samples\role_os_sample\00_SYSTEM\` folder was moved or deleted, or
-  `ROLE_OS_WORKSPACE_DIR` points at a folder with no `00_SYSTEM\role_os.db`
-  inside it. `launcher.log` records exactly which path it checked.
+  `dashboard\`. On a fresh checkout with nothing configured, this is
+  expected: the default `var\role_os\` runtime data root starts out
+  empty. Run the Builder against your own ChatGPT export to populate it,
+  or set `ROLE_OS_WORKSPACE_DIR` to a folder with a `00_SYSTEM\role_os.db`
+  inside it — including this repository's own `samples\role_os_sample\`
+  folder, for an immediate demo. `launcher.log` records exactly which
+  path it checked.
 - **Server never becomes healthy** — check
   `dashboard\var\role_os_dashboard\uvicorn.err.log` for the real
   traceback; the launcher prints its last lines automatically.

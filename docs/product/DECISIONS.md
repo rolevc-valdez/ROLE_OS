@@ -6,6 +6,65 @@ shipped) — this records *why* it was built that way. Newest first.
 
 ---
 
+## Role OS 2.0 Phase 1 Task 2B: the launcher's own default is now `var\role_os\`, not the bundled sample fixture — supersedes the `ROLE_OS_WORKSPACE_DIR` decision below
+
+**Decision**: `scripts\RoleOS.Common.ps1`'s `Resolve-RoleOSDatabaseEnv` no
+longer defaults normal startup (no `ROLE_OS_WORKSPACE_DIR`, no explicit
+`ROLE_OS_*_DB_PATH`) into `samples\role_os_sample\00_SYSTEM\`. It now
+defaults into `<RepoRoot>\var\role_os\` — the same canonical runtime data
+root `dashboard\app\config.py` itself defaults into (Role OS 2.0 Phase 1
+Task 2, commit `a61b226`). The bundled sample data is unaffected and
+remains fully available, but only via the same explicit
+`ROLE_OS_WORKSPACE_DIR` switch documented below (pointed at the
+repository's own `samples\role_os_sample\` folder) — never as an implicit
+default for a normal, no-configuration launch.
+
+**Why superseded**: the decision below ("`ROLE_OS_WORKSPACE_DIR` is an
+opt-in launcher switch, not automatic workspace detection") was reasoned
+and correct for its time, but it meant normal Role OS runtime — including
+the primary "double-click `Start ROLE OS.bat`" path — silently wrote real,
+growing, dashboard-owned data (Project Intelligence, Advisor, Imports,
+Extraction) into what the rest of the documentation calls "demo data
+only," with no visible signal beyond `launcher.log`. Role OS 2.0's audit
+(`audits/ROLE_OS_1X_AUDIT.md`) and architecture proposal
+(`docs/ROLE_OS_2_ARCHITECTURE_PROPOSAL.md`) both named this the single
+highest-leverage configuration defect to fix. Fixing only
+`dashboard\app\config.py`'s own bare default (Task 2) was not sufficient
+on its own, because the launcher explicitly overrides the environment
+before `config.py` ever sees it — leaving the actual, most common startup
+path still defaulting into the sample fixture.
+
+**What does not change**: nothing about `ROLE_OS_WORKSPACE_DIR` itself —
+it is still read-only, still never auto-detected, still requires an
+explicit environment variable, still logs exactly which source is in
+effect to `launcher.log`, and still never copies/moves/migrates data
+between the sample fixture, a real workspace, and `var\role_os\`. The
+reasoning in the decision below for *why* workspace selection must stay
+an explicit, inspectable, reversible switch — never automatic
+convention-guessing — remains fully in force; only which folder that
+switch's *absence* resolves to has changed.
+
+**Known consequence, accepted**: on a fresh checkout with no
+`ROLE_OS_WORKSPACE_DIR` set and no Builder ever run, `Start ROLE OS.bat`
+now refuses to start (its pre-existing "Knowledge database was not
+found" check, unchanged) rather than silently opening against the
+bundled demo data. The refusal message names both remedies: run the
+Builder, or set `ROLE_OS_WORKSPACE_DIR` to the sample folder (or any real
+workspace) to explore ROLE OS immediately. This trade — a clear failure
+over a silent, undocumented default — is exactly the choice Task 2 already
+made for `dashboard\app\config.py`'s own Knowledge DB default; the
+launcher now behaves consistently with it. Populating `var\role_os\` with
+real or migrated data by default is out of scope here and is Role OS
+2.0 Phase 1 Task 3's job.
+
+**Superseded entry below**: the original "`ROLE_OS_WORKSPACE_DIR` is an
+opt-in launcher switch, not automatic workspace detection" decision
+(further down this file) still fully applies to *how* workspace
+selection works — this entry changes only what an absent
+`ROLE_OS_WORKSPACE_DIR` now resolves to.
+
+---
+
 ## The Executive Decision Engine scores with a fixed, additive point table instead of a learned/hidden weighting, and never lets two projects tie
 
 **Decision**: Sprint C10 asked ROLE OS to stop being an information
@@ -942,6 +1001,12 @@ only the one a user happened to notice.
 ---
 
 ## `ROLE_OS_WORKSPACE_DIR` is an opt-in launcher switch, not automatic workspace detection
+
+**Partially superseded** — see "Role OS 2.0 Phase 1 Task 2B" near the top
+of this file: the default this decision describes below (samples/ when
+`ROLE_OS_WORKSPACE_DIR` is unset) changed to `var\role_os\`. Everything
+below about *how* the switch itself behaves (explicit, inspectable,
+reversible, never auto-detected) is still accurate and still in force.
 
 **Decision**: The launcher defaults to the bundled
 `samples\role_os_sample\00_SYSTEM\` fixture unless the user explicitly

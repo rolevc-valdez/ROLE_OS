@@ -79,6 +79,41 @@ Verified directly (see completion report below for full detail): no database was
 - No `var/role_os/` directory exists yet anywhere on disk — first real startup with no env override will create it (via the existing auto-create behavior for Projects/Advisor/Imports/Extraction DBs) or report the Knowledge DB as missing/disconnected (existing, unchanged behavior). This is expected and intentional; populating it with real or migrated data is Task 3's job.
 - The affected-area regression slice (557 tests across config/projects/workspace/resume/session/project-memory/project-context/settings/mission-control/executive-decision/health) was run and is fully green; the full 1,304-test baseline suite was **not** re-run in this task (see Testing below) and remains required at a later Phase 1 validation checkpoint.
 
+## Launcher Default Closure
+
+**What launcher behavior was found**: fixing `dashboard/app/config.py` alone (above) was not sufficient. The official Windows launcher chain (`Start ROLE OS.bat` → `scripts/Start-RoleOS.ps1` → `scripts/RoleOS.Common.ps1: Resolve-RoleOSDatabaseEnv`) independently set all five `ROLE_OS_*_DB_PATH` environment variables to absolute paths under `samples/role_os_sample/00_SYSTEM/` *before* `config.py` ever ran, whenever `ROLE_OS_WORKSPACE_DIR` wasn't set — meaning the actual, most common startup path (double-clicking the launcher) still silently defaulted into the sample fixture regardless of `config.py`'s new default.
+
+**Why it violated Task 2**: this was not an oversight — it was a formally documented, previously-approved decision (`docs/product/DECISIONS.md`, "`ROLE_OS_WORKSPACE_DIR` is an opt-in launcher switch, not automatic workspace detection"), reasoned around avoiding silent, undocumented data-switching. That reasoning about *how* the switch behaves (explicit, inspectable via `launcher.log`, reversible, never auto-detected) remains correct and unchanged. But *what an absent switch defaults to* was still the sample fixture, which is exactly the Task 2 defect at the launcher layer: normal, no-configuration startup writing real, growing dashboard-owned data (Project Intelligence, Advisor, Imports, Extraction) into a fixture the rest of the documentation calls "demo data only."
+
+**What changed**:
+- `scripts/RoleOS.Common.ps1: Resolve-RoleOSDatabaseEnv`'s no-override branch now resolves into `<RepoRoot>\var\role_os\` (matching `dashboard/app/config.py`'s own default exactly) instead of `<RepoRoot>\samples\role_os_sample\00_SYSTEM\`. The `ROLE_OS_WORKSPACE_DIR` branch, and the "leave an already-set env var alone" branch, are byte-for-byte unchanged.
+- `scripts/Start-RoleOS.ps1`'s "Knowledge database was not found" failure message updated to describe the new default and point at both remedies (run the Builder, or set `ROLE_OS_WORKSPACE_DIR`).
+- `docs/product/DECISIONS.md`: added a new, dated entry ("Role OS 2.0 Phase 1 Task 2B...") explicitly superseding the old entry's *default*, with a one-line pointer added to the old entry noting it's partially superseded — the old entry's own text is untouched (append-only decision log convention preserved).
+- `INSTALLATION.md`: "Which database does the launcher use?", "Configuring your workspace", and the "Knowledge database was not found" troubleshooting entry all updated to describe `var\role_os\` as the default and `ROLE_OS_WORKSPACE_DIR` (including pointing it at the bundled sample folder) as the explicit way to get anything else.
+- `dashboard/README.md`'s Configuration table: the same five `Default` column values corrected from `samples/role_os_sample/00_SYSTEM/...` to `var/role_os/...`, matching `config.py` exactly, with a one-line note on the Knowledge DB row pointing out the prior default for anyone who remembers it.
+
+**How normal startup behaves now**: `Start ROLE OS.bat` with no environment configured resolves all five databases under `var/role_os/`. Validated directly (see Tests / Validation below) by dot-sourcing `RoleOS.Common.ps1` and calling `Resolve-RoleOSDatabaseEnv` in an isolated child process — no real launcher run, no uvicorn spawned. Because `var/role_os/role_os.db` does not exist on a fresh checkout (Task 3 hasn't populated it), the launcher's pre-existing "Knowledge database was not found" check (unchanged logic, updated message) now fires by default until Role runs the Builder or sets `ROLE_OS_WORKSPACE_DIR` — a deliberate, accepted consequence, not a regression: it's the same "fail clearly rather than silently use a fixture" choice Task 2 already made for `config.py` itself.
+
+**How explicit sample/demo startup remains available**: setting `ROLE_OS_WORKSPACE_DIR` to the repository's own `samples\role_os_sample` folder (or any real workspace folder containing `00_SYSTEM\`) reproduces the exact old behavior — validated directly, all five paths resolve under `samples\role_os_sample\00_SYSTEM\` exactly as before. `scripts/run_alpha.bat`/`.sh` and `scripts/seed_alpha_demo.py` (the alpha/demo launchers, which already set their own env vars explicitly) are untouched and unaffected either way.
+
+**Remaining `samples/role_os_sample` / `00_SYSTEM` references, classified** (repo-wide re-search):
+
+| File | Classification | Note |
+|---|---|---|
+| `dashboard/tests/conftest.py` | TEST | Explicitly sets `ROLE_OS_DB_PATH` to the sample Knowledge DB for the whole suite — intentional, unaffected |
+| `dashboard/tests/test_config.py` | TEST | Exercises explicit sample selection as one of its cases — intentional |
+| `scripts/run_alpha.bat` / `.sh`, `scripts/seed_alpha_demo.py` | ALPHA / DEMO | Explicit alpha-demo launchers, already set their own env vars — unaffected |
+| `builder/builder.py`, `builder/README.md`, `builder/tests/test_builder_integration.py`, `tests/test_builder_smoke.py` | FIXTURE | `00_SYSTEM` here is Builder's own output-folder convention, unrelated to which path dashboard defaults into — unaffected |
+| `.gitignore` (lines re-excluding `samples/role_os_sample/00_SYSTEM/role_os_projects.db` / `role_os_advisor.db`) | EXPLICIT OVERRIDE support | Still correct and still needed: these two files can still be auto-created there if `ROLE_OS_WORKSPACE_DIR` is explicitly pointed at the sample folder (validated above) |
+| `README.md` (root), `builder/README.md` | DOCUMENTATION | Illustrate pointing `ROLE_OS_DB_PATH` at a user's own Builder output; generic, not sample-specific, unaffected |
+| `CHANGELOG.md`, `audits/ROLE_OS_1X_AUDIT.md`, `docs/ROLE_OS_2_ARCHITECTURE_PROPOSAL.md`, `docs/PHASE_1_BASELINE.md` | DOCUMENTATION (historical/frozen record) | Correctly describe the state as it was at the time; not rewritten, per the append-only/frozen-snapshot convention already established for these documents |
+| `docs/architecture/04_DATA_MODEL.md` | DOCUMENTATION (historical sprint report) | Its Configuration table still lists the old `samples/...` defaults — now stale. Left untouched: this file is part of the numbered `docs/architecture/01`–`21` sprint-report series, which `docs/ROLE_OS_2_ARCHITECTURE_PROPOSAL.md` explicitly designates as historical record, not living documentation, going forward. Flagged here rather than edited, consistent with that decision. |
+| `docs/product/DECISIONS.md`, `INSTALLATION.md`, `dashboard/README.md`, `scripts/RoleOS.Common.ps1`, `scripts/Start-RoleOS.ps1`, `dashboard/app/config.py` | Updated this task/Task 2 | See above |
+
+No remaining occurrence is a normal-runtime default any longer.
+
+**Tests / Validation performed**: `dashboard/tests/test_config.py`'s 10 tests re-confirmed passing unchanged (no Python code touched in this closure fix). PowerShell resolution validated by dot-sourcing `scripts/RoleOS.Common.ps1` and calling `Resolve-RoleOSDatabaseEnv` directly in an isolated child process (no `Start-RoleOS.ps1` execution, no uvicorn spawned, no file created) across three cases: (1) no overrides → all five paths under `var\role_os\`; (2) `ROLE_OS_WORKSPACE_DIR` set to the bundled `samples\role_os_sample` folder → all five paths under `samples\role_os_sample\00_SYSTEM\`, byte-for-byte the old behavior; (3) an explicit `ROLE_OS_DB_PATH` already set → left untouched, the other four still default to `var\role_os\`. All three matched expectations exactly; full resolved-path output is in the completion report.
+
 ## Exact Next Task
 
 Phase 1 — Task 3: Runtime Data Directory

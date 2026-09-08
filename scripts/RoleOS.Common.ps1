@@ -72,13 +72,27 @@ function Resolve-RoleOSDatabaseEnv {
         ROLE_OS_WORKSPACE_DIR below) is never overwritten -- this function
         only fills in what isn't already set.
 
+        Role OS 2.0 Phase 1 Task 2B: normal startup's own default (no
+        ROLE_OS_WORKSPACE_DIR, no explicit ROLE_OS_*_DB_PATH) resolves into
+        the repository's canonical runtime data root, <RepoRoot>\var\role_os
+        -- the same default dashboard\app\config.py itself uses (Task 2).
+        This supersedes the earlier decision documented in
+        docs\product\DECISIONS.md ("ROLE_OS_WORKSPACE_DIR is an opt-in
+        launcher switch, not automatic workspace detection"), which
+        defaulted normal startup into the bundled samples\role_os_sample\
+        fixture; see the newer DECISIONS.md entry for why. The bundled
+        sample data remains fully available, but only via the same explicit
+        ROLE_OS_WORKSPACE_DIR switch as any other real workspace (e.g. set
+        it to the repo's own samples\role_os_sample folder) -- never as an
+        implicit default.
+
         If the environment variable ROLE_OS_WORKSPACE_DIR is set, its
         \00_SYSTEM subfolder is used as the source for all five databases
-        instead of the bundled samples\role_os_sample\00_SYSTEM\ fixture --
-        this is the opt-in switch to a real, permanent workspace (e.g. one
-        already produced by builder\builder.py) without ever silently
-        moving or copying data. Setting it is entirely the user's choice;
-        this function only reads it.
+        instead -- this is the opt-in switch to any workspace folder (a
+        real one already produced by builder\builder.py, or the bundled
+        samples\role_os_sample fixture for a deliberate demo run) without
+        ever silently moving or copying data. Setting it is entirely the
+        user's choice; this function only reads it.
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
@@ -90,8 +104,8 @@ function Resolve-RoleOSDatabaseEnv {
         $systemDir = Join-Path $workspaceOverride "00_SYSTEM"
         $source = "user-configured workspace (ROLE_OS_WORKSPACE_DIR=$workspaceOverride)"
     } else {
-        $systemDir = Join-Path $RepoRoot "samples\role_os_sample\00_SYSTEM"
-        $source = "bundled sample workspace (default; see INSTALLATION.md for how to point at your own data)"
+        $systemDir = Join-Path $RepoRoot "var\role_os"
+        $source = "canonical runtime data root (default; var\role_os -- same as dashboard\app\config.py's own default; set ROLE_OS_WORKSPACE_DIR to explicitly use the bundled samples\role_os_sample demo data or a real workspace instead, see INSTALLATION.md)"
     }
 
     $dbVars = [ordered]@{
