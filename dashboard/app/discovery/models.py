@@ -57,6 +57,8 @@ class DiscoveredProject:
     languages: dict[str, int] = field(default_factory=dict)
     tech_markers: list[str] = field(default_factory=list)
     frameworks: list[str] = field(default_factory=list)
+    operational_manifest: dict = field(default_factory=dict)
+    operational_manifest_error: str | None = None
 
     has_tests: bool = False
     test_file_count: int = 0

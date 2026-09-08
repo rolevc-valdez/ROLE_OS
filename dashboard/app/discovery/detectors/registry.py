@@ -26,6 +26,7 @@ from app.discovery.detectors import (
     environment,
     markers,
     obsidian,
+    operational_manifest,
     scripts,
     testing,
     vscode_workspace,
@@ -50,6 +51,7 @@ DETECTOR_REGISTRY: list[tuple[str, DetectorFn]] = [
     ("obsidian", obsidian.detect),
     ("vscode_workspace", vscode_workspace.detect),
     ("markers", markers.detect),
+    ("operational_manifest", operational_manifest.detect),
     ("assets", assets.detect),
     ("absolute_paths", absolute_paths.detect),
 ]
