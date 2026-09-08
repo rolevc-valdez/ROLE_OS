@@ -15,8 +15,18 @@ class Settings:
     """Runtime configuration for the ROLE OS Dashboard."""
 
     def __init__(self) -> None:
+        # Role OS 2.0 Phase 1 Task 2: normal runtime must never silently
+        # default into the bundled samples/ fixture tree -- samples/ is for
+        # tests, demos, and explicitly-requested fixtures only (see
+        # docs/PHASE_1_TASK_2.md). The canonical runtime default for every
+        # dashboard-owned SQLite file below is `var/role_os/`, resolved
+        # against the process's current working directory exactly like
+        # every other path in this file. An explicit ROLE_OS_*_DB_PATH
+        # environment variable (e.g. one pointing at samples/role_os_sample/
+        # for a deliberate demo run) always takes precedence -- this only
+        # changes what happens when nothing is set.
         self.db_path: Path = Path(
-            os.environ.get("ROLE_OS_DB_PATH", "samples/role_os_sample/00_SYSTEM/role_os.db")
+            os.environ.get("ROLE_OS_DB_PATH", "var/role_os/role_os.db")
         ).resolve()
         # Project Intelligence (Epic 1) uses its own SQLite file, separate from
         # the builder-generated knowledge DB above. It is dashboard-owned:
@@ -25,7 +35,7 @@ class Settings:
         self.projects_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_PROJECTS_DB_PATH",
-                "samples/role_os_sample/00_SYSTEM/role_os_projects.db",
+                "var/role_os/role_os_projects.db",
             )
         ).resolve()
         # AI Advisor (Epic 2) also owns its own SQLite file, separate from
@@ -34,7 +44,7 @@ class Settings:
         self.advisor_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_ADVISOR_DB_PATH",
-                "samples/role_os_sample/00_SYSTEM/role_os_advisor.db",
+                "var/role_os/role_os_advisor.db",
             )
         ).resolve()
         # ChatGPT Conversation Importer (Sprint B1) also owns its own SQLite
@@ -44,7 +54,7 @@ class Settings:
         self.imports_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_IMPORTS_DB_PATH",
-                "samples/role_os_sample/00_SYSTEM/role_os_imports.db",
+                "var/role_os/role_os_imports.db",
             )
         ).resolve()
         # Knowledge Extraction (Sprint 4) also owns its own SQLite file,
@@ -55,7 +65,7 @@ class Settings:
         self.extraction_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_EXTRACTION_DB_PATH",
-                "samples/role_os_sample/00_SYSTEM/role_os_extraction.db",
+                "var/role_os/role_os_extraction.db",
             )
         ).resolve()
         self.app_name: str = "ROLE OS"
