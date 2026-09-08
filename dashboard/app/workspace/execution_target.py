@@ -65,10 +65,23 @@ _CODE_ACTION_RE = re.compile(
 )
 
 
-def _is_code_bearing_project(classification: str | None, git_is_repo: bool | None) -> bool:
+def _is_code_bearing_project(
+    classification: str | None,
+    git_is_repo: bool | None,
+    technology_stack: list[str] | None,
+) -> bool:
     if classification in _CODE_CLASSIFICATIONS:
         return True
-    if classification in _MAYBE_CODE_CLASSIFICATIONS and git_is_repo:
+    # Real-world failure (ROLE Commerce Factory): a Mixed/Brand project can
+    # hold genuine source code (package.json, TypeScript, adapters) that
+    # was simply never `git init`-ed -- `git_is_repo` alone said "not code"
+    # and sent it straight to a web assistant with no filesystem access.
+    # `technology_stack` is the Discovery Engine's own language/framework/
+    # tech-marker detection (`app.project_context.builder._technology_
+    # stack`), independent of git, so a non-empty stack is proof of real
+    # local code regardless of version control.
+    has_code_signal = bool(git_is_repo) or bool(technology_stack)
+    if classification in _MAYBE_CODE_CLASSIFICATIONS and has_code_signal:
         return True
     return bool(git_is_repo)
 
@@ -87,6 +100,7 @@ def classify_execution_target(
     classification: str | None,
     git_is_repo: bool | None,
     requested_action: str | None,
+    technology_stack: list[str] | None = None,
 ) -> dict[str, Any]:
     """The brief's own deterministic rule (§2/§3). Returns a dict, never a
     bare string, so the reason travels with the decision all the way to
@@ -98,7 +112,9 @@ def classify_execution_target(
     outright regardless of classification or action.
     """
     has_local_root = bool(root_path and root_path.strip())
-    code_bearing = has_local_root and _is_code_bearing_project(classification, git_is_repo)
+    code_bearing = has_local_root and _is_code_bearing_project(
+        classification, git_is_repo, technology_stack
+    )
     code_action = is_code_action(requested_action)
 
     if code_bearing and code_action:

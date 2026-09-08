@@ -428,4 +428,13 @@ def build_project_memory(
         # Project Memory's own return shape.
         "root_path": context.get("root_path"),
         "classification": context.get("classification"),
+        # Hotfix (Execution Target / real-world Commerce Factory failure):
+        # already computed by `_technology_stack` in
+        # `app.project_context.builder` from the Discovery Engine's own
+        # `languages`/`tech_markers`/`frameworks` signals -- threaded
+        # through so `classify_execution_target` can tell a real,
+        # code-bearing folder that simply has never been `git init`-ed
+        # apart from a folder of pure documentation/assets, instead of
+        # relying on `git_is_repo` alone.
+        "technology_stack": context.get("technology_stack") or [],
     }

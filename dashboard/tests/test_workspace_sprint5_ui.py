@@ -55,6 +55,37 @@ def test_advisor_recommendations_link_to_resume_work():
     assert "Resume Work" in body
 
 
+def test_session_intent_modal_close_button_only_hides_the_overlay():
+    """Session Intent Routing trace (2026-08-11): the modal's close ("x")
+    button must never call `triggerResumeWork`, `launchClaudeCode`, or
+    `openWebAssistant` -- canceling must not launch anything. Static-source
+    assertion (no JS runtime harness in this repo, same convention as the
+    rest of this file) that the close handler's body is exactly the hide,
+    nothing else, before the next real statement begins."""
+    body = client.get("/static/js/app.js").text
+    marker = 'document.getElementById("objective-close").addEventListener("click", () => {'
+    start = body.index(marker) + len(marker)
+    end = body.index("});", start)
+    handler_body = body[start:end]
+    assert handler_body.strip() == "objectiveOverlay.hidden = true;"
+
+
+def test_start_session_button_resumes_the_same_resume_work_call():
+    """The Session Intent modal must be a clarification step, not a dead
+    end: "Start Session" re-invokes the shared `triggerResumeWork` helper
+    with the supplied objective, so the response can carry
+    `execution_target`/`working_directory`/a real prompt straight through
+    to the Resume With chooser or Claude Code launch -- no separate
+    workflow, no second Resume Work click."""
+    body = client.get("/static/js/app.js").text
+    assert 'id="objective-submit-btn">Start Session</button>' in body
+    marker = 'document.getElementById("objective-submit-btn").addEventListener("click", async () => {'
+    start = body.index(marker)
+    end = body.index("});", start)
+    handler_body = body[start:end]
+    assert "await triggerResumeWork(itemId, userObjective);" in handler_body
+
+
 def test_projects_page_dedupes_canonical_linked_manual_projects():
     body = client.get("/static/js/app.js").text
     assert "isManualOnly" in body

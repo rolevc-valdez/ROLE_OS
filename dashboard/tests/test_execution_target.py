@@ -126,6 +126,51 @@ def test_is_code_action_helper_rejects_conversational_phrasing():
         assert not is_code_action(action)
 
 
+def test_mixed_project_with_real_tech_stack_but_no_git_goes_to_claude_code():
+    """Real-world failure (ROLE Commerce Factory, 2026-08-11): a "Mixed
+    Project" holding genuine, un-versioned source code (package.json/
+    TypeScript in nested adapter folders, never `git init`-ed) was being
+    sent to `claude_web` solely because `git_is_repo` was False -- the web
+    assistant then had no filesystem access and asked the user to upload
+    the repo. `technology_stack` (already computed by the Discovery Engine
+    independent of git) must count as its own code-bearing signal."""
+    result = classify_execution_target(
+        root_path="C:/Projects/ROLE Commerce Factory",
+        classification="Mixed Project",
+        git_is_repo=False,
+        requested_action="Wire the Printful adapter to the new pricing endpoint",
+        technology_stack=["TypeScript", "Node.js"],
+    )
+    assert result["execution_target"] == CLAUDE_CODE
+    assert result["working_directory"] == "C:/Projects/ROLE Commerce Factory"
+
+
+def test_mixed_project_with_tech_stack_and_ambiguous_action_offers_user_choice():
+    result = classify_execution_target(
+        root_path="C:/Projects/ROLE Commerce Factory",
+        classification="Mixed Project",
+        git_is_repo=False,
+        requested_action="Continue this project",
+        technology_stack=["TypeScript"],
+    )
+    assert result["execution_target"] == USER_CHOICE
+    assert result["recommended_assistant"] == CLAUDE_CODE
+
+
+def test_mixed_project_with_no_git_and_no_tech_stack_still_stays_on_web():
+    """A Mixed Project that is genuinely just docs+assets (no git, no
+    detected tech stack) must not be forced into Claude Code by this fix --
+    only a real, detected tech stack (or git) counts as code-bearing."""
+    result = classify_execution_target(
+        root_path="C:/Projects/brand-assets",
+        classification="Mixed Project",
+        git_is_repo=False,
+        requested_action="Refresh the logo pack",
+        technology_stack=[],
+    )
+    assert result["execution_target"] == CLAUDE_WEB
+
+
 def test_claude_code_constant_matches_prompt_modules_literal_copy():
     """`app.project_memory.prompt` cannot import this module (it must stay
     a pure, dependency-free string builder -- see

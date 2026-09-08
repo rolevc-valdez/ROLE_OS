@@ -95,6 +95,74 @@ def test_documentation_project_stays_on_web_assistant(tmp_path):
     assert body["working_directory"] is None
 
 
+def _adopt_ungitted_mixed_project(tmp_path: Path, suffix: str, name: str) -> dict:
+    """Shape of the real ROLE Commerce Factory failure: a top-level folder
+    with README+ROADMAP (heavy docs) plus real, un-versioned source code in
+    nested adapter folders (heavy code) -- two signal axes, so the
+    Discovery Engine classifies it "Mixed Project" -- and *no* `.git`
+    anywhere in the tree at all."""
+    root = tmp_path / f"1 - IA PROJECTS ({suffix})"
+    _write(root / name / "README.md", "# Commerce Factory\n")
+    _write(root / name / "ROADMAP.md", "# Roadmap\n- [ ] ship adapters\n")
+    _write(
+        root / name / "RCOM-Printful-Adapter" / "package.json",
+        '{"name": "printful-adapter"}',
+    )
+    _write(root / name / "RCOM-Printful-Adapter" / "src" / "index.ts", "export {};\n")
+    _write(
+        root / name / "RCOM-Shopify-Adapter" / "package.json",
+        '{"name": "shopify-adapter"}',
+    )
+    _write(root / name / "RCOM-Shopify-Adapter" / "src" / "index.ts", "export {};\n")
+    client.post("/workspace/rescan", json={"root": str(root)})
+    items = client.get("/workspace/discovered", params={"view": "top_level"}).json()
+    item = next(i for i in items if i["name"] == name)
+    client.post(f"/workspace/discovered/{item['id']}/adopt", json={})
+    return item
+
+
+def test_real_world_ungitted_mixed_project_resumes_in_claude_code_not_web(tmp_path):
+    """Regression for the live production failure: ROLE Commerce Factory
+    (`classification="Mixed Project"`, `git_is_repo=False`, real TypeScript
+    adapters on disk) must resolve to `claude_code` for an implementation
+    request, never silently to `claude_web` -- which left the assistant
+    with no filesystem access and asking the user to upload the repo."""
+    item = _adopt_ungitted_mixed_project(tmp_path, "Commerce", "role-commerce-factory")
+    assert item["classification"] == "Mixed Project"
+    assert item["git_is_repo"] is False
+
+    resp = client.post(
+        f"/workspace/discovered/{item['id']}/resume-work",
+        json={
+            "user_objective": {
+                "requested_action": "Wire the Printful adapter to the new pricing endpoint"
+            }
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["execution_target"] == "claude_code"
+    assert body["working_directory"] and Path(body["working_directory"]).is_dir()
+    assert "can't access your local filesystem" not in body["prompt"].lower()
+
+
+def test_real_world_ungitted_mixed_project_with_ambiguous_action_offers_choice(tmp_path):
+    """Without a clearly code-shaped requested action, the same project
+    must not be forced straight into Claude Code either -- it offers a
+    choice, recommending Claude Code, rather than silently picking a web
+    assistant with no repo access."""
+    item = _adopt_ungitted_mixed_project(tmp_path, "Commerce2", "role-commerce-factory-2")
+    resp = client.post(
+        f"/workspace/discovered/{item['id']}/resume-work",
+        json={"user_objective": {"requested_action": "Continue this project"}},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["execution_target"] == "user_choice"
+    assert body["recommended_assistant"] == "claude_code"
+    assert "claude_code" in body["available_assistants"]
+
+
 def test_launch_claude_code_endpoint_uses_the_projects_own_canonical_root(
     tmp_path, monkeypatch
 ):

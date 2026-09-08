@@ -387,7 +387,16 @@ def test_user_objective_resolves_the_guard_and_builds_a_real_prompt(tmp_path):
     assert "Relevant Context:" in resolved["prompt"]
     assert "Execution Instructions:" in resolved["prompt"]
     assert "Read C:\\" not in resolved["prompt"]
-    assert "you do not have" in resolved["prompt"]
+    # Execution Target hotfix (real-world Commerce Factory failure, 2026-08-11):
+    # this fixture has real code markers (pyproject.toml, a tests/ folder) and
+    # no git repo -- previously `git_is_repo` alone decided code-bearing-ness,
+    # so this landed on `claude_web`. `technology_stack` now also counts, and
+    # "Reconcile ..." is itself a code-shaped verb, so this correctly resolves
+    # to `claude_code` -- verify the Claude-Code-specific instructions, not
+    # the web assistant's "you do not have direct access" caveat.
+    assert resolved["execution_target"] == "claude_code"
+    assert "running inside the project's local repository" in resolved["prompt"]
+    assert "you do not have" not in resolved["prompt"]
 
 
 # ---------------------------------------------------------------------------
@@ -485,6 +494,142 @@ def test_api_accepts_user_objective_and_returns_full_result(settings, tmp_path):
     assert payload["context_sufficient"] is True
     assert payload["embedded_resource_count"] >= 1
     assert payload["embedded_character_count"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Session Intent Routing (real-world ROLE_OS Resume Work report,
+# 2026-08-11): traced live -- the modal is expected, correctly-identified
+# behavior, and "Start Session" already re-calls the same `/resume-work`
+# endpoint with the supplied objective, reaching execution_target and (for
+# a code-bearing project) launching Claude Code in one round trip, with no
+# second Resume Work click. These tests lock that state machine in at the
+# real HTTP API boundary the frontend actually calls.
+# ---------------------------------------------------------------------------
+
+
+def test_trustworthy_next_action_never_triggers_the_guard(settings, tmp_path):
+    """A project with a real, evidence-backed action (Operational
+    Intelligence's own "Add tests" rule) must resolve on the very first
+    Resume Work call -- the Session Intent modal must never appear when
+    ROLE OS already has something trustworthy to say."""
+    adopted = _make_and_adopt(tmp_path, "trustworthy", "Trustworthy Action Project")
+    response = client.post(f"/workspace/discovered/{adopted['id']}/resume-work", json={})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["requires_user_objective"] is False
+    assert payload["session_id"] is not None
+    assert payload["prompt"]
+
+
+def test_project_identity_and_root_path_survive_the_intent_round_trip(tmp_path):
+    """The blocked call and the resolved call must agree on which project
+    this is -- same discovery item, same canonical project, same root --
+    end to end through the exact endpoint the "Resume With" dialog calls."""
+    adopted = _make_and_adopt_quiet(tmp_path, "identity-guard", "Identity Guard Project")
+
+    blocked = client.post(f"/workspace/discovered/{adopted['id']}/resume-work", json={})
+    assert blocked.status_code == 200
+    blocked_payload = blocked.json()
+    assert blocked_payload["requires_user_objective"] is True
+    assert blocked_payload["item_id"] == adopted["id"]
+    assert blocked_payload["project_name"] == "Identity Guard Project"
+
+    resolved = client.post(
+        f"/workspace/discovered/{adopted['id']}/resume-work",
+        json={"user_objective": {"requested_action": "Fix the failing integration test"}},
+    )
+    assert resolved.status_code == 200
+    resolved_payload = resolved.json()
+    assert resolved_payload["requires_user_objective"] is False
+    # Same discovery item, same canonical project -- identity was never
+    # substituted between the guard's response and the resolved one.
+    assert resolved_payload["item_id"] == blocked_payload["item_id"] == adopted["id"]
+    assert resolved_payload["project_id"] == adopted["canonical_project_id"]
+    assert resolved_payload["working_directory"] == adopted["root_path"]
+
+
+def test_mixed_project_with_tech_stack_retains_claude_code_through_guard(tmp_path):
+    """Real-world reproduction shape (ROLE Commerce Factory): a Mixed
+    Project, no git repo, real tech markers -- Session Intent's guard
+    firing first must not cause a later `claude_web` downgrade once a
+    code-shaped objective is supplied. One "Start Session" round trip is
+    enough; no second Resume Work click, no dead end."""
+    adopted = _make_and_adopt_quiet(tmp_path, "mixed-guard", "Mixed Guard Project")
+    blocked = client.post(f"/workspace/discovered/{adopted['id']}/resume-work", json={})
+    assert blocked.json()["requires_user_objective"] is True
+
+    resolved = client.post(
+        f"/workspace/discovered/{adopted['id']}/resume-work",
+        json={
+            "user_objective": {"requested_action": "Fix the failing build in the adapter module"}
+        },
+    )
+    payload = resolved.json()
+    assert payload["requires_user_objective"] is False
+    assert payload["execution_target"] == "claude_code"
+    assert payload["execution_target"] != "claude_web"
+    assert payload["working_directory"] == adopted["root_path"]
+
+
+def _make_and_adopt_quiet_git_repo(tmp_path: Path, suffix: str, name: str) -> dict:
+    """Same "nothing trustworthy anywhere" shape as `_make_and_adopt_quiet`,
+    but a real git repository -- the ROLE_OS-shaped case: `git_is_repo`
+    alone should already make it code-bearing, guard or no guard."""
+    import subprocess
+
+    root = tmp_path / f"intent-scan-root-git-{suffix}"
+    project_dir = root / name
+    _write(project_dir / "README.md", "# A\n\nA fully documented project.\n")
+    _write(project_dir / "ROADMAP.md", "# Roadmap\n\nNo unchecked items here.\n")
+    _write(project_dir / "pyproject.toml", "[project]\nname='a'")
+    _write(project_dir / "tests" / "test_x.py", "def test_x(): pass\n")
+    subprocess.run(["git", "init"], cwd=project_dir, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.email=t@t.com", "-c", "user.name=t", "commit", "--allow-empty", "-m", "x"],
+        cwd=project_dir,
+        check=True,
+        capture_output=True,
+    )
+    client.post("/workspace/rescan", json={"root": str(root)})
+    items = client.get("/workspace/discovered", params={"view": "top_level"}).json()
+    item = next(i for i in items if i["name"] == name)
+    adopted = client.post(f"/workspace/discovered/{item['id']}/adopt", json={})
+    return adopted.json()
+
+
+def test_git_repo_project_retains_claude_code_through_guard(tmp_path):
+    """ROLE_OS-shaped case: `git_is_repo=True` -- Session Intent's guard
+    firing first must not prevent Claude Code from being selected once a
+    code-shaped objective resolves it."""
+    adopted = _make_and_adopt_quiet_git_repo(tmp_path, "git-guard", "Git Guard Project")
+    blocked = client.post(f"/workspace/discovered/{adopted['id']}/resume-work", json={})
+    assert blocked.json()["requires_user_objective"] is True
+
+    resolved = client.post(
+        f"/workspace/discovered/{adopted['id']}/resume-work",
+        json={"user_objective": {"requested_action": "Fix the hardcoded absolute-path references"}},
+    )
+    payload = resolved.json()
+    assert payload["requires_user_objective"] is False
+    assert payload["execution_target"] == "claude_code"
+    assert payload["working_directory"] == adopted["root_path"]
+
+
+def test_guard_then_resolve_creates_exactly_one_session_not_two(tmp_path):
+    """The blocked call must never create a session (already covered by
+    `test_no_action_guard_never_creates_a_session`); this locks in the
+    other half -- once resolved, exactly one session exists, never a
+    duplicate from some retry/double-submit path."""
+    adopted = _make_and_adopt_quiet(tmp_path, "single-session", "Single Session Project")
+    from app.projects import db as projects_db
+
+    client.post(f"/workspace/discovered/{adopted['id']}/resume-work", json={})
+    client.post(
+        f"/workspace/discovered/{adopted['id']}/resume-work",
+        json={"user_objective": {"requested_action": "Fix the failing integration test"}},
+    )
+    sessions = projects_db.list_ai_sessions(adopted["canonical_project_id"])
+    assert len(sessions) == 1
 
 
 # ---------------------------------------------------------------------------

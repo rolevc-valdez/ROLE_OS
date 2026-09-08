@@ -45,6 +45,7 @@ def _resolve_execution_target(memory: dict[str, Any]) -> dict[str, Any]:
         classification=memory.get("classification"),
         git_is_repo=(memory.get("git") or {}).get("is_repo"),
         requested_action=session_intent.get("requested_action"),
+        technology_stack=memory.get("technology_stack"),
     )
 
 
