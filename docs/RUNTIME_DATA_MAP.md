@@ -148,6 +148,64 @@ Added by Phase 1 Task 3B, after this document's original findings above (left un
 
 **Role decision still needed**: approve (or amend) the cleanup-then-copy plan above for `dashboard/var/role_os_dashboard/`'s three affected databases, before any real launcher run happens post-fix (otherwise the running app will appear to have "lost" its 5 real adopted projects and Daily Session registry until that migration is done).
 
+## Canonical Workspace Migration
+
+Executed by Phase 1 Task 3D, following Task 3C's approved review. This section adds to the record; nothing above was rewritten.
+
+**Migration date:** 2026-09-10
+
+**Source paths:**
+- `dashboard/var/role_os_dashboard/role_os_workspace.db`
+- `dashboard/var/role_os_dashboard/role_os_session.db`
+
+**Destination paths:**
+- `var/role_os_dashboard/role_os_workspace.db`
+- `var/role_os_dashboard/role_os_session.db`
+
+**Exact rows copied** — `adopted_projects`, selective INSERT of exactly 5 rows (all columns preserved verbatim), by `id`:
+- `60ae784ee6c67df0` — ROLE OS
+- `853dea81cc23fb17` — ROLE_KNOWLEDGE_OS
+- `2c181c8974771e32` — ROLE Commerce Factory
+- `f2f7af289a68576f` — ROLE MASTER
+- `98f8bbca43bfbd88` — role-ecosystem
+
+**Exact DB copied whole:** `role_os_session.db` (byte-for-byte file copy; source and destination SHA256 both `c03adb7d84...ee0e5c7`, confirmed identical; 7 `registry_projects`, 0 `sessions`).
+
+**Data intentionally excluded:**
+- The 9 debug/test `adopted_projects` rows (temp-folder paths, confirmed non-existent on disk) — left in the source, never copied.
+- `workspace_scan_cache` — left empty in the destination at copy time; regenerated naturally by the first real rescan during validation (see below).
+- `role_os_assets.db`, `role_os_ecosystem.db` in either location — not migrated (Task 3C: cache is regenerable, all overrides in both locations are confirmed synthetic test artifacts, ecosystem is empty everywhere).
+
+**Source preservation status:** Confirmed unchanged. Pre- and post-migration SHA256 for both source files are identical (`role_os_workspace.db`: `3e40eb07...42aa9864`; `role_os_session.db`: `c03adb7d...ee0e5c7`), mtimes unchanged, and the source `role_os_workspace.db` still has all 14 `adopted_projects` rows (5 real + 9 debug, none deleted).
+
+**Validation results:** Started the real FastAPI app with `CWD=dashboard/` (the actual launcher's working directory — the one that previously diverged) with no environment overrides for the workspace/session family, to prove the Task 3B fix now reads the canonical, newly-populated location rather than the stale one:
+- `GET /health` → `200`, `GET /` → `200`
+- `POST /workspace/rescan` → `200`, `projects_found: 23`, `projects_adopted: 5` (matches exactly) — this is what populated `workspace_scan_cache` with its one row, exactly as anticipated ("leave empty, regenerated naturally")
+- `GET /workspace/adopted` → exactly the 5 migrated projects, correct names and paths
+- `GET /session/registry` → exactly 7 rows (Daily Session registry, migrated)
+- `GET /mission-control` → `200`, `data_freshness.is_stale: false`, recommended project "ROLE Commerce Factory" with a real, coherent Operational Intelligence reason
+- `GET /workspace/discovered/2c181c8974771e32` → real Project Context (git branch/commit, classification, health) — confirms Project Context/Project Memory work against the migrated data
+- `POST /workspace/discovered/2c181c8974771e32/resume-work` → `200`, a complete, coherent resume prompt (real project summary, git history, health score, recommendation) — confirms Resume Work works end-to-end
+
+**Ancillary files created purely by this validation (not migration data, disclosed per instructions):**
+- `var/role_os/role_os_projects.db` (new — 5 `projects`, 1 `ai_session`, created by the workspace→projects promotion during rescan/mission-control and the one `resume-work` call)
+- `var/role_os/role_os_advisor.db`, `var/role_os/role_os_imports.db` (new, empty schema only — auto-created by Advisor/Import code paths touched during Mission Control's computation)
+- `var/role_os_dashboard/role_os_assets.db` grew further (cache-only; same pre-existing, already-documented behavior — every write here is to `asset_cache`, not `asset_overrides`)
+
+The running validation server was stopped cleanly afterward (`taskkill`); no orphaned process remains.
+
+**Task 3 status update:** The canonical runtime data root's workspace/session family is now populated with exactly the real, verified state. `var/role_os_dashboard/role_os_workspace.db` and `role_os_session.db` are no longer empty/absent — see the table below for the corrected, final state.
+
+| Database | Path | Purpose | Source | Status |
+|---|---|---|---|---|
+| `role_os_workspace.db` | `var/role_os_dashboard/role_os_workspace.db` | Adopted-projects overlay + scan cache | 5 rows copied from `dashboard/var/role_os_dashboard/` (Task 3D) | **POPULATED (real)** |
+| `role_os_session.db` | `var/role_os_dashboard/role_os_session.db` | Daily Session registry | Whole-file copy from `dashboard/var/role_os_dashboard/` (Task 3D) | **POPULATED (real)** |
+| `role_os_assets.db` | `var/role_os_dashboard/role_os_assets.db` | Asset cache + overrides | N/A | Cache only, regenerable; no real overrides anywhere |
+| `role_os_ecosystem.db` | `var/role_os_dashboard/role_os_ecosystem.db` | Relationship overrides | N/A | Empty, unchanged |
+| `role_os.db`, `role_os_projects.db`, `role_os_advisor.db`, `role_os_imports.db`, `role_os_extraction.db` | `var/role_os/*.db` | Knowledge/Project Intelligence family | N/A | Still the Task 3-documented default fallback; real data remains external at `ROLE_KNOWLEDGE_OS` |
+
+`dashboard/var/role_os_dashboard/` remains in place, fully intact, with all 14 original rows — kept as a preserved historical source, not deleted, per this task's explicit instruction.
+
 ## Exact Next Task
 
 Phase 1 — Task 4: Mission Control Landing Experience
