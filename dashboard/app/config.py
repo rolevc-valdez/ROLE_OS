@@ -15,18 +15,30 @@ class Settings:
     """Runtime configuration for the ROLE OS Dashboard."""
 
     def __init__(self) -> None:
+        # Role OS 2.0 Phase 1 Task 3B: every relative default path below is
+        # anchored to `repo_root` -- derived from this file's own location
+        # (`__file__`), never from the process's current working directory
+        # -- so normal runtime resolves to the exact same absolute paths
+        # regardless of whether Role OS is started from the repository
+        # root, `dashboard/`, `scripts/`, or anywhere else (see
+        # docs/RUNTIME_DATA_MAP.md, "Stable Runtime Path Anchoring"). This
+        # is computed first, before any path default that depends on it.
+        # An explicit ROLE_OS_*_DB_PATH environment variable always still
+        # takes precedence -- this only changes what happens when nothing
+        # is set.
+        self.base_dir: Path = Path(__file__).resolve().parent
+        self.repo_root: Path = self.base_dir.parent.parent
+
         # Role OS 2.0 Phase 1 Task 2: normal runtime must never silently
         # default into the bundled samples/ fixture tree -- samples/ is for
         # tests, demos, and explicitly-requested fixtures only (see
         # docs/PHASE_1_TASK_2.md). The canonical runtime default for every
-        # dashboard-owned SQLite file below is `var/role_os/`, resolved
-        # against the process's current working directory exactly like
-        # every other path in this file. An explicit ROLE_OS_*_DB_PATH
-        # environment variable (e.g. one pointing at samples/role_os_sample/
-        # for a deliberate demo run) always takes precedence -- this only
-        # changes what happens when nothing is set.
+        # dashboard-owned SQLite file below is `var/role_os/`. An explicit
+        # ROLE_OS_*_DB_PATH environment variable (e.g. one pointing at
+        # samples/role_os_sample/ for a deliberate demo run) always takes
+        # precedence -- this only changes what happens when nothing is set.
         self.db_path: Path = Path(
-            os.environ.get("ROLE_OS_DB_PATH", "var/role_os/role_os.db")
+            os.environ.get("ROLE_OS_DB_PATH", str(self.repo_root / "var/role_os/role_os.db"))
         ).resolve()
         # Project Intelligence (Epic 1) uses its own SQLite file, separate from
         # the builder-generated knowledge DB above. It is dashboard-owned:
@@ -35,7 +47,7 @@ class Settings:
         self.projects_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_PROJECTS_DB_PATH",
-                "var/role_os/role_os_projects.db",
+                str(self.repo_root / "var/role_os/role_os_projects.db"),
             )
         ).resolve()
         # AI Advisor (Epic 2) also owns its own SQLite file, separate from
@@ -44,7 +56,7 @@ class Settings:
         self.advisor_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_ADVISOR_DB_PATH",
-                "var/role_os/role_os_advisor.db",
+                str(self.repo_root / "var/role_os/role_os_advisor.db"),
             )
         ).resolve()
         # ChatGPT Conversation Importer (Sprint B1) also owns its own SQLite
@@ -54,7 +66,7 @@ class Settings:
         self.imports_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_IMPORTS_DB_PATH",
-                "var/role_os/role_os_imports.db",
+                str(self.repo_root / "var/role_os/role_os_imports.db"),
             )
         ).resolve()
         # Knowledge Extraction (Sprint 4) also owns its own SQLite file,
@@ -65,16 +77,14 @@ class Settings:
         self.extraction_db_path: Path = Path(
             os.environ.get(
                 "ROLE_OS_EXTRACTION_DB_PATH",
-                "var/role_os/role_os_extraction.db",
+                str(self.repo_root / "var/role_os/role_os_extraction.db"),
             )
         ).resolve()
         self.app_name: str = "ROLE OS"
         self.app_version: str = "1.1.0"
         self.license: str = "Proprietary"
-        self.base_dir: Path = Path(__file__).resolve().parent
         self.static_dir: Path = self.base_dir / "static"
         self.templates_dir: Path = self.base_dir / "templates"
-        self.repo_root: Path = self.base_dir.parent.parent
         # Settings (Sprint 8): both env-var driven, same pattern as every
         # path above -- no new persistence, just two more optional
         # environment variables. `default_import_path` has no behavior
@@ -93,7 +103,10 @@ class Settings:
         # fixture — it must never default into a path `.gitignore` allows
         # back into version control.
         self.session_db_path: Path = Path(
-            os.environ.get("ROLE_OS_SESSION_DB_PATH", "var/role_os_dashboard/role_os_session.db")
+            os.environ.get(
+                "ROLE_OS_SESSION_DB_PATH",
+                str(self.repo_root / "var/role_os_dashboard/role_os_session.db"),
+            )
         ).resolve()
         # Optional path to an Obsidian vault's Daily Notes folder, used only
         # to offer writing the generated daily Markdown record directly to
@@ -123,7 +136,8 @@ class Settings:
         # it holds real personal data generated by using the dashboard.
         self.workspace_db_path: Path = Path(
             os.environ.get(
-                "ROLE_OS_WORKSPACE_DB_PATH", "var/role_os_dashboard/role_os_workspace.db"
+                "ROLE_OS_WORKSPACE_DB_PATH",
+                str(self.repo_root / "var/role_os_dashboard/role_os_workspace.db"),
             )
         ).resolve()
         # The folder the Discovery Engine scans by default. Defaults to this
@@ -155,7 +169,10 @@ class Settings:
         # `var/`, like `workspace_db_path`, because it holds real data
         # generated by using the dashboard, not a checked-in fixture.
         self.assets_db_path: Path = Path(
-            os.environ.get("ROLE_OS_ASSETS_DB_PATH", "var/role_os_dashboard/role_os_assets.db")
+            os.environ.get(
+                "ROLE_OS_ASSETS_DB_PATH",
+                str(self.repo_root / "var/role_os_dashboard/role_os_assets.db"),
+            )
         ).resolve()
         # Cached, resized preview thumbnails -- generated images derived
         # from scanned assets, never a copy/move/edit of the originals
@@ -164,7 +181,8 @@ class Settings:
         # entirely; regenerated on next preview request.
         self.asset_thumbnail_cache_dir: Path = Path(
             os.environ.get(
-                "ROLE_OS_ASSET_THUMBNAIL_CACHE_DIR", "var/role_os_dashboard/asset_thumbnails"
+                "ROLE_OS_ASSET_THUMBNAIL_CACHE_DIR",
+                str(self.repo_root / "var/role_os_dashboard/asset_thumbnails"),
             )
         ).resolve()
         # Project Ecosystem Engine (Sprint C8): a small overlay table for
@@ -176,7 +194,8 @@ class Settings:
         # `var/`-relative db follows.
         self.ecosystem_db_path: Path = Path(
             os.environ.get(
-                "ROLE_OS_ECOSYSTEM_DB_PATH", "var/role_os_dashboard/role_os_ecosystem.db"
+                "ROLE_OS_ECOSYSTEM_DB_PATH",
+                str(self.repo_root / "var/role_os_dashboard/role_os_ecosystem.db"),
             )
         ).resolve()
 
