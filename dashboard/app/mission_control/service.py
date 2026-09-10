@@ -27,6 +27,13 @@ existing service exactly once per request:
   session`/`list_sessions`), read as-is; Mission Control does not
   reimplement Start/End My Day, only surfaces the current state and links
   to `/session`.
+- `app.session.decisions_adapter.read_recent_decisions` (Role OS 2.0 Phase
+  1 Task 5) -- the existing ecosystem-decisions adapter, read as-is. Its
+  own `source`/`note` fields (`"ecosystem"` when read live, `"fallback"`
+  with an explanatory note otherwise -- see that module's docstring) are
+  passed straight through so the UI can render the honesty this adapter
+  already computes, instead of the silent-fallback gap the Phase 0 audit
+  found (the data was already honest; nothing rendered it).
 
 No new score, no new "every project" definition, no second filesystem walk
 beyond what `app.assets.service.request_scope()` already collapses into one
@@ -44,10 +51,12 @@ from app.executive_decision import get_executive_decision
 from app.operational_intelligence import get_operational_intelligence
 from app.project_context.builder import all_project_contexts as _all_project_contexts
 from app.session import db as session_db
+from app.session.decisions_adapter import read_recent_decisions
 from app.session.modes import list_modes
 from app.workspace import service as workspace_service
 
 TODAYS_FOCUS_LIMIT = 3
+ECOSYSTEM_DECISIONS_LIMIT = 3
 NEEDS_ATTENTION_LIMIT = 8
 RECENT_ACTIVITY_LIMIT = 20
 SINCE_LAST_TIME_LIMIT = 20
@@ -467,6 +476,10 @@ def build_mission_control(settings: Settings | None = None) -> dict[str, Any]:
         for i in needs_attention
         if i.get("project") and i["project"].get("item_id")
     }
+    # Phase 1 Task 5: read as-is, outside `request_scope()` -- this adapter
+    # never touches the filesystem walk or discovery data, only an
+    # optional external Markdown file, so it adds no second walk.
+    ecosystem_decisions = read_recent_decisions(limit=ECOSYSTEM_DECISIONS_LIMIT, settings=settings)
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -482,6 +495,7 @@ def build_mission_control(settings: Settings | None = None) -> dict[str, Any]:
         "recent_activity": recent_activity,
         "daily_session": _daily_session(settings, home, recommendations),
         "snapshot_continuity": _snapshot_continuity(primary_focus),
+        "ecosystem_decisions": ecosystem_decisions,
         "quick_actions": _QUICK_ACTIONS,
         "total_projects_tracked": len(all_contexts),
     }

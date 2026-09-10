@@ -948,6 +948,21 @@
     return `<div class="card u-mb-3"><span class="badge badge-warning">Stale discovery data</span> <span class="card-muted">Workspace scan is ${escapeHtml(age)} — rescan on the Workspace page to refresh.</span></div>`;
   }
 
+  // Role OS 2.0 Phase 1 Task 5: a short, inline staleness note for a
+  // specific card (as opposed to `renderDashFreshnessBanner`'s
+  // page-level banner) -- reuses the same `data_freshness` object every
+  // Mission Control section already receives, no second staleness
+  // concept. Returns "" (nothing rendered) when data is current, per the
+  // brief's "CURRENT: no warning necessary."
+  function mcStalenessNoteHtml(freshness) {
+    if (!freshness || !freshness.is_stale) return "";
+    const age =
+      freshness.hours_since_scan != null
+        ? `${Math.round(freshness.hours_since_scan)}h ago`
+        : "never recorded";
+    return `<p class="card-muted u-fs-12 u-mt-2">⚠ Based on workspace data last scanned ${escapeHtml(age)} — this recommendation's confidence is already discounted for that (see Evidence below).</p>`;
+  }
+
   // =======================================================================
   // MISSION CONTROL (Sprint C5): the primary Home experience. One fetch
   // (`GET /mission-control`), already-shaped -- this file only renders it,
@@ -958,7 +973,7 @@
   // single highest-value recommendation, explained. Renders above
   // Today's Focus; everything else on this page is now supporting
   // information for this one decision, never a competing headline.
-  function mcExecutiveDecisionHtml(decision) {
+  function mcExecutiveDecisionHtml(decision, freshness) {
     if (!decision || !decision.recommended_project) {
       return `
         <div class="card mc-primary-card">
@@ -975,6 +990,7 @@
           <p class="card-title u-fs-20 u-clickable" ${mcProjectRef(project)}>${escapeHtml(project.display_name)}</p>
           <span class="badge">${decision.decision_score} pts &middot; ${Math.round(decision.confidence * 100)}% confidence</span>
         </div>
+        ${mcStalenessNoteHtml(freshness)}
         <p class="card-muted u-mt-2">Reason</p>
         <p>${escapeHtml(decision.reason)}</p>
         <p class="card-muted u-mt-2">Expected Benefit</p>
@@ -1205,12 +1221,38 @@
     if (!sc.has_snapshot) {
       return `<div class="card u-mt-2"><p class="muted">${escapeHtml(sc.message)}</p></div>`;
     }
+    // Role OS 2.0 Phase 1 Task 5: explicitly labeled "Saved Snapshot" (not
+    // just "Latest Snapshot") so this historical record is never confused
+    // with a live/current status -- it is, by definition, a point-in-time
+    // save, distinct from the live "Last Activity" field shown elsewhere.
     return `
       <div class="card u-mt-2">
-        <p class="card-muted">Latest Snapshot</p>
+        <p class="card-muted">Saved Snapshot <span class="badge">historical</span></p>
         <p>${escapeHtml(sc.summary || "")}</p>
         <p class="card-muted u-fs-12 u-mt-1">Pending: ${escapeHtml(sc.pending_work || "None recorded")}</p>
-        <p class="card-muted u-fs-12">${formatDate(sc.timestamp)}</p>
+        <p class="card-muted u-fs-12">Saved ${formatDate(sc.timestamp)}</p>
+      </div>`;
+  }
+
+  // Role OS 2.0 Phase 1 Task 5: the ecosystem-decisions adapter
+  // (`app.session.decisions_adapter`) already computes an honest
+  // `source`/`note` for exactly this situation (Phase 0 audit finding:
+  // the "recent ecosystem decisions" card could silently show a frozen
+  // snapshot with no visible warning). This renders that existing
+  // honesty -- no new source, no new fallback logic.
+  function mcEcosystemDecisionsHtml(ed) {
+    if (!ed || !ed.decisions || !ed.decisions.length) return "";
+    const isFallback = ed.source === "fallback";
+    const badge = isFallback
+      ? '<span class="badge badge-warning">Fallback snapshot</span>'
+      : '<span class="badge badge-healthy">Live</span>';
+    return `
+      <div class="card u-mt-2">
+        <p class="card-muted u-flex-between">Recent Ecosystem Decisions ${badge}</p>
+        <ul class="u-fs-12 u-mt-1">${ed.decisions
+          .map((d) => `<li>${escapeHtml(d.date)} — ${escapeHtml(d.decision)}</li>`)
+          .join("")}</ul>
+        ${isFallback ? `<p class="card-muted u-fs-12 u-mt-2">⚠ ${escapeHtml(ed.note || "")}</p>` : ""}
       </div>`;
   }
 
@@ -1272,7 +1314,8 @@
 
       <div class="page-section">
         <div class="section-heading"><h2>What Matters Now</h2></div>
-        <div id="mc-executive-decision" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
+        <div id="mc-executive-decision" class="u-mb-2"><p class="muted loading-pulse">Loading…</p></div>
+        <div id="mc-ecosystem-decisions" class="u-mb-4"></div>
       </div>
 
       <div class="page-section">
@@ -1331,7 +1374,13 @@
     }
 
     document.getElementById("mc-freshness-banner").innerHTML = renderDashFreshnessBanner(data.data_freshness);
-    document.getElementById("mc-executive-decision").innerHTML = mcExecutiveDecisionHtml(data.executive_decision);
+    document.getElementById("mc-executive-decision").innerHTML = mcExecutiveDecisionHtml(
+      data.executive_decision,
+      data.data_freshness
+    );
+    document.getElementById("mc-ecosystem-decisions").innerHTML = mcEcosystemDecisionsHtml(
+      data.ecosystem_decisions
+    );
     document.getElementById("mc-portfolio-ranking").innerHTML = mcPortfolioRankingHtml(data.ranked_projects);
     document.getElementById("mc-primary-focus").innerHTML =
       mcPrimaryFocusHtml(data.primary_focus) + mcSnapshotContinuityHtml(data.snapshot_continuity);
