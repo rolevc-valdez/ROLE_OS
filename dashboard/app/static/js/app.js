@@ -1252,21 +1252,37 @@
   }
 
   async function renderMissionControlPage() {
+    // Role OS 2.0 Phase 1 Task 4: information hierarchy reordered to answer
+    // "Where did I leave off? / What matters now? / What's next?" in that
+    // order, immediately below the fold -- no new data, no new backend
+    // call, no new render function. Every section below still reads from
+    // the same single `GET /mission-control` payload and the same
+    // `mc*Html` composers already in this file; only DOM order and
+    // headings changed (Portfolio Ranking's analytics grid, previously
+    // second on the page, moved below the three-question block so it no
+    // longer dominates the first screen).
     viewRoot.innerHTML = `
       <div class="section-heading"><h2>Mission Control</h2></div>
       <div id="mc-freshness-banner"></div>
-      <div id="mc-executive-decision" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>Where I Left Off</h2></div>
+        <div id="mc-primary-focus" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
+      </div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>What Matters Now</h2></div>
+        <div id="mc-executive-decision" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
+      </div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>What's Next</h2></div>
+        <div id="mc-todays-focus" class="card-grid-wide"></div>
+      </div>
 
       <div class="page-section">
         <div class="section-heading"><h2>Portfolio Ranking</h2></div>
         <div id="mc-portfolio-ranking"><p class="muted loading-pulse">Loading…</p></div>
-      </div>
-
-      <div id="mc-primary-focus" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
-
-      <div class="page-section">
-        <div class="section-heading"><h2>Today's Focus</h2></div>
-        <div id="mc-todays-focus" class="card-grid-wide"></div>
       </div>
 
       <div class="home-grid">
