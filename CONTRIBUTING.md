@@ -38,6 +38,35 @@ follows, for anyone with authorized access working on it.
   specifically because a prior sprint (Settings, Sprint 8) shipped code
   without its documentation, and that gap had to be closed before release.
 
+## Keeping `CURRENT_STATE.md` and `NEXT_ACTIONS.md` current
+
+Role OS 2.0 (Phase 1 Task 7) added two small root-level control files whose
+job is continuity across a lost session, a reboot, or a switch between AI
+assistants — not a second source of truth. Their rules:
+
+1. `CURRENT_STATE.md` describes **now**. `NEXT_ACTIONS.md` describes
+   **next**. Neither describes history.
+2. Both are **overwritten to reflect current state**, never appended to —
+   they are living files, not journals. If you find yourself adding a new
+   dated entry instead of replacing a stale one, stop and rewrite instead.
+3. Completed-task implementation detail belongs in `docs/PHASE_1_TASK_*.md`
+   (or the equivalent for later phases), not in these two files.
+4. Architectural/product decisions belong in `docs/product/DECISIONS.md`,
+   not here.
+5. Git is the authoritative change history — these files summarize the
+   *current* consequence of that history, they don't replace `git log`.
+6. Runtime/project data (SQLite databases under `var/`) remains the
+   authoritative source for runtime and project state. These files may
+   *describe* that data (e.g. "5 adopted projects") but must never become
+   a second, drifting copy of it — see `docs/RUNTIME_DATA_MAP.md` for the
+   actual inventory.
+7. Do not duplicate an entire database's contents into Markdown. A short,
+   named list (like the 5 canonical projects) is fine; a full dump is not.
+8. **Refresh both files at the end of every completed major task, before
+   committing** — update `CURRENT_STATE.md`'s Status/What Is
+   Working/Open Issues and `NEXT_ACTIONS.md`'s Now/After That sections to
+   match what just happened, in the same commit as the task's own work.
+
 ## Code style
 
 - `black` (line length 100) and `ruff` (line length 100, target `py310`)
