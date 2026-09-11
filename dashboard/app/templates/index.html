@@ -16,14 +16,15 @@
           <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v9h14v-9"/></svg>
           <span>Mission Control</span>
         </li>
-        <li class="nav-item" data-nav="dashboard">
-          <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
-          <span>Dashboard</span>
-        </li>
-        <li class="nav-item" data-nav="session">
-          <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/><path d="M8 3.5l-2 2M16 3.5l2 2"/></svg>
-          <span>Session</span>
-        </li>
+
+        <!-- Role OS 2.0 Phase 1 Task 8B: grouped, not deleted -- every
+             data-nav value below is unchanged, so every existing click
+             handler, hash route, and deep link keeps working exactly as
+             before. "Dashboard" (v2) is intentionally not listed here
+             any more (Task 8's DEMOTE recommendation) -- its route,
+             #/dashboard, is untouched and reachable via the "See full
+             metrics" link on Mission Control's Portfolio Ranking section. -->
+        <li class="nav-group-label">Projects</li>
         <li class="nav-item" data-nav="projects">
           <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
           <span>Projects</span>
@@ -36,6 +37,8 @@
           <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 15h18M8 19h2M14 19h2"/><circle cx="8" cy="9" r="1.5"/><circle cx="12" cy="9" r="1.5"/><circle cx="16" cy="9" r="1.5"/></svg>
           <span>Cockpit</span>
         </li>
+
+        <li class="nav-group-label">Knowledge</li>
         <li class="nav-item" data-nav="knowledge">
           <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 5c4-2 8-2 8 0v14c0-2-4-2-8 0z"/><path d="M20 5c-4-2-8-2-8 0v14c0-2 4-2 8 0z"/></svg>
           <span>Knowledge</span>
@@ -56,6 +59,14 @@
           <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="4" cy="12" r="2.2"/><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="19" r="2.2"/><circle cx="20" cy="12" r="2.2"/><path d="M6 12h12M12 7v10"/></svg>
           <span>Knowledge Graph</span>
         </li>
+
+        <li class="nav-group-label">Session</li>
+        <li class="nav-item" data-nav="session">
+          <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/><path d="M8 3.5l-2 2M16 3.5l2 2"/></svg>
+          <span>Session</span>
+        </li>
+
+        <li class="nav-group-label">Settings</li>
         <li class="nav-item" data-nav="assets">
           <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2l3 6 6 1-4.5 4.5L18 20l-6-3-6 3 1.5-6.5L3 9l6-1z"/></svg>
           <span>Assets</span>

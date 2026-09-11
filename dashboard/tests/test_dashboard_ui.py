@@ -21,12 +21,19 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_sidebar_includes_dashboard_nav_item():
+def test_dashboard_route_reachable_though_no_longer_in_primary_sidebar():
+    """Role OS 2.0 Phase 1 Task 8B intentionally demoted Dashboard from
+    the primary sidebar (it competed with Mission Control as a top-level
+    destination) to a "See full metrics" link on Mission Control's
+    Portfolio Ranking section -- see docs/PHASE_1_TASK_8B.md. The route
+    and its data are unchanged; only the sidebar entry is gone."""
     resp = client.get("/")
     assert resp.status_code == 200
-    assert 'data-nav="dashboard"' in resp.text
+    sidebar_html = resp.text.split("<nav")[1].split("</nav>")[0]
+    assert 'data-nav="dashboard"' not in sidebar_html
     # Home is unchanged/untouched as the existing landing page.
     assert 'data-nav="home"' in resp.text
+    assert client.get("/dashboard/summary").status_code == 200
 
 
 def test_app_js_implements_dashboard_route_and_render_function():

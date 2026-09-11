@@ -206,9 +206,21 @@
     window.location.hash = param ? `#/${view}/${encodeURIComponent(param)}` : `#/${view}`;
   }
 
+  // Role OS 2.0 Phase 1 Task 8B: project-detail-family drill-downs
+  // ("project", "dproject", "phub") have no sidebar entry of their own --
+  // they're reached only by clicking through from Mission Control,
+  // Workspace, or the Projects list -- so without this map, visiting one
+  // directly (e.g. a bookmarked #/project/{id} link) would leave the
+  // whole sidebar unhighlighted, making the new "Projects" cluster feel
+  // disconnected from the page the user is actually on. This only
+  // changes which existing nav-item is highlighted; it adds no new route
+  // and no new nav concept.
+  const DRILLDOWN_PARENT_NAV = { project: "projects", dproject: "projects", phub: "projects" };
+
   function updateActiveNav(view) {
+    const effectiveView = DRILLDOWN_PARENT_NAV[view] || view;
     document.querySelectorAll(".nav-item[data-nav]").forEach((el) => {
-      el.classList.toggle("active", el.dataset.nav === view);
+      el.classList.toggle("active", el.dataset.nav === effectiveView);
     });
   }
 
@@ -1324,7 +1336,7 @@
       </div>
 
       <div class="page-section">
-        <div class="section-heading"><h2>Portfolio Ranking</h2></div>
+        <div class="section-heading"><h2>Portfolio Ranking</h2><button type="button" class="link-btn" data-nav="dashboard">See full metrics &rarr;</button></div>
         <div id="mc-portfolio-ranking"><p class="muted loading-pulse">Loading…</p></div>
       </div>
 

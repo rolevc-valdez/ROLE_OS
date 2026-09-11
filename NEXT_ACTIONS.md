@@ -4,18 +4,17 @@
 
 ## Now
 
-**Phase 1 — Task 8B: Navigation Simplification Implementation**
+**Phase 1 — Task 9: Discovery Report Artifacts**
 
-Task 8's analysis (`docs/PHASE_1_TASK_8_NAVIGATION_ANALYSIS.md`) recommended implementation as **A — SMALL AND SAFE**: regroup the sidebar in `dashboard/app/templates/index.html`/`app.js` into a handful of clusters (Mission Control, Projects, Knowledge, Session, Settings), demote `/dashboard` (v2) from a top-level item to a "See full metrics →" link from Mission Control, and give the already-orphaned-from-nav Import/Extraction pages a home under Settings. **Zero routers, endpoints, services, or database schemas change** — this is a frontend information-architecture change only, and every existing deep link/hash route must keep working exactly as-is.
+Decide the fate of `var/discovery_reports/documents/` — generated report artifacts (`documents_audit.json`/`.md`) with no current router consumer (flagged since Task 3). Either wire them to a real, current consumer, or remove them as regenerable/obsolete. This is a small, self-contained decision-and-cleanup task, not a redesign.
 
 ## After That
 
 Known remaining Phase 1 work, in order:
 
-1. **Task 8B** — Navigation Simplification Implementation (see above)
-2. **Task 9** — Discovery Report Artifacts: decide whether `var/discovery_reports/documents/` gets a real consumer or is removed
-3. **Phase 1 validation** — a full-suite regression pass and a final canonical-runtime smoke test across everything Phase 1 touched
-4. **Phase 1 completion report** — a single summary closing out Phase 1 before any Phase 2 planning begins
+1. **Task 9** — Discovery Report Artifacts (see above)
+2. **Phase 1 validation** — a full-suite regression pass and a final canonical-runtime smoke test across everything Phase 1 touched
+3. **Phase 1 completion report** — a single summary closing out Phase 1 before any Phase 2 planning begins
 
 ## Blocked / Requires Role Decision
 
@@ -31,4 +30,4 @@ Known remaining Phase 1 work, in order:
 - Do not begin Phase 2 (or any work beyond the Phase 1 task list above) before Phase 1's validation and completion report.
 - Do not delete or rewrite historical docs (`docs/PHASE_1_TASK_*.md`, `audits/`, `docs/product/DECISIONS.md`, `docs/architecture/01`–`21`) — they are frozen record, not living documentation.
 - Do not treat `samples/role_os_sample/` as a production runtime source for anything — it is fixture/demo data only, reachable only via explicit `ROLE_OS_WORKSPACE_DIR`/`ROLE_OS_*_DB_PATH` selection.
-- Do not remove, rename, or change the route path of any router during Task 8B — the analysis found zero routers worth removing; 8B is a sidebar/grouping change only.
+- Do not promote `project_ecosystem`/`impact_analysis` into primary navigation "just because" — Task 8 deliberately left them UNCERTAIN, not resolved.

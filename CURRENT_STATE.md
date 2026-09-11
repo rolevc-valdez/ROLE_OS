@@ -5,10 +5,10 @@
 ## Status
 
 - **Phase:** Role OS 2.0, Phase 1 (Core Consolidation)
-- **Current task:** Phase 1 — Task 8B: Navigation Simplification Implementation (not started)
-- **Last completed task:** Phase 1 — Task 8: Navigation Simplification Analysis
+- **Current task:** Phase 1 — Task 9: Discovery Report Artifacts (not started)
+- **Last completed task:** Phase 1 — Task 8B: Navigation Simplification Implementation
 - **Last completed commit:** this commit — run `git log -1` to get its exact hash (always verify against git, per the Recovery procedure below, rather than trusting a hardcoded value here)
-- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions. Task 8's analysis found no router worth removing — see `docs/PHASE_1_TASK_8_NAVIGATION_ANALYSIS.md`.
+- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions. Sidebar is now grouped into 5 clusters; all 32 routers and every route path are unchanged — see `docs/PHASE_1_TASK_8B.md`.
 
 ## What Is Working
 
@@ -19,7 +19,7 @@
 - Staleness and fallback data can no longer silently masquerade as current (Task 5): a stale-data note on the Executive Decision card, and a Live/Fallback badge on ecosystem decisions.
 - The legacy `project-dashboard.html` is archived, not deleted; its useful, non-conflicting metadata was migrated into the canonical workspace notes; Role Master brand assets are preserved and now tracked in git (Task 6).
 - Runtime/user data (SQLite databases under `var/`) is never committed to git.
-- Navigation was analyzed end-to-end (Task 8): all 32 registered routers and 13 sidebar destinations are accounted for, no router duplicates another's computation, and no router was found worth removing — only a small, safe frontend regrouping was recommended (see `docs/PHASE_1_TASK_8_NAVIGATION_ANALYSIS.md`). Not yet implemented.
+- Navigation is now grouped into 5 clusters — Mission Control, Projects, Knowledge, Session, Settings (Task 8B) — with Dashboard v2 demoted to a "See full metrics →" link from Mission Control. All 32 routers, every route path, and every deep link are unchanged; nothing was removed (see `docs/PHASE_1_TASK_8B.md`).
 
 ## Current Runtime Model
 

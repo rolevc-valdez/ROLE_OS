@@ -62,6 +62,15 @@ html, body {
   cursor: pointer;
 }
 
+/* Role OS 2.0 Phase 1 Task 8B: a non-interactive section header between
+   sidebar clusters -- purely a spacing/typography addition, no new nav
+   framework. Not a [data-nav] element, so it is never a click target and
+   never interferes with updateActiveNav()'s selector. */
+.nav-group-label {
+  padding: 14px 12px 4px;
+  font-size: 11px;
+}
+
 .nav-icon {
   width: 18px;
   height: 18px;
