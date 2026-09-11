@@ -5,10 +5,10 @@
 ## Status
 
 - **Phase:** Role OS 2.0, Phase 1 (Core Consolidation)
-- **Current task:** Phase 1 — Task 8: Navigation Simplification Analysis (not started)
-- **Last completed task:** Phase 1 — Task 6: Legacy Dashboard Preservation
-- **Last completed commit:** `4d4a224` — "chore: archive legacy project dashboard"
-- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions.
+- **Current task:** Phase 1 — Task 8B: Navigation Simplification Implementation (not started)
+- **Last completed task:** Phase 1 — Task 8: Navigation Simplification Analysis
+- **Last completed commit:** this commit — run `git log -1` to get its exact hash (always verify against git, per the Recovery procedure below, rather than trusting a hardcoded value here)
+- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions. Task 8's analysis found no router worth removing — see `docs/PHASE_1_TASK_8_NAVIGATION_ANALYSIS.md`.
 
 ## What Is Working
 
@@ -19,6 +19,7 @@
 - Staleness and fallback data can no longer silently masquerade as current (Task 5): a stale-data note on the Executive Decision card, and a Live/Fallback badge on ecosystem decisions.
 - The legacy `project-dashboard.html` is archived, not deleted; its useful, non-conflicting metadata was migrated into the canonical workspace notes; Role Master brand assets are preserved and now tracked in git (Task 6).
 - Runtime/user data (SQLite databases under `var/`) is never committed to git.
+- Navigation was analyzed end-to-end (Task 8): all 32 registered routers and 13 sidebar destinations are accounted for, no router duplicates another's computation, and no router was found worth removing — only a small, safe frontend regrouping was recommended (see `docs/PHASE_1_TASK_8_NAVIGATION_ANALYSIS.md`). Not yet implemented.
 
 ## Current Runtime Model
 
@@ -51,6 +52,7 @@ Only items genuinely unresolved as of the last completed task:
 4. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows). Not deleted. Safe to clean up once Role confirms nothing there is still needed.
 5. **Two real projects outside the Discovery root** — `role-content-factory` and `subir-libros-etsy` (both under `Documents\`, found via `project-dashboard.html`'s legacy catalog, Task 6) are not discoverable by Role OS's default scan root. Not adopted. Role's awareness only.
 6. **ROLE MASTER status mismatch** — legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Left as-is (Task 6); not overwritten, not resolved either way.
+7. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — Task 8 flagged this router pair as REVIEW: whether any real project still has data only in the superseded v1.3 fields was not checked (would require opening a database beyond this analysis-only task's scope).
 
 ## Recovery
 
