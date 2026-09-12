@@ -36,7 +36,7 @@ None of these five files exist under `var/role_os/` as of this writing. `var/rol
 | `dashboard/samples/role_os_sample/00_SYSTEM/` | Debris created by *this session's own* Phase 1 Task 1 smoke test | No — accidental, see below |
 | `var/role_os_alpha/` | Ambiguous — see role_os_alpha Assessment | Unclear |
 | `samples/role_os_sample/00_SYSTEM/` | The committed demo fixture | N/A — fixture, not runtime |
-| `var/discovery_reports/documents/` | Generated report artifacts (`documents_audit.json`/`.md`), no current router consumer (per the audit) | N/A — not a database |
+| `var/discovery_reports/documents/` | **Resolved, Phase 1 Task 9** — the two report files were archived to `archive/discovery-reports/documents-2026-07-31/` (unique information, not reproducible by default); the now-empty directory was removed. See "Discovery Report Artifacts" below. | N/A — not a database |
 
 ### A newly discovered gap (flagged, not fixed in this task)
 
@@ -205,6 +205,10 @@ The running validation server was stopped cleanly afterward (`taskkill`); no orp
 | `role_os.db`, `role_os_projects.db`, `role_os_advisor.db`, `role_os_imports.db`, `role_os_extraction.db` | `var/role_os/*.db` | Knowledge/Project Intelligence family | N/A | Still the Task 3-documented default fallback; real data remains external at `ROLE_KNOWLEDGE_OS` |
 
 `dashboard/var/role_os_dashboard/` remains in place, fully intact, with all 14 original rows — kept as a preserved historical source, not deleted, per this task's explicit instruction.
+
+## Discovery Report Artifacts
+
+Resolved by Phase 1 Task 9. `var/discovery_reports/documents/documents_audit.{json,md}` — a one-time, manually-run Discovery CLI audit (`python -m app.discovery audit`, `dashboard/app/discovery/__main__.py`) of `C:\Users\rolev\Documents` (2026-07-31), not Role OS's default discovery root — were found to contain **unique information**: several real, un-adopted projects (`SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site`) not tracked anywhere else in Role OS, plus corroboration of `role-content-factory`/`rolevaldez.com` from `docs/PHASE_1_TASK_6.md`. Not reproducible by default (Role OS's Discovery Engine never scans `Documents\` on its own), so **not deleted** — SHA256-verified byte-for-byte moved to `archive/discovery-reports/documents-2026-07-31/` (git-tracked, following the `archive/legacy-dashboard/` precedent). The now-empty `var/discovery_reports/` directory was removed. `discovery/reporters.py`/`__main__.py` (the generation mechanism) are unchanged and remain a working, tested, manual export tool — see `docs/PHASE_1_TASK_9.md` for the full record.
 
 ## Exact Next Task
 

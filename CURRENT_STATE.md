@@ -5,10 +5,10 @@
 ## Status
 
 - **Phase:** Role OS 2.0, Phase 1 (Core Consolidation)
-- **Current task:** Phase 1 — Task 9: Discovery Report Artifacts (not started)
-- **Last completed task:** Phase 1 — Task 8B: Navigation Simplification Implementation
+- **Current task:** Phase 1 — Final Validation / Completion Review (not started)
+- **Last completed task:** Phase 1 — Task 9: Discovery Report Artifacts
 - **Last completed commit:** this commit — run `git log -1` to get its exact hash (always verify against git, per the Recovery procedure below, rather than trusting a hardcoded value here)
-- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions. Sidebar is now grouped into 5 clusters; all 32 routers and every route path are unchanged — see `docs/PHASE_1_TASK_8B.md`.
+- **Overall state:** Stable. Mission Control is the one operational dashboard, backed by real, migrated, verified canonical data. No known regressions. Every task explicitly scoped for Phase 1 (Tasks 1–9) is now complete.
 
 ## What Is Working
 
@@ -20,6 +20,7 @@
 - The legacy `project-dashboard.html` is archived, not deleted; its useful, non-conflicting metadata was migrated into the canonical workspace notes; Role Master brand assets are preserved and now tracked in git (Task 6).
 - Runtime/user data (SQLite databases under `var/`) is never committed to git.
 - Navigation is now grouped into 5 clusters — Mission Control, Projects, Knowledge, Session, Settings (Task 8B) — with Dashboard v2 demoted to a "See full metrics →" link from Mission Control. All 32 routers, every route path, and every deep link are unchanged; nothing was removed (see `docs/PHASE_1_TASK_8B.md`).
+- `var/discovery_reports/`'s ambiguity is resolved (Task 9): its one report, found to contain unique information, is preserved at `archive/discovery-reports/documents-2026-07-31/`; the report-generation tool itself (`discovery/reporters.py`) remains a working, tested, on-demand manual export capability — see `docs/PHASE_1_TASK_9.md`.
 
 ## Current Runtime Model
 
@@ -48,11 +49,10 @@ Only items genuinely unresolved as of the last completed task:
 
 1. **`var/role_os_alpha/` disposition** — contains real-sounding, non-overlapping project data (Kontoor, Unger, Charcos, SUPER FACIL, RoleValdez) of uncertain provenance. Not merged, not discarded. Needs Role's judgment call (see `docs/RUNTIME_DATA_MAP.md`, "role_os_alpha Assessment").
 2. **`dashboard/tests/conftest.py`'s isolation gap** — `ROLE_OS_ASSETS_DB_PATH`/`ROLE_OS_ECOSYSTEM_DB_PATH` aren't sandboxed per test run, so running the suite still writes cache rows into the real `var/role_os_dashboard/role_os_assets.db`. Harmless (cache-only) but not yet fixed.
-3. **`var/discovery_reports/documents/`** — generated report artifacts with no current router consumer. Needs a decision: wire it to something real, or remove it.
-4. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows). Not deleted. Safe to clean up once Role confirms nothing there is still needed.
-5. **Two real projects outside the Discovery root** — `role-content-factory` and `subir-libros-etsy` (both under `Documents\`, found via `project-dashboard.html`'s legacy catalog, Task 6) are not discoverable by Role OS's default scan root. Not adopted. Role's awareness only.
-6. **ROLE MASTER status mismatch** — legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Left as-is (Task 6); not overwritten, not resolved either way.
-7. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — Task 8 flagged this router pair as REVIEW: whether any real project still has data only in the superseded v1.3 fields was not checked (would require opening a database beyond this analysis-only task's scope).
+3. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows). Not deleted. Safe to clean up once Role confirms nothing there is still needed.
+4. **Real projects outside the Discovery root** — `role-content-factory` and `rolevaldez.com`/`subir-libros-etsy` (Task 6), plus `SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site` (Task 9, from the archived `Documents` audit — `archive/discovery-reports/documents-2026-07-31/`) — none discoverable by Role OS's default scan root, none adopted. Role's awareness only.
+5. **ROLE MASTER status mismatch** — legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Left as-is (Task 6); not overwritten, not resolved either way.
+6. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — Task 8 flagged this router pair as REVIEW: whether any real project still has data only in the superseded v1.3 fields was not checked (would require opening a database beyond this analysis-only task's scope).
 
 ## Recovery
 
