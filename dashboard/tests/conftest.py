@@ -52,3 +52,30 @@ _WORKSPACE_DB_DIR = tempfile.mkdtemp(prefix="role_os_workspace_test_")
 os.environ.setdefault(
     "ROLE_OS_WORKSPACE_DB_PATH", str(Path(_WORKSPACE_DB_DIR) / "role_os_workspace.db")
 )
+
+# Role OS 2.0 Phase 2 Task 1: Assets OS, its thumbnail cache, and the
+# Project Ecosystem overlay were the three dashboard-owned path fields
+# NOT covered by a session-wide default here -- a handful of individual
+# test files (test_assets_os.py, test_executive_decision.py,
+# test_impact_analysis.py, test_project_ecosystem.py,
+# test_session_intent.py) already isolate these with their own
+# `monkeypatch.setenv()` calls inside specific test functions, but any
+# other test anywhere in the suite that happened to touch Assets OS or
+# Ecosystem code (e.g. Mission Control's shared `request_scope()`
+# filesystem walk) with no such per-test override fell through to
+# `config.py`'s real default -- the actual, real `var/role_os_dashboard/`
+# runtime files, not a fixture. Confirmed repeatedly across Phase 1 (see
+# docs/RUNTIME_DATA_MAP.md, docs/PHASE_2_TASK_1_TEST_ISOLATION.md).
+# Following the exact same pattern as every other domain above closes
+# this gap for the whole test session, not just the five files that
+# happened to notice it themselves.
+_ASSETS_DB_DIR = tempfile.mkdtemp(prefix="role_os_assets_test_")
+os.environ.setdefault("ROLE_OS_ASSETS_DB_PATH", str(Path(_ASSETS_DB_DIR) / "role_os_assets.db"))
+os.environ.setdefault(
+    "ROLE_OS_ASSET_THUMBNAIL_CACHE_DIR", str(Path(_ASSETS_DB_DIR) / "asset_thumbnails")
+)
+
+_ECOSYSTEM_DB_DIR = tempfile.mkdtemp(prefix="role_os_ecosystem_test_")
+os.environ.setdefault(
+    "ROLE_OS_ECOSYSTEM_DB_PATH", str(Path(_ECOSYSTEM_DB_DIR) / "role_os_ecosystem.db")
+)

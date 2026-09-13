@@ -4,11 +4,12 @@
 
 ## Status
 
-- **Phase:** Role OS 2.0, **Phase 1 — COMPLETE** (see `docs/PHASE_1_COMPLETION.md` for the full acceptance record)
-- **Current task:** none — Phase 1's task queue is empty; Phase 2 has not been scoped yet
-- **Last completed task:** Phase 1 — Final Validation / Completion Review
+- **Phase:** Role OS 2.0, **Phase 2 — Core Reliability & Discovery Accuracy** (in progress; see `docs/ROLE_OS_2_PHASE_2_PLAN.md` for the approved plan and execution order)
+- **Current task:** Phase 2 — Multi-Root Discovery (not started)
+- **Last completed task:** Phase 2 — Task 1: Test Isolation Hardening
 - **Last completed commit:** this commit — run `git log -1` to get its exact hash (always verify against git, per the Recovery procedure below, rather than trusting a hardcoded value here)
-- **Overall state:** Stable and verified live, not just task-by-task. Mission Control answers all three core questions against real canonical data; Resume Work, staleness/fallback honesty, navigation, legacy-dashboard retirement, and discovery-report resolution were all re-verified against the running system, not assumed from individually-completed tasks.
+- **Overall state:** Stable. Phase 1's core (Mission Control, Resume Work, canonical data, navigation, freshness/fallback honesty) remains fully intact and unmodified by Phase 2 so far. The test suite can no longer silently write into real runtime data — see `docs/PHASE_2_TASK_1_TEST_ISOLATION.md`.
+- **Note on concurrent work:** a separate Claude Code session (different session ID, same user) committed `PROJECT_REGISTRY.md` and `audits/PHASE_2_BACKUP_REPORT.md` directly to this repo while this session's Task 1 work was in progress — a broader, Role-Ecosystem-wide project index/backup effort, distinct from and outside this Phase 2 plan's scope. It correctly noticed and deferred this session's then-uncommitted `conftest.py` change rather than touching it. Read `PROJECT_REGISTRY.md` before starting Multi-Root Discovery — it may already document real project locations relevant to that task.
 
 ## What Is Working
 
@@ -20,8 +21,9 @@
 - The legacy `project-dashboard.html` remains archived (byte-identical, re-verified); Role Master assets remain tracked and unmodified.
 - Navigation remains grouped into 5 clusters; all 32 routers and every deep link remain reachable — re-verified live.
 - `var/discovery_reports/` remains resolved — archived, no ambiguous active persistence location.
-- The full test suite (`tests`, `dashboard/tests`, `builder/tests`) passes completely: **1,347 collected, 1,347 passed, 0 failed, 0 skipped, 0 errors**.
+- The full test suite (`tests`, `dashboard/tests`, `builder/tests`) passes completely: **1,349 collected, 1,349 passed, 0 failed, 0 skipped, 0 errors** (1,347 at Phase 1 close + 2 new Task 1 regression guards).
 - Runtime/user data (SQLite databases under `var/`) is never committed to git.
+- The test suite can no longer silently write into real canonical runtime data (Phase 2 Task 1) — every one of the 10 dashboard-owned path fields now has a session-wide isolated default in `conftest.py`, closing the gap that previously let `role_os_assets.db` grow on every test run. Verified by checksum before/during/after a full 1,315-test `dashboard/tests` run: byte-for-byte unchanged.
 
 ## Current Runtime Model
 
@@ -46,15 +48,15 @@ This list comes from `var/role_os_dashboard/role_os_workspace.db: adopted_projec
 
 ## Open Issues / Decisions
 
-None of these block Phase 1's completion — every one is either explicitly Role's decision to make, or accepted, non-destructive technical debt (see `docs/PHASE_1_COMPLETION.md`'s Remaining Issues table for classification and risk):
+Per Role's Phase 2 approval: `var/role_os_alpha/`, the 6 out-of-scope real projects, the legacy `dashboard/var/role_os_dashboard/` copy, and the ROLE MASTER status mismatch are all explicitly **DEFERRED** — do not modify, migrate, delete, rename, or reinterpret any of them without Role's separate, explicit authorization, regardless of what any other Phase 2 task might suggest is convenient.
 
-1. **`var/role_os_alpha/` disposition** — contains real-sounding, non-overlapping project data (Kontoor, Unger, Charcos, SUPER FACIL, RoleValdez) of uncertain provenance. Not merged, not discarded. Needs Role's judgment call (see `docs/RUNTIME_DATA_MAP.md`, "role_os_alpha Assessment").
-2. **`dashboard/tests/conftest.py`'s isolation gap** — `ROLE_OS_ASSETS_DB_PATH`/`ROLE_OS_ECOSYSTEM_DB_PATH` aren't sandboxed per test run, so running the suite still writes cache rows into the real `var/role_os_dashboard/role_os_assets.db`. Harmless (cache-only) but not yet fixed. Good low-risk Phase 2 entry point.
-3. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows). Not deleted. Safe to clean up once Role confirms nothing there is still needed.
-4. **Real projects outside the Discovery root** — `role-content-factory`, `rolevaldez.com`/`subir-libros-etsy` (Task 6), plus `SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site` (Task 9, from the archived `Documents` audit). None discoverable by Role OS's default scan root, none adopted. Role's awareness only.
-5. **ROLE MASTER status mismatch** — legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Cosmetic, unresolved.
-6. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — whether any real project still has data only in the superseded v1.3 fields was not checked.
-7. **Stale top-level `README.md`/`ARCHITECTURE.md`/`app_version`** — never rewritten during Phase 1 (Phase 0's own documentation-drift finding, partially mitigated by this file existing and being kept current, but the original files themselves remain stale). Good Phase 2 entry point.
+1. **`var/role_os_alpha/` disposition** — DEFERRED by Role decision. Contains real-sounding, non-overlapping project data (Kontoor, Unger, Charcos, SUPER FACIL, RoleValdez) of uncertain provenance. Not merged, not discarded (see `docs/RUNTIME_DATA_MAP.md`, "role_os_alpha Assessment").
+2. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — DEFERRED by Role decision (do not delete yet). Still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows).
+3. **Real projects outside the Discovery root** — `role-content-factory`, `rolevaldez.com`/`subir-libros-etsy` (Task 6), plus `SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site` (Task 9). None discoverable by Role OS's default scan root, none adopted. Multi-Root Discovery (Phase 2, next) will make them *discoverable*; adoption remains a separate, later, explicit decision — do not auto-adopt.
+4. **ROLE MASTER status mismatch** — DEFERRED unless it becomes relevant to an approved Phase 2 task. Legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Do not silently change it.
+5. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — REVIEW ONLY (Task 2.5, if reached); no removal in Phase 2 without evidence and explicit approval.
+6. **Advisor vs. Operational Intelligence / Executive Decision overlap** — DEFERRED. Do not redesign or remove Advisor in Phase 2.
+7. **Stale top-level `README.md`/`ARCHITECTURE.md`/`app_version`** — targeted by Phase 2's Documentation Reality Sync task (not yet started).
 
 ## Recovery
 
@@ -63,4 +65,4 @@ None of these block Phase 1's completion — every one is either explicitly Role
 3. Run `git status` and `git log -5` — confirm the repository actually matches what this file claims (if it doesn't, trust the repository, not this file, and treat the mismatch itself as the first thing to investigate).
 4. Continue only the task named in `NEXT_ACTIONS.md`'s "Now" section.
 
-**Do NOT repeat any task listed above as completed, and do NOT begin Phase 2 work without first reading `docs/PHASE_1_COMPLETION.md`.** Their full implementation detail is in `docs/PHASE_1_TASK_*.md`, not here — read the specific task doc if you need to understand *how* something was done, not this file.
+**Do NOT repeat any task listed above as completed.** Full implementation detail for Phase 1 is in `docs/PHASE_1_TASK_*.md` and `docs/PHASE_1_COMPLETION.md`; for Phase 2, in `docs/PHASE_2_TASK_*.md` and `docs/ROLE_OS_2_PHASE_2_PLAN.md` — read the specific doc if you need to understand *how* something was done, not this file.

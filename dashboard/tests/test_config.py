@@ -7,6 +7,7 @@ the rest of the suite.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -275,3 +276,53 @@ def test_sample_and_demo_paths_remain_explicit_after_cwd_fix(
     monkeypatch.chdir(repo_root / "dashboard")
     settings = Settings()
     assert settings.db_path == sample_path.resolve()
+
+
+# --- Phase 2 Task 1: regression guard for the conftest.py isolation gap ---
+#
+# These deliberately do NOT clear conftest.py's own env vars first (unlike
+# the fixtures above) -- they check the REAL environment every test in this
+# session actually runs under, proving the whole suite's isolation is
+# correct right now, not just in a synthetic no-override scenario.
+
+
+def test_real_test_session_never_resolves_into_the_real_var_role_os_directory():
+    """If any dashboard-owned path field is ever added in the future
+    without a matching conftest.py override, this fails immediately
+    instead of silently letting that new field write into real runtime
+    data the next time the full suite runs."""
+    settings = Settings()
+    real_var_role_os = (settings.repo_root / "var" / "role_os").resolve()
+    real_var_role_os_dashboard = (settings.repo_root / "var" / "role_os_dashboard").resolve()
+
+    path_fields = {
+        "db_path": settings.db_path,
+        "projects_db_path": settings.projects_db_path,
+        "advisor_db_path": settings.advisor_db_path,
+        "imports_db_path": settings.imports_db_path,
+        "extraction_db_path": settings.extraction_db_path,
+        "session_db_path": settings.session_db_path,
+        "workspace_db_path": settings.workspace_db_path,
+        "assets_db_path": settings.assets_db_path,
+        "asset_thumbnail_cache_dir": settings.asset_thumbnail_cache_dir,
+        "ecosystem_db_path": settings.ecosystem_db_path,
+    }
+    for field_name, resolved_path in path_fields.items():
+        resolved_path = Path(resolved_path).resolve()
+        assert not str(resolved_path).startswith(str(real_var_role_os)), (
+            f"Settings.{field_name} ({resolved_path}) resolves inside the real "
+            f"var/role_os/ -- a test session must never touch canonical runtime data."
+        )
+        assert not str(resolved_path).startswith(str(real_var_role_os_dashboard)), (
+            f"Settings.{field_name} ({resolved_path}) resolves inside the real "
+            f"var/role_os_dashboard/ -- a test session must never touch canonical "
+            f"runtime data."
+        )
+
+
+def test_all_ten_dashboard_db_env_vars_are_set_by_conftest():
+    """Every one of the ten dashboard-owned path variables must have a
+    session-wide default from conftest.py -- not left to individual test
+    files to remember to isolate ad-hoc."""
+    for name in _ALL_DASHBOARD_DB_ENV_VARS:
+        assert os.environ.get(name), f"{name} has no value -- conftest.py should set a default"
