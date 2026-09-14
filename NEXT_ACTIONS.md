@@ -4,19 +4,18 @@
 
 ## Now
 
-**Phase 2 — Mission Control Daily-Use Gap Check**
+**Phase 2 — Documentation Reality Sync**
 
-Task 2.1 (Multi-Root Discovery) is complete — see `docs/PHASE_2_MULTI_ROOT_DISCOVERY.md`. `ROLE_OS_DISCOVERY_ROOTS` (comma-separated) now lets Discovery scan multiple explicitly-configured roots; validated live (read-only, isolated temp DB) that 5 of the 6 previously-invisible real projects become discoverable by adding `C:\Users\rolev\Documents` as a second root. Nothing was adopted; `ROLE_OS_DISCOVERY_ROOTS` is not yet set in any real running configuration — that, and any subsequent adoption, remain Role's decision.
+Mission Control Daily-Use Gap Check is complete — see `docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`. Outcome A (no change needed): re-verified live against canonical data, all four daily questions (where did I leave off / what matters now / what's next / can I continue) scored CLEAR with zero required clicks, and Multi-Root Discovery confirmed to have no effect on Mission Control's output (adopted-only reasoning). Two MINOR, non-blocking findings were documented but not implemented (neither cleared the task's strict change filter as a safely-trivial fix).
 
-Next: a short, evidence-gathering pass (not a redesign) — confirm the three Mission Control answers render above the fold on a typical viewport, confirm the Resume Work CTA is the single most visually prominent element, fix only what's found with the smallest possible change. May close with "no change needed, documented." This has not started yet.
+Next: bring `README.md`/`ARCHITECTURE.md`/`app_version` (`dashboard/app/config.py`) in line with reality — Mission Control, Project Memory, Ecosystem, Impact Analysis, Executive Decision, and everything else Phase 1/2 built. Documentation-and-one-constant-only; no behavior change. This has not started yet.
 
 ## After That
 
 Approved Phase 2 execution order (per Role's explicit approval), remaining:
 
-1. **Mission Control Daily-Use Gap Check** (see above)
-2. **Documentation Reality Sync** — bring `README.md`/`ARCHITECTURE.md`/`app_version` in line with reality
-3. **Runtime Data Hygiene Bundle** — only the explicitly-approved-by-Role parts (see Blocked below); the rest stays deferred
+1. **Documentation Reality Sync** (see above)
+2. **Runtime Data Hygiene Bundle** — only the explicitly-approved-by-Role parts (see Blocked below); the rest stays deferred
 
 ## Blocked / Requires Role Decision
 
