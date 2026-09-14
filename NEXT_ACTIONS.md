@@ -6,7 +6,9 @@
 
 **Phase 2 — Documentation Reality Sync**
 
-Mission Control Daily-Use Gap Check is complete — see `docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`. Outcome A (no change needed): re-verified live against canonical data, all four daily questions (where did I leave off / what matters now / what's next / can I continue) scored CLEAR with zero required clicks, and Multi-Root Discovery confirmed to have no effect on Mission Control's output (adopted-only reasoning). Two MINOR, non-blocking findings were documented but not implemented (neither cleared the task's strict change filter as a safely-trivial fix).
+Mission Control Daily-Use Gap Check is complete — see `docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`. Outcome A (no change needed): re-verified live against canonical data, all four daily questions (where did I leave off / what matters now / what's next / can I continue) scored CLEAR with zero required clicks, and Multi-Root Discovery confirmed to have no effect on Mission Control's output (adopted-only reasoning) — specifically re-verified for `bolsa-de-trabajo` too. Two MINOR, non-blocking findings were documented but not implemented (neither cleared the task's strict change filter as a safely-trivial fix).
+
+`bolsa-de-trabajo` is a real, **ACTIVE** project at `C:\Users\rolev\bolsa-de-trabajo` (corrected in `PROJECT_REGISTRY.md`, `9bf4af4`) — not missing, not nonexistent. It is outside every currently-configured Discovery root and not adopted; this has zero effect on Mission Control. A future "explicit project registration" mechanism (distinct from broad root scanning) was noted as a better long-term fit for isolated repositories like this one, but is not scoped or implemented in Phase 2.
 
 Next: bring `README.md`/`ARCHITECTURE.md`/`app_version` (`dashboard/app/config.py`) in line with reality — Mission Control, Project Memory, Ecosystem, Impact Analysis, Executive Decision, and everything else Phase 1/2 built. Documentation-and-one-constant-only; no behavior change. This has not started yet.
 
@@ -25,6 +27,7 @@ Approved Phase 2 execution order (per Role's explicit approval), remaining:
 - Fixing ROLE MASTER's cosmetic status mismatch — **DEFER** unless it becomes relevant to an approved task; do not silently change project state.
 - The Advisor vs. Operational Intelligence/Executive Decision overlap — **DEFER**; do not redesign or remove Advisor in Phase 2.
 - `pi_ai_workspace` — **REVIEW ONLY** (data check, if the Hygiene Bundle task is reached); no removal without evidence and explicit approval.
+- Whether to design/implement an explicit-project-registration Discovery mechanism (for isolated repositories like `bolsa-de-trabajo` that sit directly under a broad, mixed-use parent like the user home directory) — **NOT SCOPED**, noted as a future Discovery enhancement only (`docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`, "Discovery / Isolated Repository Note"); not part of Phase 2.
 
 ## Do Not Do Yet
 
