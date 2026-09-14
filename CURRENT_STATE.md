@@ -5,11 +5,11 @@
 ## Status
 
 - **Phase:** Role OS 2.0, **Phase 2 — Core Reliability & Discovery Accuracy** (in progress; see `docs/ROLE_OS_2_PHASE_2_PLAN.md` for the approved plan and execution order)
-- **Current task:** Phase 2 — Multi-Root Discovery (not started)
-- **Last completed task:** Phase 2 — Task 1: Test Isolation Hardening
+- **Current task:** Phase 2 — Mission Control Daily-Use Gap Check (not started)
+- **Last completed task:** Phase 2 — Task 2.1: Multi-Root Discovery (see `docs/PHASE_2_MULTI_ROOT_DISCOVERY.md`)
 - **Last completed commit:** this commit — run `git log -1` to get its exact hash (always verify against git, per the Recovery procedure below, rather than trusting a hardcoded value here)
-- **Overall state:** Stable. Phase 1's core (Mission Control, Resume Work, canonical data, navigation, freshness/fallback honesty) remains fully intact and unmodified by Phase 2 so far. The test suite can no longer silently write into real runtime data — see `docs/PHASE_2_TASK_1_TEST_ISOLATION.md`.
-- **Note on concurrent work:** a separate Claude Code session (different session ID, same user) committed `PROJECT_REGISTRY.md` and `audits/PHASE_2_BACKUP_REPORT.md` directly to this repo while this session's Task 1 work was in progress — a broader, Role-Ecosystem-wide project index/backup effort, distinct from and outside this Phase 2 plan's scope. It correctly noticed and deferred this session's then-uncommitted `conftest.py` change rather than touching it. Read `PROJECT_REGISTRY.md` before starting Multi-Root Discovery — it may already document real project locations relevant to that task.
+- **Overall state:** Stable. Phase 1's core (Mission Control, Resume Work, canonical data, navigation, freshness/fallback honesty) remains fully intact and unmodified by Phase 2 so far. The test suite can no longer silently write into real runtime data (Task 1). Discovery can now scan multiple explicitly-configured roots (`ROLE_OS_DISCOVERY_ROOTS`) instead of one (Task 2.1) — additive-only: single-root deployments are unaffected, nothing is auto-adopted.
+- **Note on concurrent work:** a separate Claude Code session (different session ID, same user) committed `PROJECT_REGISTRY.md` and `audits/PHASE_2_BACKUP_REPORT.md` directly to this repo during Phase 2 — a broader, Role-Ecosystem-wide project index/backup effort, distinct from and outside this Phase 2 plan's scope. `PROJECT_REGISTRY.md` was used as discovery *evidence* for Task 2.1 (it independently confirmed several real, out-of-scope project locations) — it is not read by any Role OS code path, is not a runtime database, and is not an adoption list.
 
 ## What Is Working
 
@@ -21,9 +21,10 @@
 - The legacy `project-dashboard.html` remains archived (byte-identical, re-verified); Role Master assets remain tracked and unmodified.
 - Navigation remains grouped into 5 clusters; all 32 routers and every deep link remain reachable — re-verified live.
 - `var/discovery_reports/` remains resolved — archived, no ambiguous active persistence location.
-- The full test suite (`tests`, `dashboard/tests`, `builder/tests`) passes completely: **1,349 collected, 1,349 passed, 0 failed, 0 skipped, 0 errors** (1,347 at Phase 1 close + 2 new Task 1 regression guards).
+- The full test suite (`tests`, `dashboard/tests`, `builder/tests`) passes completely: **1,372 collected, 1,372 passed, 0 failed, 0 skipped, 0 errors** (1,338 in `dashboard/tests` + 34 in `tests`/`builder/tests`; 1,315 at Task 1 close + 23 new Task 2.1 tests).
 - Runtime/user data (SQLite databases under `var/`) is never committed to git.
 - The test suite can no longer silently write into real canonical runtime data (Phase 2 Task 1) — every one of the 10 dashboard-owned path fields now has a session-wide isolated default in `conftest.py`, closing the gap that previously let `role_os_assets.db` grow on every test run. Verified by checksum before/during/after a full 1,315-test `dashboard/tests` run: byte-for-byte unchanged.
+- Discovery can scan multiple explicitly-configured roots, not just one (Phase 2 Task 2.1 — see `docs/PHASE_2_MULTI_ROOT_DISCOVERY.md`). `ROLE_OS_DISCOVERY_ROOTS` (comma-separated, optional) is validated and deduplicated (existence, directory-ness, case/slash duplicates, nesting) before scanning; an explicit single-root call, or no multi-root configuration at all, behaves exactly as before. Live validation (isolated temp workspace DB, real filesystem, read-only) confirmed 6 previously-invisible real projects (`role-content-factory`, `rolevaldez.com`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site`) become discoverable under the repo's default root plus `C:\Users\rolev\Documents` — none were adopted; the real canonical `role_os_workspace.db` was never opened during validation (checksum-verified unchanged, matching Task 1's own recorded values).
 
 ## Current Runtime Model
 
@@ -52,7 +53,7 @@ Per Role's Phase 2 approval: `var/role_os_alpha/`, the 6 out-of-scope real proje
 
 1. **`var/role_os_alpha/` disposition** — DEFERRED by Role decision. Contains real-sounding, non-overlapping project data (Kontoor, Unger, Charcos, SUPER FACIL, RoleValdez) of uncertain provenance. Not merged, not discarded (see `docs/RUNTIME_DATA_MAP.md`, "role_os_alpha Assessment").
 2. **`dashboard/var/role_os_dashboard/` (the pre-migration legacy copy)** — DEFERRED by Role decision (do not delete yet). Still exists, unused, containing the original 14-row `adopted_projects` (5 real + 9 stale manual-debug rows).
-3. **Real projects outside the Discovery root** — `role-content-factory`, `rolevaldez.com`/`subir-libros-etsy` (Task 6), plus `SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site` (Task 9). None discoverable by Role OS's default scan root, none adopted. Multi-Root Discovery (Phase 2, next) will make them *discoverable*; adoption remains a separate, later, explicit decision — do not auto-adopt.
+3. **Real projects outside the Discovery root** — `role-content-factory`, `rolevaldez.com`/`subir-libros-etsy` (Task 6), plus `SUPER-FACIL`, `AGUA-AZUL-APP`/`agua-azul-app`, `charcos-site`, `desierto-creativo-site` (Task 9). **Multi-Root Discovery (Task 2.1) is now built and validated** — configuring `ROLE_OS_DISCOVERY_ROOTS` to include `C:\Users\rolev\Documents` makes 5 of these 6 (all but `SUPER-FACIL`, which no longer exists at any path under `Documents`) discoverable. **None are adopted, and `ROLE_OS_DISCOVERY_ROOTS` is not yet set in any real running configuration** — Task 2.1 built and proved the capability only; whether to actually enable it, and whether to subsequently adopt anything, remains Role's decision (see `docs/PHASE_2_MULTI_ROOT_DISCOVERY.md`, "Known Limitations"). Do not auto-adopt.
 4. **ROLE MASTER status mismatch** — DEFERRED unless it becomes relevant to an approved Phase 2 task. Legacy catalog said "Completado"; canonical `adopted_projects.status` says `"active"`. Do not silently change it.
 5. **`pi_ai_workspace` (legacy v1.3 fields) vs. `pi_ai_sessions` (v1.4)** — REVIEW ONLY (Task 2.5, if reached); no removal in Phase 2 without evidence and explicit approval.
 6. **Advisor vs. Operational Intelligence / Executive Decision overlap** — DEFERRED. Do not redesign or remove Advisor in Phase 2.

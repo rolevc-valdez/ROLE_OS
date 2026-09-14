@@ -243,6 +243,121 @@ def test_discovery_id_stable_across_calls():
     assert service.discovery_id("C:\\a") != service.discovery_id("C:\\b")
 
 
+def _make_second_root(tmp_path: Path) -> Path:
+    root = tmp_path / "scan-root-2"
+    _write(root / "second-project" / "pyproject.toml", "[project]\nname='y'")
+    _write(root / "second-project" / "main.py", "print(2)\n")
+    return root
+
+
+def test_rescan_with_no_explicit_root_and_single_configured_root_is_unchanged(
+    settings, tmp_path, monkeypatch
+):
+    """Phase 2 Task 2.1 backward-compat guarantee: with no
+    ROLE_OS_DISCOVERY_ROOTS set, `rescan(root=None)` must behave exactly
+    as the pre-multi-root single-root path always did."""
+    monkeypatch.delenv("ROLE_OS_DISCOVERY_ROOTS", raising=False)
+    root = _make_root(tmp_path)
+    settings.discovery_root = str(root)
+
+    summary = service.rescan(settings=settings, root=None)
+    assert summary["projects_found"] == 2
+    assert summary["root"] == str(root)
+
+
+def test_rescan_multi_root_merges_projects_from_both_roots(settings, tmp_path, monkeypatch):
+    root_a = _make_root(tmp_path)
+    root_b = _make_second_root(tmp_path)
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{root_b}")
+
+    summary = service.rescan(settings=settings, root=None)
+    assert summary["projects_found"] == 3
+
+    items = service.list_workspace_items(settings=settings)
+    names = {i["name"] for i in items}
+    assert names == {"code-project", "docs-project", "second-project"}
+
+
+def test_rescan_multi_root_reports_both_roots(settings, tmp_path, monkeypatch):
+    root_a = _make_root(tmp_path)
+    root_b = _make_second_root(tmp_path)
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{root_b}")
+
+    summary = service.rescan(settings=settings, root=None)
+    assert str(Path(root_a).resolve()) in summary["root"]
+    assert str(Path(root_b).resolve()) in summary["root"]
+
+
+def test_rescan_multi_root_with_duplicate_configured_root_does_not_duplicate_projects(
+    settings, tmp_path, monkeypatch
+):
+    root_a = _make_root(tmp_path)
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{root_a}")
+
+    summary = service.rescan(settings=settings, root=None)
+    assert summary["projects_found"] == 2  # not 4
+
+
+def test_rescan_multi_root_with_nested_configured_roots_does_not_duplicate_projects(
+    settings, tmp_path, monkeypatch
+):
+    outer = tmp_path / "outer"
+    _write(outer / "code-project" / "pyproject.toml", "[project]\nname='x'")
+    inner = outer / "code-project"
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{outer},{inner}")
+
+    summary = service.rescan(settings=settings, root=None)
+    # Only the outer root is scanned; the nested root is dropped, so
+    # "code-project" is found exactly once, not once per configured root.
+    assert summary["projects_found"] == 1
+
+
+def test_rescan_multi_root_skips_a_nonexistent_configured_root_without_failing(
+    settings, tmp_path, monkeypatch
+):
+    root_a = _make_root(tmp_path)
+    missing = tmp_path / "does-not-exist-at-all"
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{missing}")
+
+    summary = service.rescan(settings=settings, root=None)
+    assert summary["projects_found"] == 2
+
+
+def test_rescan_multi_root_project_ids_stable_and_match_single_root_scan(
+    settings, tmp_path, monkeypatch
+):
+    """The same real folder must resolve to the same Workspace item id
+    whether it's found via a single-root scan or a multi-root scan --
+    identity is derived from `root_path` alone (`app.discovery.identity`),
+    never from which configured root found it."""
+    root_a = _make_root(tmp_path)
+    root_b = _make_second_root(tmp_path)
+
+    service.rescan(settings=settings, root=str(root_a))
+    single_root_id = next(
+        i["id"] for i in service.list_workspace_items(settings=settings) if i["name"] == "code-project"
+    )
+
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{root_b}")
+    service.rescan(settings=settings, root=None)
+    multi_root_id = next(
+        i["id"] for i in service.list_workspace_items(settings=settings) if i["name"] == "code-project"
+    )
+
+    assert single_root_id == multi_root_id
+
+
+def test_rescan_multi_root_never_auto_adopts_discovered_projects(settings, tmp_path, monkeypatch):
+    root_a = _make_root(tmp_path)
+    root_b = _make_second_root(tmp_path)
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", f"{root_a},{root_b}")
+
+    summary = service.rescan(settings=settings, root=None)
+    assert summary["projects_adopted"] == 0
+    for item in service.list_workspace_items(settings=settings):
+        assert item["adopted"] is False
+
+
 def test_no_filesystem_modification_during_rescan(settings, tmp_path):
     import os
 

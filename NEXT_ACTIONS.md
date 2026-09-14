@@ -4,23 +4,24 @@
 
 ## Now
 
-**Phase 2 — Multi-Root Discovery**
+**Phase 2 — Mission Control Daily-Use Gap Check**
 
-The only task in Phase 2 classified **A — MUST DO**. Role's real, active projects exist outside Role OS's single default Discovery scan root (confirmed: `role-content-factory`, `rolevaldez.com`, `SUPER-FACIL`, `AGUA-AZUL-APP`, `charcos-site`, `desierto-creativo-site`, all under `Documents\`) — a direct gap in the "PROJECT" step of the core chain. Scope (per the approved plan): extend `ROLE_OS_DISCOVERY_ROOT` to accept multiple roots, reusing the existing per-root scan pipeline unchanged, called once per root, merging results before Workspace sees them. No new persistence, no new UI concept, no auto-adoption of anything found. This has not started yet.
+Task 2.1 (Multi-Root Discovery) is complete — see `docs/PHASE_2_MULTI_ROOT_DISCOVERY.md`. `ROLE_OS_DISCOVERY_ROOTS` (comma-separated) now lets Discovery scan multiple explicitly-configured roots; validated live (read-only, isolated temp DB) that 5 of the 6 previously-invisible real projects become discoverable by adding `C:\Users\rolev\Documents` as a second root. Nothing was adopted; `ROLE_OS_DISCOVERY_ROOTS` is not yet set in any real running configuration — that, and any subsequent adoption, remain Role's decision.
+
+Next: a short, evidence-gathering pass (not a redesign) — confirm the three Mission Control answers render above the fold on a typical viewport, confirm the Resume Work CTA is the single most visually prominent element, fix only what's found with the smallest possible change. May close with "no change needed, documented." This has not started yet.
 
 ## After That
 
 Approved Phase 2 execution order (per Role's explicit approval), remaining:
 
-1. **Multi-Root Discovery** (see above)
-2. **Mission Control Daily-Use Gap Check** — a short evidence-gathering pass (not a redesign); may close with "no change needed"
-3. **Documentation Reality Sync** — bring `README.md`/`ARCHITECTURE.md`/`app_version` in line with reality
-4. **Runtime Data Hygiene Bundle** — only the explicitly-approved-by-Role parts (see Blocked below); the rest stays deferred
+1. **Mission Control Daily-Use Gap Check** (see above)
+2. **Documentation Reality Sync** — bring `README.md`/`ARCHITECTURE.md`/`app_version` in line with reality
+3. **Runtime Data Hygiene Bundle** — only the explicitly-approved-by-Role parts (see Blocked below); the rest stays deferred
 
 ## Blocked / Requires Role Decision
 
 - `var/role_os_alpha/`'s disposition — **DEFER**, per Role's explicit instruction. Do not modify, migrate, delete, rename, or reinterpret it during Phase 2 without separate authorization.
-- Which of the 6 real, un-adopted projects (if any) get added to the new multi-root discovery configuration, and whether to adopt them — **DO NOT ADOPT YET**; Multi-Root Discovery only makes them discoverable, adoption is a separate later decision.
+- Whether to actually set `ROLE_OS_DISCOVERY_ROOTS` in any real running configuration, which of the 6 real, un-adopted projects (5 of which are now confirmed discoverable once it is set) to include, and whether to adopt any of them — **DO NOT ADOPT YET**; Task 2.1 only built and validated the capability, it did not enable it or adopt anything.
 - Deleting the legacy `dashboard/var/role_os_dashboard/` copy — **DO NOT DELETE YET**, until provenance/migration documentation is sufficient and Role explicitly approves.
 - Fixing ROLE MASTER's cosmetic status mismatch — **DEFER** unless it becomes relevant to an approved task; do not silently change project state.
 - The Advisor vs. Operational Intelligence/Executive Decision overlap — **DEFER**; do not redesign or remove Advisor in Phase 2.

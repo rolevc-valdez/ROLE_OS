@@ -15,6 +15,7 @@ from typing import Any
 from app.config import Settings, get_settings
 from app.discovery.identity import compute_item_id
 from app.discovery.next_action import extract_next_action
+from app.discovery.roots import resolve_roots
 from app.discovery.service import run_audit
 from app.projects import db as projects_db
 from app.workspace import activity, advisor, assets_index, db, identity, portfolio
@@ -25,17 +26,13 @@ def discovery_id(root_path: str) -> str:
     return compute_item_id(root_path)
 
 
-def rescan(
-    settings: Settings | None = None, root: str | None = None, max_depth: int = 2
-) -> dict[str, Any]:
-    """Runs the real, read-only Discovery Engine against `root` (or the
-    configured default) and caches the result. Never touches the scanned
-    tree -- see `app.discovery.service.run_audit`."""
-    settings = settings or get_settings()
-    target_root = root or settings.discovery_root
-    if not target_root:
-        raise ValueError("no discovery root configured (set ROLE_OS_DISCOVERY_ROOT or pass `root`)")
-
+def _rescan_single_root(
+    settings: Settings, target_root: str, max_depth: int
+) -> None:
+    """The original, single-root scan-and-cache path -- unchanged in
+    behavior (and byte-for-byte in output shape) from before Phase 2's
+    Multi-Root Discovery, so every existing single-root deployment/test
+    keeps working exactly as it did."""
     result = run_audit(
         Path(target_root), max_depth=max_depth, extra_exclusions=settings.discovery_extra_exclusions
     )
@@ -45,6 +42,72 @@ def rescan(
         scanned_at=result.scanned_at,
         duration_seconds=result.duration_seconds,
         projects=projects,
+        settings=settings,
+    )
+
+
+def rescan(
+    settings: Settings | None = None, root: str | None = None, max_depth: int = 2
+) -> dict[str, Any]:
+    """Runs the real, read-only Discovery Engine and caches the result.
+    Never touches the scanned tree -- see `app.discovery.service.run_audit`.
+
+    - `root` explicit (as every existing caller -- the API, and every test
+      that passes a `tmp_path`-rooted fixture -- already does): scans
+      exactly that one root, exactly as before Phase 2.
+    - `root=None` with a single configured root (the default,
+      `ROLE_OS_DISCOVERY_ROOT`): also scans exactly that one root, exactly
+      as before -- multi-root machinery is never invoked for this case.
+    - `root=None` with multiple configured roots (`ROLE_OS_DISCOVERY_ROOTS`,
+      comma-separated -- Phase 2, Task 2.1): validates/deduplicates them
+      (`app.discovery.roots.resolve_roots`), runs the existing scan
+      pipeline once per surviving root, and merges the results into one
+      cached project list, de-duplicating by the same `discovery_id` every
+      other Workspace lookup already uses -- so a project found under two
+      overlapping configured roots still appears exactly once. This never
+      adopts anything; adoption remains the existing explicit, manual step.
+    """
+    settings = settings or get_settings()
+    target_roots = [root] if root else settings.get_discovery_roots()
+    if not target_roots:
+        raise ValueError(
+            "no discovery root configured (set ROLE_OS_DISCOVERY_ROOT, "
+            "ROLE_OS_DISCOVERY_ROOTS, or pass `root`)"
+        )
+
+    if len(target_roots) == 1:
+        _rescan_single_root(settings, target_roots[0], max_depth)
+        return get_summary(settings)
+
+    resolution = resolve_roots(target_roots)
+    if not resolution.valid:
+        raise ValueError(
+            f"no valid discovery roots among configured roots: {target_roots} "
+            f"(see resolve_roots diagnostics: {resolution.skipped})"
+        )
+
+    merged_projects: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    total_duration = 0.0
+    scanned_at = None
+    for valid_root in resolution.valid:
+        result = run_audit(
+            Path(valid_root), max_depth=max_depth, extra_exclusions=settings.discovery_extra_exclusions
+        )
+        total_duration += result.duration_seconds
+        scanned_at = result.scanned_at
+        for project in result.projects:
+            item_id = discovery_id(project.root_path)
+            if item_id in seen_ids:
+                continue
+            seen_ids.add(item_id)
+            merged_projects.append(dataclasses.asdict(project))
+
+    db.save_scan_cache(
+        root="; ".join(resolution.valid),
+        scanned_at=scanned_at,
+        duration_seconds=round(total_duration, 3),
+        projects=merged_projects,
         settings=settings,
     )
     return get_summary(settings)
@@ -371,7 +434,7 @@ def get_summary(settings: Settings | None = None) -> dict[str, Any]:
     adopted = sum(1 for i, o in overlays.items() if o["adopted"] and i in cached_ids)
     ignored = sum(1 for i, o in overlays.items() if o["ignored"] and i in cached_ids)
     return {
-        "root": cache["root"] if cache else (settings.discovery_root or None),
+        "root": cache["root"] if cache else ("; ".join(settings.get_discovery_roots()) or None),
         "last_scan": cache["scanned_at"] if cache else None,
         "projects_found": cache["project_count"] if cache else 0,
         "projects_adopted": adopted,

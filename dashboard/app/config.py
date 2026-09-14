@@ -199,6 +199,27 @@ class Settings:
             )
         ).resolve()
 
+    def get_discovery_roots(self) -> list[str]:
+        """Phase 2 (Multi-Root Discovery): the list of roots the Discovery
+        Engine should scan when no explicit `root` is passed to a rescan.
+
+        `ROLE_OS_DISCOVERY_ROOTS` (comma-separated, optional) takes
+        precedence when set and non-empty. Otherwise falls back to the
+        single `discovery_root` value (still driven by the existing
+        `ROLE_OS_DISCOVERY_ROOT` variable) -- so a deployment with no
+        multi-root configuration behaves exactly as it did before this
+        method existed: one root, or none.
+
+        Read live (not cached at `__init__` time) so a test that mutates
+        `settings.discovery_root` after construction, or an env var
+        change between calls, is honored -- matching every other
+        environment-driven field's semantics in this class.
+        """
+        raw = os.environ.get("ROLE_OS_DISCOVERY_ROOTS", "")
+        if raw.strip():
+            return [item.strip() for item in raw.split(",") if item.strip()]
+        return [self.discovery_root] if self.discovery_root else []
+
 
 @lru_cache
 def get_settings() -> Settings:

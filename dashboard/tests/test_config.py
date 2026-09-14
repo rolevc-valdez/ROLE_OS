@@ -326,3 +326,40 @@ def test_all_ten_dashboard_db_env_vars_are_set_by_conftest():
     files to remember to isolate ad-hoc."""
     for name in _ALL_DASHBOARD_DB_ENV_VARS:
         assert os.environ.get(name), f"{name} has no value -- conftest.py should set a default"
+
+
+def test_get_discovery_roots_falls_back_to_single_discovery_root(monkeypatch):
+    """Phase 2 Task 2.1: with no ROLE_OS_DISCOVERY_ROOTS configured, a
+    deployment behaves exactly as before -- one root, from the existing
+    ROLE_OS_DISCOVERY_ROOT variable (or its own default)."""
+    monkeypatch.delenv("ROLE_OS_DISCOVERY_ROOTS", raising=False)
+    settings = Settings()
+    settings.discovery_root = "C:\\some\\single\\root"
+    assert settings.get_discovery_roots() == ["C:\\some\\single\\root"]
+
+
+def test_get_discovery_roots_empty_single_root_yields_empty_list(monkeypatch):
+    monkeypatch.delenv("ROLE_OS_DISCOVERY_ROOTS", raising=False)
+    settings = Settings()
+    settings.discovery_root = ""
+    assert settings.get_discovery_roots() == []
+
+
+def test_get_discovery_roots_parses_comma_separated_list(monkeypatch):
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", "C:\\root-a, C:\\root-b,C:\\root-c")
+    settings = Settings()
+    assert settings.get_discovery_roots() == ["C:\\root-a", "C:\\root-b", "C:\\root-c"]
+
+
+def test_get_discovery_roots_env_var_takes_precedence_over_single_root(monkeypatch):
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", "C:\\root-a,C:\\root-b")
+    settings = Settings()
+    settings.discovery_root = "C:\\ignored\\single\\root"
+    assert settings.get_discovery_roots() == ["C:\\root-a", "C:\\root-b"]
+
+
+def test_get_discovery_roots_blank_env_var_falls_back_to_single_root(monkeypatch):
+    monkeypatch.setenv("ROLE_OS_DISCOVERY_ROOTS", "   ")
+    settings = Settings()
+    settings.discovery_root = "C:\\some\\single\\root"
+    assert settings.get_discovery_roots() == ["C:\\some\\single\\root"]
