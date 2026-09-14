@@ -1,7 +1,7 @@
 # Role Ecosystem — Project Registry
 
-Last Updated: 2026-09-13 (Phase 2 backup completado: role-content-factory y RoleSocialFactory ahora en GitHub privado)
-Registry Version: 0.1.1
+Last Updated: 2026-09-14 (corrección: ubicación real de bolsa-de-trabajo es `C:\Users\rolev\bolsa-de-trabajo`, no `Documents\bolsa-de-trabajo`)
+Registry Version: 0.1.2
 Source: `C:\Users\rolev\Documents\PROJECT_AUDIT_2026-09-12.md` (auditoría de solo lectura, 2026-09-12) + verificación directa durante Phase 2 (2026-09-13)
 
 Este registro es un índice. No duplica el contenido de los proyectos — cada entrada apunta a su ubicación real (Git+GitHub, Google Drive, o ambos). Información corporativa (Kontoor Brands / Unger / CRG) se registra solo como referencia — nunca se copia su contenido aquí.
@@ -79,7 +79,7 @@ Notes: Copia secundaria `RoleSocialFactory-git-temp` (local, perfil) es más ant
 
 Type: Software (Next.js/TypeScript, Supabase)
 Status: Active
-Primary Location: `C:\Users\rolev\Documents\bolsa-de-trabajo`
+Primary Location: `C:\Users\rolev\bolsa-de-trabajo`
 Git: Yes (branch `main`, 1 dirty)
 GitHub: Private — `git@github.com:rolevc-valdez/bolsa-de-trabajo.git`
 Backup Strategy: GIT (remote backed up)
