@@ -2,6 +2,8 @@
 
 Status as of 2026-09-09. This is a factual inventory produced by Phase 1 Task 3. **No database was copied, moved, merged, or deleted while producing this document.** `var/role_os/` was **not created** — see "Data NOT Migrated" for why.
 
+**Historical-status note (added during Phase 2's Documentation Reality Sync, 2026-09-14):** the "newly discovered gap" section below, and every place it's referenced, describes a real CWD-anchoring defect that was **fixed by Phase 1 Task 3B** shortly after this document was written (`docs/PHASE_1_COMPLETION.md`: "Fragmented/CWD-dependent runtime paths — RESOLVED"; re-verified live in Final Validation and again during Phase 2 Task 2.1/Mission Control Daily-Use Gap Check). Canonical runtime paths are now anchored to the repository root regardless of launch directory or working-directory-relative defaults — see `CURRENT_STATE.md`'s "What Is Working" section for the current, verified state. The rest of this document's factual inventory (database locations, `role_os_alpha` assessment, the dashboard/repo-root duplicate-copy finding) remains accurate as a historical record of what Task 3 found; only the CWD-anchoring defect itself has since been resolved.
+
 ## Canonical Runtime Root
 
 `var/role_os/` — the default `dashboard/app/config.py` and `scripts/RoleOS.Common.ps1` resolve into when nothing else is configured (Phase 1 Tasks 2 and 2B, commits `a61b226`, `a5379c6`). This default is correct and unchanged by Task 3.

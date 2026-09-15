@@ -4,20 +4,15 @@
 
 ## Now
 
-**Phase 2 — Documentation Reality Sync**
+**Phase 2 — Runtime Data Hygiene Bundle (Role-approved parts only)**
 
-Mission Control Daily-Use Gap Check is complete — see `docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`. Outcome A (no change needed): re-verified live against canonical data, all four daily questions (where did I leave off / what matters now / what's next / can I continue) scored CLEAR with zero required clicks, and Multi-Root Discovery confirmed to have no effect on Mission Control's output (adopted-only reasoning) — specifically re-verified for `bolsa-de-trabajo` too. Two MINOR, non-blocking findings were documented but not implemented (neither cleared the task's strict change filter as a safely-trivial fix).
+Documentation Reality Sync is complete — see `docs/PHASE_2_DOCUMENTATION_REALITY_SYNC.md`. `README.md`, `ARCHITECTURE.md`, and `dashboard/README.md` now accurately describe Role OS 2.0 (Mission Control as canonical landing page, Discovery/Multi-Root Discovery, Workspace Adoption, Project Context, Resume Work, Operational Intelligence/Executive Decision) instead of only the v1.x layer; `app_version` bumped `1.1.0` → `1.2.0` (the task's one pre-approved code change, focused regression-tested, 68 passed). Two historical docs got short correction notes without being rewritten.
 
-`bolsa-de-trabajo` is a real, **ACTIVE** project at `C:\Users\rolev\bolsa-de-trabajo` (corrected in `PROJECT_REGISTRY.md`, `9bf4af4`) — not missing, not nonexistent. It is outside every currently-configured Discovery root and not adopted; this has zero effect on Mission Control. A future "explicit project registration" mechanism (distinct from broad root scanning) was noted as a better long-term fit for isolated repositories like this one, but is not scoped or implemented in Phase 2.
-
-Next: bring `README.md`/`ARCHITECTURE.md`/`app_version` (`dashboard/app/config.py`) in line with reality — Mission Control, Project Memory, Ecosystem, Impact Analysis, Executive Decision, and everything else Phase 1/2 built. Documentation-and-one-constant-only; no behavior change. This has not started yet.
+Next: the last remaining Phase 2 task per the approved plan (`docs/ROLE_OS_2_PHASE_2_PLAN.md`, Task 2.5) is three bundled items — (a) delete the legacy `dashboard/var/role_os_dashboard/` copy, (b) fix ROLE MASTER's cosmetic status mismatch, (c) a one-time check of whether any real project's data lives only in `pi_ai_workspace` (review only, no removal). **Parts (a) and (b) remain blocked on Role's explicit go-ahead** (see below) — only part (c) can proceed without further approval. This has not started yet.
 
 ## After That
 
-Approved Phase 2 execution order (per Role's explicit approval), remaining:
-
-1. **Documentation Reality Sync** (see above)
-2. **Runtime Data Hygiene Bundle** — only the explicitly-approved-by-Role parts (see Blocked below); the rest stays deferred
+Approved Phase 2 execution order (per Role's explicit approval): **Runtime Data Hygiene Bundle is the last task currently in the approved plan.** Once its Role-approved parts are done (or explicitly deferred further), Phase 2's closing steps are: a full-suite test run, refreshing `CURRENT_STATE.md`/`NEXT_ACTIONS.md` to reflect Phase 2 as complete, and a completion review mirroring `docs/PHASE_1_COMPLETION.md` (per `docs/ROLE_OS_2_PHASE_2_PLAN.md` §13, Definition of Done) — not a new task to invent, the plan's own closing criteria.
 
 ## Blocked / Requires Role Decision
 

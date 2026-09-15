@@ -81,7 +81,7 @@ class Settings:
             )
         ).resolve()
         self.app_name: str = "ROLE OS"
-        self.app_version: str = "1.1.0"
+        self.app_version: str = "1.2.0"
         self.license: str = "Proprietary"
         self.static_dir: Path = self.base_dir / "static"
         self.templates_dir: Path = self.base_dir / "templates"

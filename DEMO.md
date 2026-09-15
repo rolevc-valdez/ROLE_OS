@@ -63,6 +63,18 @@ recommendations are then computed from that data, not hard-coded.
 | **Unger** | Unger | Day-job IT operations/reporting work — moderately behind, shows up **warning** |
 | **Charcos** | Ideas | A low-priority creative side project, stale but not urgent |
 
+**Note (Role OS 2.0):** opening `http://127.0.0.1:8000/` now lands on
+**Mission Control**, the current canonical landing page — not directly on
+Home. Mission Control reasons over *adopted* Workspace projects (Role OS
+2.0's own Discovery/Workspace-Adoption mechanism), which this Alpha demo
+does not seed, so expect an honest, empty "no projects tracked yet" state
+there. The walkthrough below is unaffected -- it uses the sidebar to
+reach the v1.x pages (Home, Projects, Advisor, Graph) this demo actually
+seeds; navigate to **Home** from the sidebar as this walkthrough's first
+step, rather than expecting it at `/` itself. See `README.md`'s "Role OS
+2.0 features" section for what Mission Control shows once you've adopted
+real, discovered project folders instead.
+
 A good walkthrough order:
 
 1. **Home** — see the Today's Focus cards (top Advisor recommendations),
