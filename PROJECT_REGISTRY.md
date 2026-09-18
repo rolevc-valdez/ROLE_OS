@@ -1,6 +1,6 @@
 # Role Ecosystem — Project Registry
 
-Last Updated: 2026-09-16 (nueva categoría `ROLE HERRAMIENTAS PERSONALES`; Cobalt registrado para uso individual)
+Last Updated: 2026-09-18 (yt-dlp registrado en `ROLE HERRAMIENTAS PERSONALES` para uso individual)
 Registry Version: 0.2.0
 Source: `C:\Users\rolev\Documents\PROJECT_AUDIT_2026-09-12.md` (auditoría de solo lectura, 2026-09-12) + verificación directa durante Phase 2 (2026-09-13)
 
@@ -225,6 +225,38 @@ Last Known Activity: 2026-09-16 (evaluado y adoptado para uso individual)
 Role OS Tracking: Registered (herramienta, no proyecto)
 Security Classification: PERSONAL
 Notes: Uso manual e individual para descargar contenido público. No forma parte de RoleSocialFactory, no consume uno de los dos espacios de proyectos activos y no requiere Docker ni una instancia propia mientras no exista una necesidad de automatización. Respetar derechos de autor y condiciones de las plataformas de origen.
+
+### YT-DLP — Descarga de medios
+
+Type: Personal Tool / Media Downloader (Platform: Windows)
+Status: INSTALLED (versión `2026.08.19`; dependencias verificadas: FFmpeg 8.1.2, Deno 2.9.6, yt_dlp_ejs 0.8.0)
+Primary Location: `winget` package `yt-dlp.yt-dlp`; descargas en `%USERPROFILE%\Downloads\Role Media`
+Git: No (herramienta externa; no se mantiene una copia propia)
+GitHub: Public upstream — `https://github.com/yt-dlp/yt-dlp`
+Backup Strategy: N/A (herramienta CLI instalada localmente, sin datos propios que respaldar)
+Last Known Activity: 2026-09-18 (instalada y validada en Windows)
+Role OS Tracking: Registered (herramienta, no proyecto)
+Security Classification: PERSONAL
+Notes: Herramienta local para descargar contenido propio, libre o autorizado desde YouTube y otras plataformas compatibles. Permite descargar video, extraer audio y procesar listas mediante FFmpeg. Usar únicamente con contenido propio, libre o para el cual se tenga autorización de descarga. No forma parte de RoleSocialFactory, no consume uno de los dos espacios de proyectos activos y no requiere Docker ni una instancia propia. Respetar derechos de autor y condiciones de las plataformas de origen.
+
+Usage (PowerShell):
+
+```powershell
+# Descargar video en MP4
+yt-dlp --no-playlist -t mp4 -P "$env:USERPROFILE\Downloads\Role Media" "PEGA_AQUI_LA_URL"
+
+# Descargar solamente audio en MP3
+yt-dlp --no-playlist -t mp3 -P "$env:USERPROFILE\Downloads\Role Media" "PEGA_AQUI_LA_URL"
+
+# Descargar una lista completa
+yt-dlp --yes-playlist -t mp4 -P "$env:USERPROFILE\Downloads\Role Media" -o "%(playlist_title)s%(playlist_index)03d - %(title)s.%(ext)s" "PEGA_AQUI_LA_URL"
+
+# Abrir la carpeta de descargas
+explorer "$env:USERPROFILE\Downloads\Role Media"
+
+# Actualizar yt-dlp
+winget upgrade --id yt-dlp.yt-dlp --exact
+```
 
 ---
 
