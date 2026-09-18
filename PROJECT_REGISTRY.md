@@ -1,7 +1,7 @@
 # Role Ecosystem — Project Registry
 
-Last Updated: 2026-09-14 (corrección: ubicación real de bolsa-de-trabajo es `C:\Users\rolev\bolsa-de-trabajo`, no `Documents\bolsa-de-trabajo`)
-Registry Version: 0.1.2
+Last Updated: 2026-09-16 (nueva categoría `ROLE HERRAMIENTAS PERSONALES`; Cobalt registrado para uso individual)
+Registry Version: 0.2.0
 Source: `C:\Users\rolev\Documents\PROJECT_AUDIT_2026-09-12.md` (auditoría de solo lectura, 2026-09-12) + verificación directa durante Phase 2 (2026-09-13)
 
 Este registro es un índice. No duplica el contenido de los proyectos — cada entrada apunta a su ubicación real (Git+GitHub, Google Drive, o ambos). Información corporativa (Kontoor Brands / Unger / CRG) se registra solo como referencia — nunca se copia su contenido aquí.
@@ -206,6 +206,25 @@ Backup Strategy: N/A
 Last Known Activity: N/A
 Role OS Tracking: Registered
 Security Classification: NORMAL
+
+---
+
+## ROLE HERRAMIENTAS PERSONALES
+
+Herramientas externas adoptadas por Role para uso individual. Estas entradas son recursos operativos del ecosistema, no proyectos de desarrollo: no consumen un espacio dentro del límite de proyectos activos y no requieren repositorio privado propio salvo que Role cree una modificación o integración propia.
+
+### Cobalt
+
+Type: Personal Tool / Media Downloader
+Status: Active
+Primary Location: `https://cobalt.tools`
+Git: No (herramienta externa; no se mantiene una copia propia)
+GitHub: Public upstream — `https://github.com/imputnet/cobalt`
+Backup Strategy: N/A (servicio y proyecto externo)
+Last Known Activity: 2026-09-16 (evaluado y adoptado para uso individual)
+Role OS Tracking: Registered (herramienta, no proyecto)
+Security Classification: PERSONAL
+Notes: Uso manual e individual para descargar contenido público. No forma parte de RoleSocialFactory, no consume uno de los dos espacios de proyectos activos y no requiere Docker ni una instancia propia mientras no exista una necesidad de automatización. Respetar derechos de autor y condiciones de las plataformas de origen.
 
 ---
 
