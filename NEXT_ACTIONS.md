@@ -4,15 +4,13 @@
 
 ## Now
 
-**Nothing open.** Phase 2 is formally complete — see `docs/PHASE_2_COMPLETION.md` for the full closing-validation record (14 sections, all PASS) and `CURRENT_STATE.md` for the current-state summary.
+**Primary next action (the only one): Phase 3 — Scope Definition / Planning.**
 
-A reported power loss interrupted the session before closing validation began; the next session confirmed (via `git log`, `git status`, and absence of `docs/PHASE_2_COMPLETION.md`) that no closing-validation work had actually started, then ran the full validation from scratch: git/repo health, canonical runtime paths, canonical data integrity (`PRAGMA integrity_check: ok` on all 8 DBs), the full 1,372-test suite (split `tests/` + `builder/tests/` + `dashboard/tests/` to avoid the earlier memory issue), SHA256/size/mtime of all canonical DBs before and after the suite (byte-identical — Test Isolation confirmed holding), Multi-Root Discovery re-verification (22 tests, deliberately left disabled), a live Mission Control smoke test, router/navigation regression (32 routers, 136 API paths), documentation validation, Runtime Data Hygiene re-verification, a crash-recovery test (this session's own recovery, per `CURRENT_STATE.md`'s Recovery procedure), an AI-handoff test, and the Phase 2 task resolution matrix (all 5 tasks, 2.1–2.5, confirmed DONE).
+Objective: decide what Role OS actually needs for daily use. This is a planning/decision step only — it does NOT automatically implement any deferred item below, and it does not start implementation.
 
-## After That
+Status: Phase 2 is COMPLETE (checkpoint `20b80df`, backed up on `origin/main`); Phase 3 has NOT started. Full closing record: `docs/PHASE_2_COMPLETION.md`. Nothing from Phase 2 needs to be repeated.
 
-No Phase 3 task exists yet and none was scoped by the closing validation, per its explicit instruction not to begin Phase 3. Scoping Phase 3 is the next real piece of work, whenever Role is ready to start it.
-
-## Blocked / Requires Role Decision
+## Blocked / Requires Role Decision (all DEFERRED, none approved)
 
 - `var/role_os_alpha/`'s disposition — **DEFER**, per Role's explicit instruction. Do not modify, migrate, delete, rename, or reinterpret it during Phase 2 without separate authorization.
 - Whether to actually set `ROLE_OS_DISCOVERY_ROOTS` in any real running configuration, which of the 6 real, un-adopted projects (5 of which are now confirmed discoverable once it is set) to include, and whether to adopt any of them — **DO NOT ADOPT YET**; Task 2.1 only built and validated the capability, it did not enable it or adopt anything.
@@ -28,3 +26,4 @@ No Phase 3 task exists yet and none was scoped by the closing validation, per it
 - Do not remove, deprecate-mark, rename, or modify `pi_ai_workspace`/`ai_workspace` without a separate, explicit Role authorization — the review (`docs/PHASE_2_PI_AI_WORKSPACE_REVIEW.md`) recommends eventual deprecation but does not approve acting on it.
 - Do not treat `samples/role_os_sample/` as a production runtime source for anything.
 - Do not delete or rewrite historical docs (`docs/PHASE_1_TASK_*.md`, `docs/PHASE_1_COMPLETION.md`, `docs/PHASE_2_TASK_*.md`, `audits/`, `docs/product/DECISIONS.md`, `docs/architecture/01`–`21`).
+- Do not start any speculative feature work; anything not chosen by Role during Phase 3 scoping stays deferred.
