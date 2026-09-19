@@ -4,11 +4,11 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Scope Definition / Planning.**
+**Primary next action (the only one): Phase 3 — Task P3.1 — Daily Command Center Requirements / Data Gap Analysis.**
 
-Objective: decide what Role OS actually needs for daily use. This is a planning/decision step only — it does NOT automatically implement any deferred item below, and it does not start implementation.
+**NOT STARTED. WAIT FOR ROLE TO RETURN / AUTHORIZE IMPLEMENTATION.** Do not begin it on your own.
 
-Status: Phase 2 is COMPLETE (checkpoint `20b80df`, backed up on `origin/main`); Phase 3 has NOT started. Full closing record: `docs/PHASE_2_COMPLETION.md`. Nothing from Phase 2 needs to be repeated.
+Scope and full task list: `docs/ROLE_OS_2_PHASE_3_SCOPE.md`. Phase 2 is COMPLETE (`docs/PHASE_2_COMPLETION.md`, checkpoint `20b80df`) and must not be repeated. Phase 3 is PLANNED — NOT STARTED.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

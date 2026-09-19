@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Role OS 2.0, **Phase 2 — Core Reliability & Discovery Accuracy — COMPLETE** (see `docs/ROLE_OS_2_PHASE_2_PLAN.md` for the approved plan, `docs/PHASE_2_COMPLETION.md` for the closing validation record)
-- **Current task:** None open. Phase 2 is formally closed. No Phase 3 task has been defined or scoped yet — see `NEXT_ACTIONS.md`.
+- **Current task:** None open. Phase 2 is formally closed. Phase 3 is scoped on paper (`docs/ROLE_OS_2_PHASE_3_SCOPE.md`) but PLANNED — NOT STARTED; see `NEXT_ACTIONS.md`.
 - **Last completed task:** Phase 2 Final Validation / Completion — full closing validation performed after a reported power-loss interruption (confirmed via git/docs that no closing-validation work had been done before the interruption, so this ran from scratch, not as a continuation). See `docs/PHASE_2_COMPLETION.md` for the full 14-section record.
 - **Last completed commit:** `20b80df` (`docs: complete role os 2 phase 2`) — still verify against git, per the Recovery procedure below
 - **Overall state:** Stable. All 5 planned Phase 2 tasks (2.1–2.5) are complete and were individually re-verified live during closing validation: Test Isolation holds (SHA256/size/mtime of all 8 canonical DBs identical before/after the full 1,372-test suite and a live server smoke test); Multi-Root Discovery capability re-confirmed (22 tests pass) while remaining deliberately unset in this environment; Mission Control re-confirmed live (`total_projects_tracked: 5`, real Executive Decision, `is_stale: true` correctly discounting confidence 0.72); documentation sync holds (`app_version` still `1.2.0`, README/ARCHITECTURE still describe 2.0); Runtime Data Hygiene holds (legacy `dashboard/var/role_os_dashboard/` still deleted, ROLE MASTER still `status: "active"`, `pi_ai_workspace`/`ai_workspace` still 0 rows and untouched); all 32 routers/136 API paths present; git repo healthy (`git fsck` clean, in sync with `origin/main`). Phase 1's core (Mission Control, Resume Work, canonical data, navigation, freshness/fallback honesty) remains fully intact. Full detail on every individual Phase 2 task remains in its own `docs/PHASE_2_*.md` file, referenced from the resolution matrix in `docs/PHASE_2_COMPLETION.md`.
@@ -15,12 +15,17 @@
 
 *Recovery snapshot left before Role travels. Verify against `git log` first; trust the repository over this section if they disagree.*
 
-- **Role OS 2.0 Phase 2: COMPLETE.** Nothing in Phase 2 needs to be repeated.
-- **Phase 2 completion checkpoint: `20b80df`** (`docs: complete role os 2 phase 2`).
-- **Backed up:** `20b80df` is on `origin/main` (local `main` == `origin/main`, ahead 0 / behind 0, working tree clean at checkpoint time).
-- **Phase 3 has NOT started.** No Phase 3 code, plan, or scope exists.
-- **Next activity:** Phase 3 — Scope Definition / Planning (decide what Role OS actually needs for daily use; see `NEXT_ACTIONS.md`).
-- **DEFERRED — not approved work:** explicit registration for isolated repositories (e.g. `bolsa-de-trabajo`); project adoption review; `var/role_os_alpha/` disposition; `pi_ai_workspace` deprecation/removal; Advisor/OI/Executive Decision overlap or redesign; any other speculative feature work. These only move if Role approves them separately, including during Phase 3 planning.
+- **Role OS 2.0 — Phase 2: COMPLETE.** Does NOT need to be repeated. Record: `docs/PHASE_2_COMPLETION.md`. Completion checkpoint: `20b80df`, backed up on `origin/main`.
+- **Phase 3: PLANNED — NOT STARTED.** Scope: `docs/ROLE_OS_2_PHASE_3_SCOPE.md` (Daily Command Center; Domains KONTOOR/UNGER/ROLE PERSONAL/CLIENTES; Project/Task/Tool; `ROLE_PROJECT.md`; explicit project registration; Windows startup last). No Phase 3 code or analysis exists.
+- **Next activity:** P3.1 — Daily Command Center Requirements / Data Gap Analysis — NOT STARTED, waiting for Role to return and authorize (see `NEXT_ACTIONS.md`).
+- **DEFERRED — not approved work:** explicit registration for isolated repositories (e.g. `bolsa-de-trabajo`) beyond planning; project adoption review; `var/role_os_alpha/` disposition; `pi_ai_workspace` deprecation/removal; Advisor/OI/Executive Decision overlap or redesign; any other speculative feature work.
+
+**If Role returns in a new AI session:**
+1. Read `CURRENT_STATE.md`.
+2. Read `NEXT_ACTIONS.md`.
+3. Read `docs/ROLE_OS_2_PHASE_3_SCOPE.md`.
+4. Do NOT repeat Phase 1 or Phase 2.
+5. Do NOT begin Phase 3 implementation without Role's approval.
 
 ## What Is Working
 
