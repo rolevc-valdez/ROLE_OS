@@ -4,18 +4,13 @@
 
 ## Now
 
-**Phase 2's closing validation** (not yet started)
+**Nothing open.** Phase 2 is formally complete — see `docs/PHASE_2_COMPLETION.md` for the full closing-validation record (14 sections, all PASS) and `CURRENT_STATE.md` for the current-state summary.
 
-The Runtime Data Hygiene Bundle is fully complete — all three parts done:
-- (c) `pi_ai_workspace` review — see `docs/PHASE_2_PI_AI_WORKSPACE_REVIEW.md`. Resolved as Legacy + Current; recommendation (deprecate, in a future separately-approved task) not acted on here.
-- (a) Legacy `dashboard/var/role_os_dashboard/` copy — **deleted**, see `docs/PHASE_2_RUNTIME_DATA_HYGIENE.md`. A full read-only comparison proved every remaining difference from canonical was debug/test data; canonical already had all real user data since Task 3D.
-- (b) ROLE MASTER status mismatch — **resolved, no change needed**. Current project evidence confirms canonical `"active"` is correct; the legacy "Completado" described a completed version milestone, not project closure.
-
-**This was the last task in Phase 2's approved plan** (`docs/ROLE_OS_2_PHASE_2_PLAN.md`). Next: Phase 2's own closing steps — a full-suite test run, a final `CURRENT_STATE.md`/`NEXT_ACTIONS.md` refresh to mark Phase 2 complete, and a completion review mirroring `docs/PHASE_1_COMPLETION.md` (per §13, Definition of Done). **Not started in this task, per its explicit instruction not to begin closing validation.**
+A reported power loss interrupted the session before closing validation began; the next session confirmed (via `git log`, `git status`, and absence of `docs/PHASE_2_COMPLETION.md`) that no closing-validation work had actually started, then ran the full validation from scratch: git/repo health, canonical runtime paths, canonical data integrity (`PRAGMA integrity_check: ok` on all 8 DBs), the full 1,372-test suite (split `tests/` + `builder/tests/` + `dashboard/tests/` to avoid the earlier memory issue), SHA256/size/mtime of all canonical DBs before and after the suite (byte-identical — Test Isolation confirmed holding), Multi-Root Discovery re-verification (22 tests, deliberately left disabled), a live Mission Control smoke test, router/navigation regression (32 routers, 136 API paths), documentation validation, Runtime Data Hygiene re-verification, a crash-recovery test (this session's own recovery, per `CURRENT_STATE.md`'s Recovery procedure), an AI-handoff test, and the Phase 2 task resolution matrix (all 5 tasks, 2.1–2.5, confirmed DONE).
 
 ## After That
 
-Phase 2 closing validation (see above) is the only remaining step before Phase 2 is formally complete. No Phase 3 task exists yet — one should not be invented here; it would be scoped after Phase 2's completion review.
+No Phase 3 task exists yet and none was scoped by the closing validation, per its explicit instruction not to begin Phase 3. Scoping Phase 3 is the next real piece of work, whenever Role is ready to start it.
 
 ## Blocked / Requires Role Decision
 
