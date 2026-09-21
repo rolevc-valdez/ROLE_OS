@@ -4,11 +4,11 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.1 — Daily Command Center Requirements / Data Gap Analysis.**
+**Primary next action (the only one): Phase 3 — Task P3.2 — Classification & Status Semantics (design-first).**
 
-**NOT STARTED. WAIT FOR ROLE TO RETURN / AUTHORIZE IMPLEMENTATION.** Do not begin it on your own.
+**NOT STARTED. Requires Role's approval of the design before any implementation.** Scope: add validated `domain` (KONTOOR | UNGER | ROLE PERSONAL | CLIENTES), `client_name`, `kind` (project | tool) and a recognised `completed` status to the adoption overlay; exclude completed/tool items from ranking. Evidence and decisions needed: `docs/PHASE_3_TASK_1_DAILY_COMMAND_CENTER_ANALYSIS.md` ("Exact Next Task").
 
-Scope and full task list: `docs/ROLE_OS_2_PHASE_3_SCOPE.md`. Phase 2 is COMPLETE (`docs/PHASE_2_COMPLETION.md`, checkpoint `20b80df`) and must not be repeated. Phase 3 is PLANNED — NOT STARTED.
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 STARTED, P3.1 COMPLETE (analysis only). Do not repeat either.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 
