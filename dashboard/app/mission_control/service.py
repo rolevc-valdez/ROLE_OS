@@ -53,7 +53,9 @@ from app.project_context.builder import all_project_contexts as _all_project_con
 from app.session import db as session_db
 from app.session.decisions_adapter import read_recent_decisions
 from app.session.modes import list_modes
+from app.executive_decision.scoring import _STALE_ACTIVITY_AFTER_DAYS
 from app.workspace import service as workspace_service
+from app.workspace.classification import DOMAINS
 
 TODAYS_FOCUS_LIMIT = 3
 ECOSYSTEM_DECISIONS_LIMIT = 3
@@ -423,6 +425,168 @@ _QUICK_ACTIONS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 Task 3: Daily Command Center "work" groups
+# ---------------------------------------------------------------------------
+#
+# A *view* over data already computed in this request -- adopted
+# ProjectContexts (classification, status, next action, snapshot, resume
+# state), the Executive Decision ranking, and the Operational Intelligence
+# recommendations. It adds no score and no new recommendation; it groups
+# adopted items into ACTIVE / COMPLETED / TOOLS and attaches, to each, the
+# human-readable reasons the existing signals already justify.
+
+# Inferred, lower-confidence sources for `next_action` (see
+# `discovery/next_action.py: _CONFIDENCE_BY_SOURCE`): shown as inferred,
+# never as something Role recorded.
+_INFERRED_NEXT_ACTION_SOURCES = frozenset({"latest git commit", "CHANGELOG unreleased", "none"})
+_PAUSED_STATUSES = ("paused", "on_hold", "archived")
+_BLOCKED_STATUSES = ("blocked", "at_risk")
+
+
+def _days_since(value: str | None, now: datetime) -> int | None:
+    ts = _parse_ts(value)
+    if ts is None:
+        return None
+    return max(0, (now - ts).days)
+
+
+def _work_item(
+    ctx: dict[str, Any],
+    *,
+    rank: int | None,
+    top_rec: dict[str, Any] | None,
+    needs_attention: bool,
+    now: datetime,
+) -> dict[str, Any]:
+    # Role's own declared status (adoption overlay) wins over the PI
+    # project's default, which would otherwise shadow "paused"/"blocked".
+    raw_status = ctx.get("adoption_status") or ctx.get("status")
+    status = (raw_status or "").lower()
+    next_action = ctx.get("next_action") or {}
+    snapshot = ctx.get("latest_snapshot") or {}
+    days = _days_since(ctx.get("latest_activity"), now)
+    is_stale = days is not None and days >= _STALE_ACTIVITY_AFTER_DAYS
+    business_value = (ctx.get("business_value") or "").lower()
+
+    badges: list[str] = []
+    if status in _BLOCKED_STATUSES:
+        badges.append("BLOCKED")
+    if status in _PAUSED_STATUSES:
+        badges.append("ARCHIVED" if status == "archived" else "PAUSED")
+    if business_value in ("high", "critical"):
+        badges.append("IMPORTANT")
+    if is_stale:
+        badges.append("STALE")
+    if needs_attention:
+        badges.append("NEEDS ATTENTION")
+
+    # Human-readable "why" -- only facts the existing signals support.
+    why: list[str] = []
+    if top_rec:
+        why.append(f"Suggested: {top_rec['suggested_action']}")
+    if next_action.get("text"):
+        source = next_action.get("source")
+        why.append(
+            "Has a next action"
+            + (f" (inferred from {source})" if source in _INFERRED_NEXT_ACTION_SOURCES else f" (from {source})")
+        )
+    if (snapshot.get("pending_work") or "").strip():
+        why.append("Pending work is recorded from your last session")
+    if status in _BLOCKED_STATUSES:
+        why.append(f"Marked {status.replace('_', ' ')}")
+    if days is not None:
+        why.append(
+            f"No activity in {days} days" if is_stale else f"Active {days} day{'s' if days != 1 else ''} ago"
+            if days
+            else "Active today"
+        )
+    if business_value in ("high", "critical"):
+        why.append(f"{business_value.capitalize()} business value")
+
+    return {
+        "item_id": ctx.get("item_id"),
+        "canonical_project_id": ctx.get("id"),
+        "display_name": ctx.get("display_name"),
+        "domain": ctx.get("domain"),
+        "client_name": ctx.get("client_name"),
+        "kind": ctx.get("kind") or "project",
+        "status": raw_status,
+        "health": ctx.get("health"),
+        "latest_activity": ctx.get("latest_activity"),
+        "days_since_activity": days,
+        "is_stale": is_stale,
+        "rank": rank,
+        "badges": badges,
+        "why": why,
+        "next_action": (
+            {
+                "text": next_action.get("text"),
+                "source": next_action.get("source"),
+                "inferred": next_action.get("source") in _INFERRED_NEXT_ACTION_SOURCES,
+            }
+            if next_action.get("text")
+            else None
+        ),
+        "pending_work": (snapshot.get("pending_work") or "").strip() or None,
+        "resume_available": bool((ctx.get("resume_state") or {}).get("available")),
+    }
+
+
+def _work_groups(
+    all_contexts: list[dict[str, Any]],
+    ranked_projects: list[dict[str, Any]],
+    recommendations: list[dict[str, Any]],
+    attention_project_ids: set[str],
+) -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    rank_by_item = {
+        (rp["project"] or {}).get("item_id"): rp["rank"] for rp in ranked_projects if rp.get("project")
+    }
+    top_rec_by_item: dict[str, dict[str, Any]] = {}
+    for rec in recommendations:  # already sorted most-important first
+        project = rec.get("project") or {}
+        item_id = project.get("item_id")
+        if item_id and item_id not in top_rec_by_item:
+            top_rec_by_item[item_id] = rec
+
+    active: list[dict[str, Any]] = []
+    completed: list[dict[str, Any]] = []
+    tools: list[dict[str, Any]] = []
+    for ctx in all_contexts:
+        if not ctx.get("is_adopted"):
+            continue
+        item_id = ctx.get("item_id")
+        item = _work_item(
+            ctx,
+            rank=rank_by_item.get(item_id),
+            top_rec=top_rec_by_item.get(item_id),
+            needs_attention=item_id in attention_project_ids,
+            now=now,
+        )
+        if ctx.get("is_completed"):
+            completed.append(item)
+        elif item["kind"] == "tool":
+            tools.append(item)
+        else:
+            active.append(item)
+
+    active.sort(key=lambda i: (i["rank"] is None, i["rank"] or 0, (i["display_name"] or "").lower()))
+    completed.sort(key=lambda i: (i["display_name"] or "").lower())
+    tools.sort(key=lambda i: (i["display_name"] or "").lower())
+    return {
+        "domains": list(DOMAINS),
+        "active_projects": active,
+        "completed_projects": completed,
+        "tools": tools,
+        "role_dashboard": {
+            "label": "Role Dashboard",
+            "route": "#/dashboard",
+            "summary_endpoint": "/dashboard/summary",
+        },
+    }
+
+
 def build_mission_control(settings: Settings | None = None) -> dict[str, Any]:
     """The one `GET /mission-control` payload -- already shaped, so the
     frontend performs no cross-source joining, ranking, deduplication, or
@@ -495,6 +659,9 @@ def build_mission_control(settings: Settings | None = None) -> dict[str, Any]:
         "recent_activity": recent_activity,
         "daily_session": _daily_session(settings, home, recommendations),
         "snapshot_continuity": _snapshot_continuity(primary_focus),
+        "work": _work_groups(
+            all_contexts, executive_decision["ranked_projects"], recommendations, attention_project_ids
+        ),
         "ecosystem_decisions": ecosystem_decisions,
         "quick_actions": _QUICK_ACTIONS,
         "total_projects_tracked": len(all_contexts),

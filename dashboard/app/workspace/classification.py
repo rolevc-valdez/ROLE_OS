@@ -70,3 +70,16 @@ def check_client_for_domain(domain: str | None, client_name: str | None) -> None
 
 def is_completed_status(status: Any) -> bool:
     return isinstance(status, str) and status.strip().lower() == STATUS_COMPLETED
+
+
+def is_rank_excluded(entity: dict[str, Any]) -> bool:
+    """True for anything that must not compete in the active work ranking
+    ("What should I do now?"): completed work, and reusable tools (Phase 3
+    Task 3 -- tools live in the TOOLS area, they are not work to be done).
+    Works on both enriched workspace items (`status`) and ProjectContexts
+    (`is_completed`); either signal is enough."""
+    return (
+        bool(entity.get("is_completed"))
+        or is_completed_status(entity.get("status"))
+        or entity.get("kind") == "tool"
+    )

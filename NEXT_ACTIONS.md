@@ -4,11 +4,11 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.3 — Daily Command Center UI.**
+**Primary next action (the only one): Phase 3 — Task P3.4 — Explicit Project Registration.**
 
-**NOT STARTED. Requires Role's go-ahead.** Scope (from `docs/PHASE_3_TASK_1_DAILY_COMMAND_CENTER_ANALYSIS.md` and `docs/PHASE_3_TASK_2_CLASSIFICATION_STATUS.md`): extend Mission Control's payload/UI additively with Active / Completed / Tools groups and Domain chips, "Pending Work / Next Actions" wording, an Open Role Dashboard button (→ `#/dashboard`), reusing the existing design system. Before or during it, Role should approve real classification of the 5 adopted projects (proposal in the P3.2 doc) and decide how `tool` items should be ranked.
+**NOT STARTED. Requires Role's go-ahead.** Scope (see `docs/ROLE_OS_2_PHASE_3_SCOPE.md`): let isolated repositories (e.g. `C:\Users\rolev\bolsa-de-trabajo`, later FERREVOLT / Kontoor / Unger work) be intentionally registered by path — validate, review, then adopt explicitly — without widening Discovery roots to the whole user profile. Discovery and Adoption stay separate. Registered items should be able to receive `domain` / `client_name` / `kind` (P3.2) so they show up in the Daily Command Center (P3.3).
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1 and P3.2 COMPLETE. Do not repeat them.
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1, P3.2 and P3.3 COMPLETE. Do not repeat them.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

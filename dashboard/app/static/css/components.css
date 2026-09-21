@@ -759,3 +759,83 @@ table.kv-table td { padding: 4px 0; }
   height: 200px;
   font-size: 48px;
 }
+
+/* ---- Daily Command Center (Role OS 2.0 Phase 3 Task 3) ---------------------------
+ * Reuses the existing tokens only -- no new colors. Domain colors map onto the
+ * existing palette so each of the four work domains is recognizable at a glance. */
+
+.btn-lg {
+  padding: 12px 22px;
+  font-size: 15px;
+  border-radius: 10px;
+}
+
+.dcc-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dcc-chip {
+  --dcc-accent: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dcc-chip:hover { border-color: var(--dcc-accent); }
+
+.dcc-chip.active {
+  background: var(--dcc-accent);
+  border-color: var(--dcc-accent);
+  color: var(--text-inverse);
+}
+
+.dcc-chip-count { font-weight: 500; opacity: 0.8; }
+.dcc-chip-secondary { border-style: dashed; font-weight: 500; }
+
+.dcc-domain-all { --dcc-accent: var(--brand-primary-strong); }
+.dcc-domain-kontoor { --dcc-accent: var(--status-info); }
+.dcc-domain-unger { --dcc-accent: var(--priority-high); }
+.dcc-domain-role-personal { --dcc-accent: var(--brand-primary); }
+.dcc-domain-clientes { --dcc-accent: var(--status-healthy); }
+.dcc-domain-unclassified { --dcc-accent: var(--text-muted); }
+
+.dcc-domain-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--dcc-accent, var(--border-strong));
+  color: var(--dcc-accent, var(--text-secondary));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dcc-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+.dcc-now-card {
+  border-left: 4px solid var(--brand-primary);
+  max-width: none;
+}
+
+.dcc-why { margin: 4px 0 0 18px; padding: 0; font-size: 13px; color: var(--text-secondary); }
+.dcc-why li { margin-bottom: 2px; }
+
+.dcc-dashboard-card { border-left: 4px solid var(--status-info); }
+
+.dcc-details { margin-top: 24px; }
+.dcc-details > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 8px 0;
+}

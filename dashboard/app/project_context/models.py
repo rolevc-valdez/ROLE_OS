@@ -46,6 +46,7 @@ class ProjectContext(BaseModel):
 
     status: str | None = None
     # Phase 3 Task 2: work classification + completed semantics.
+    adoption_status: str | None = None
     domain: str | None = None
     client_name: str | None = None
     kind: str = "project"

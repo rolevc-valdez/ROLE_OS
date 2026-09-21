@@ -26,6 +26,7 @@ from app.executive_decision.planner import (
 )
 from app.executive_decision.scoring import compute_decision_score
 from app.project_ecosystem import graph as graph_module
+from app.workspace.classification import is_rank_excluded
 
 _MAX_LIMITATIONS = [
     (
@@ -212,9 +213,10 @@ def get_executive_decision(
 
         all_contexts, enriched_items = all_project_contexts(settings=settings)
 
-    # Phase 3 Task 2: completed work never competes for "what to do now".
+    # Phase 3 Tasks 2-3: completed work and tools never compete for
+    # "what to do now".
     adopted_contexts = [
-        c for c in all_contexts if c.get("is_adopted") and not c.get("is_completed")
+        c for c in all_contexts if c.get("is_adopted") and not is_rank_excluded(c)
     ]
 
     if operational_intelligence_recs is None:

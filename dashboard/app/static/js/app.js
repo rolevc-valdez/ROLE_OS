@@ -1268,6 +1268,258 @@
       </div>`;
   }
 
+
+  // =======================================================================
+  // DAILY COMMAND CENTER (Role OS 2.0 Phase 3 Task 3)
+  //
+  // The Mission Control landing route ("/") refined into Role's daily
+  // starting point. Everything below renders `data.work` (grouped
+  // server-side in `mission_control/service.py: _work_groups`, from the
+  // same single `GET /mission-control` payload) -- this file only filters
+  // by domain and renders; it never ranks, scores, or joins. Urgency,
+  // quick-win and waiting badges are deliberately absent: no real data
+  // supports them yet (see docs/PHASE_3_TASK_3_DAILY_COMMAND_CENTER_UI.md).
+  // =======================================================================
+
+  const DCC_UNCLASSIFIED = "UNCLASSIFIED";
+  let dccDomainFilter = "ALL";
+
+  function dccDomainSlug(domain) {
+    return (domain || "unclassified").toLowerCase().replace(/[^a-z]+/g, "-");
+  }
+
+  function dccMatchesFilter(item) {
+    if (dccDomainFilter === "ALL") return true;
+    if (dccDomainFilter === DCC_UNCLASSIFIED) return !item.domain;
+    return item.domain === dccDomainFilter;
+  }
+
+  function dccDomainTagHtml(item) {
+    const label = item.domain ? item.domain : "Unclassified";
+    const client = item.client_name ? ` · ${escapeHtml(item.client_name)}` : "";
+    return `<span class="dcc-domain-tag dcc-domain-${dccDomainSlug(item.domain)}">${escapeHtml(label)}${client}</span>`;
+  }
+
+  const DCC_BADGE_VARIANTS = {
+    BLOCKED: "critical",
+    PAUSED: "warning",
+    ARCHIVED: "warning",
+    STALE: "warning",
+    "NEEDS ATTENTION": "warning",
+    IMPORTANT: "info",
+  };
+
+  function dccBadgesHtml(item) {
+    return (item.badges || []).map((b) => badgeHtml(b, DCC_BADGE_VARIANTS[b])).join(" ");
+  }
+
+  function dccDomainChipsHtml(work) {
+    const all = [...(work.active_projects || []), ...(work.completed_projects || []), ...(work.tools || [])];
+    const countFor = (domain) =>
+      all.filter((i) => (domain === DCC_UNCLASSIFIED ? !i.domain : i.domain === domain)).length;
+    const chips = [{ key: "ALL", label: "All", count: all.length }].concat(
+      (work.domains || []).map((d) => ({ key: d, label: d, count: countFor(d) }))
+    );
+    // Unclassified work must stay representable -- shown as a secondary chip
+    // only when there is something unclassified (never as a primary domain).
+    const unclassified = countFor(DCC_UNCLASSIFIED);
+    if (unclassified) chips.push({ key: DCC_UNCLASSIFIED, label: "Unclassified", count: unclassified, secondary: true });
+    return chips
+      .map(
+        (c) => `<button type="button" class="dcc-chip dcc-domain-${dccDomainSlug(c.key === "ALL" ? "all" : c.key)}${
+          c.key === dccDomainFilter ? " active" : ""
+        }${c.secondary ? " dcc-chip-secondary" : ""}" data-dcc-domain="${escapeHtml(c.key)}">${escapeHtml(c.label)} <span class="dcc-chip-count">${c.count}</span></button>`
+      )
+      .join("");
+  }
+
+  function dccNextActionHtml(item) {
+    const na = item.next_action;
+    if (!na) return '<span class="muted">No next action available.</span>';
+    const provenance = na.inferred
+      ? `${badgeHtml("inferred", "warning")} <span class="card-muted u-fs-12">from ${escapeHtml(na.source)}</span>`
+      : `<span class="card-muted u-fs-12">from ${escapeHtml(na.source)}</span>`;
+    return `${escapeHtml(na.text)} ${provenance}`;
+  }
+
+  // Same `data_freshness` object as every other Mission Control card; only
+  // the wording differs, because this card has no separate Evidence list.
+  function dccStalenessNoteHtml(freshness) {
+    if (!freshness || !freshness.is_stale) return "";
+    const age = freshness.hours_since_scan != null ? `${Math.round(freshness.hours_since_scan)}h ago` : "never recorded";
+    return `<p class="card-muted u-fs-12 u-mt-2">⚠ Based on workspace data last scanned ${escapeHtml(age)} — rescan on the Workspace page for a fresh view.</p>`;
+  }
+
+  function dccNowHtml(work, data) {
+    const items = (work.active_projects || []).filter(dccMatchesFilter);
+    if (!items.length) {
+      const anyActive = (work.active_projects || []).length > 0;
+      return `<div class="card dcc-now-card"><p class="card-title">${
+        anyActive ? "No projects in this domain." : "No recommendation yet"
+      }</p><p class="muted u-mt-1">${
+        anyActive
+          ? "Pick another domain, or choose All."
+          : escapeHtml((data.executive_decision && data.executive_decision.reason) || "Adopt a project on the Workspace page first.")
+      }</p></div>`;
+    }
+    const top = items[0];
+    const others = items.slice(1, 3);
+    const why = (top.why || []).map((w) => `<li>${escapeHtml(w)}</li>`).join("");
+    return `
+      <div class="card mc-primary-card dcc-now-card">
+        <div class="u-flex-between">
+          <div>
+            <p class="card-muted">Recommended</p>
+            <p class="card-title u-fs-20 u-clickable" ${mcProjectRef(top)}>${escapeHtml(top.display_name)}</p>
+          </div>
+          <div class="dcc-badges">${dccDomainTagHtml(top)} ${dccBadgesHtml(top)}</div>
+        </div>
+        ${dccStalenessNoteHtml(data.data_freshness)}
+        <p class="card-muted u-mt-2">Next action</p>
+        <p>${dccNextActionHtml(top)}</p>
+        <p class="card-muted u-mt-2">Why</p>
+        <ul class="dcc-why">${why || '<li class="muted">No supporting evidence recorded yet.</li>'}</ul>
+        <div class="u-mt-3">
+          <button type="button" class="btn btn-primary btn-lg" data-resume-work-item="${escapeHtml(top.item_id || "")}" ${top.resume_available ? "" : "disabled"}>Continue Working &rarr;</button>
+          ${top.resume_available ? "" : '<span class="card-muted u-fs-12"> No resumable session available.</span>'}
+        </div>
+      </div>
+      ${
+        others.length
+          ? `<div class="card-grid-wide u-mt-3">${others
+              .map(
+                (o) => `
+        <div class="card">
+          <p class="card-muted">Then</p>
+          <p class="card-title u-clickable" ${mcProjectRef(o)}>${escapeHtml(o.display_name)}</p>
+          <div class="dcc-badges u-mt-1">${dccDomainTagHtml(o)} ${dccBadgesHtml(o)}</div>
+          <ul class="dcc-why u-mt-1">${(o.why || []).slice(0, 2).map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
+        </div>`
+              )
+              .join("")}</div>`
+          : ""
+      }`;
+  }
+
+  function dccPendingHtml(work) {
+    const rows = (work.active_projects || []).filter(dccMatchesFilter).filter((i) => i.next_action || i.pending_work);
+    if (!rows.length) return '<p class="muted">No next action available.</p>';
+    return `<div class="card-grid-wide">${rows
+      .map(
+        (i) => `
+      <div class="card">
+        <div class="u-flex-between">
+          <p class="card-title u-clickable" ${mcProjectRef(i)}>${escapeHtml(i.display_name)}</p>
+          ${dccDomainTagHtml(i)}
+        </div>
+        <p class="card-muted u-mt-2">Next action</p>
+        <p>${dccNextActionHtml(i)}</p>
+        ${
+          i.pending_work
+            ? `<p class="card-muted u-mt-2">Pending work <span class="badge">from last session</span></p><p class="u-fs-12">${escapeHtml(i.pending_work)}</p>`
+            : ""
+        }
+      </div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function dccActiveHtml(work) {
+    const rows = (work.active_projects || []).filter(dccMatchesFilter);
+    if (!rows.length) {
+      return `<p class="muted">${
+        dccDomainFilter === "ALL" ? "No active projects yet." : "No projects in this domain."
+      }</p>`;
+    }
+    return `<div class="card-grid">${rows
+      .map(
+        (i) => `
+      <div class="card u-clickable" ${mcProjectRef(i)}>
+        <div class="u-flex-between">
+          <p class="card-title">${escapeHtml(i.display_name)}</p>
+          ${i.health ? healthBadge(null, i.health) : ""}
+        </div>
+        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)}</div>
+        <p class="card-muted u-fs-12 u-mt-1">${escapeHtml(fmtText(i.status))} &middot; ${formatDate(i.latest_activity)}</p>
+        <div class="dcc-badges u-mt-1">${dccBadgesHtml(i)}</div>
+      </div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function dccCompletedHtml(work) {
+    const rows = (work.completed_projects || []).filter(dccMatchesFilter);
+    if (!rows.length) {
+      return `<p class="muted">${
+        dccDomainFilter === "ALL" ? "No completed projects yet." : "No completed projects in this domain."
+      }</p>`;
+    }
+    return `<ul class="activity-list">${rows
+      .map(
+        (i) =>
+          `<li><span class="u-clickable" ${mcProjectRef(i)}>${escapeHtml(i.display_name)}</span> ${dccDomainTagHtml(i)}${
+            i.kind === "tool" ? " " + badgeHtml("tool") : ""
+          } <span class="card-muted u-fs-12">— last activity ${formatDate(i.latest_activity)}</span></li>`
+      )
+      .join("")}</ul>`;
+  }
+
+  function dccToolsHtml(work) {
+    const rows = (work.tools || []).filter(dccMatchesFilter);
+    if (!rows.length) {
+      return `<p class="muted">${
+        dccDomainFilter === "ALL" ? "No tools registered yet." : "No tools in this domain."
+      }</p>`;
+    }
+    return `<div class="card-grid">${rows
+      .map(
+        (i) => `
+      <div class="card u-clickable" ${mcProjectRef(i)}>
+        <p class="card-title">${escapeHtml(i.display_name)}</p>
+        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)} ${badgeHtml("tool")}</div>
+        <p class="card-muted u-fs-12 u-mt-1">${escapeHtml(fmtText(i.status))}</p>
+      </div>`
+      )
+      .join("")}</div>`;
+  }
+
+  function dccRoleDashboardHtml(work) {
+    const rd = work.role_dashboard || { route: "#/dashboard" };
+    const view = String(rd.route || "#/dashboard").replace(/^#\/?/, "") || "dashboard";
+    return `
+      <div class="card dcc-dashboard-card">
+        <p class="card-title">Role Dashboard</p>
+        <p class="card-muted u-mt-1">The detailed visual view of your whole ecosystem — health, portfolio status and recent activity.</p>
+        <button type="button" class="btn btn-lg u-mt-3" data-nav="${escapeHtml(view)}">Open Role Dashboard &rarr;</button>
+      </div>`;
+  }
+
+  // Re-renders only the domain-filtered sections (no refetch). The Resume
+  // Work buttons are re-bound here because their DOM is replaced; the
+  // initial binding happens once in `wireMissionControlActions`.
+  function dccRenderSections(data, { bindResume }) {
+    const work = data.work || { domains: [], active_projects: [], completed_projects: [], tools: [] };
+    const chips = document.getElementById("dcc-domain-filter");
+    chips.innerHTML = dccDomainChipsHtml(work);
+    chips.querySelectorAll("[data-dcc-domain]").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        dccDomainFilter = btn.dataset.dccDomain;
+        dccRenderSections(data, { bindResume: true });
+      })
+    );
+    document.getElementById("dcc-now").innerHTML = dccNowHtml(work, data);
+    document.getElementById("dcc-pending").innerHTML = dccPendingHtml(work);
+    document.getElementById("dcc-active").innerHTML = dccActiveHtml(work);
+    document.getElementById("dcc-completed").innerHTML = dccCompletedHtml(work);
+    document.getElementById("dcc-tools").innerHTML = dccToolsHtml(work);
+    document.getElementById("dcc-role-dashboard").innerHTML = dccRoleDashboardHtml(work);
+    if (bindResume) {
+      document.getElementById("dcc-now").querySelectorAll("[data-resume-work-item]").forEach((btn) => {
+        if (btn.dataset.resumeWorkItem) btn.addEventListener("click", () => triggerResumeWork(btn.dataset.resumeWorkItem));
+      });
+    }
+  }
+
   async function wireMissionControlActions(data) {
     viewRoot.querySelectorAll("[data-resume-work-item]").forEach((btn) => {
       if (btn.dataset.resumeWorkItem) btn.addEventListener("click", () => triggerResumeWork(btn.dataset.resumeWorkItem));
@@ -1316,8 +1568,46 @@
     // second on the page, moved below the three-question block so it no
     // longer dominates the first screen).
     viewRoot.innerHTML = `
-      <div class="section-heading"><h2>Mission Control</h2></div>
+      <div class="section-heading"><h2>ROLE OS &middot; Daily Command Center</h2></div>
       <div id="mc-freshness-banner"></div>
+      <div id="dcc-domain-filter" class="dcc-filters u-mb-3"></div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>What should I do now?</h2></div>
+        <div id="dcc-now"><p class="muted loading-pulse">Loading…</p></div>
+      </div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>Needs Attention</h2></div>
+        <div id="mc-needs-attention"></div>
+      </div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>Pending Work / Next Actions</h2></div>
+        <div id="dcc-pending"></div>
+      </div>
+
+      <div class="home-grid dcc-two-col">
+        <div class="page-section">
+          <div class="section-heading"><h2>Active Projects</h2></div>
+          <div id="dcc-active"></div>
+        </div>
+        <div class="page-section">
+          <div class="section-heading"><h2>Completed</h2></div>
+          <div id="dcc-completed"></div>
+        </div>
+      </div>
+
+      <div class="home-grid dcc-two-col">
+        <div class="page-section">
+          <div class="section-heading"><h2>Tools</h2></div>
+          <div id="dcc-tools"></div>
+        </div>
+        <div class="page-section">
+          <div class="section-heading"><h2>Role Dashboard</h2></div>
+          <div id="dcc-role-dashboard"></div>
+        </div>
+      </div>
 
       <div class="page-section">
         <div class="section-heading"><h2>Where I Left Off</h2></div>
@@ -1325,56 +1615,57 @@
       </div>
 
       <div class="page-section">
-        <div class="section-heading"><h2>What Matters Now</h2></div>
-        <div id="mc-executive-decision" class="u-mb-2"><p class="muted loading-pulse">Loading…</p></div>
-        <div id="mc-ecosystem-decisions" class="u-mb-4"></div>
+        <div class="section-heading"><h2>Daily Session</h2></div>
+        <div id="mc-daily-session"></div>
       </div>
 
-      <div class="page-section">
-        <div class="section-heading"><h2>What's Next</h2></div>
-        <div id="mc-todays-focus" class="card-grid-wide"></div>
-      </div>
+      <details class="dcc-details">
+        <summary>Full analysis &mdash; decision detail, ranking, activity</summary>
 
-      <div class="page-section">
-        <div class="section-heading"><h2>Portfolio Ranking</h2><button type="button" class="link-btn" data-nav="dashboard">See full metrics &rarr;</button></div>
-        <div id="mc-portfolio-ranking"><p class="muted loading-pulse">Loading…</p></div>
-      </div>
+        <div class="page-section">
+          <div class="section-heading"><h2>What Matters Now</h2></div>
+          <div id="mc-executive-decision" class="u-mb-2"><p class="muted loading-pulse">Loading…</p></div>
+          <div id="mc-ecosystem-decisions" class="u-mb-4"></div>
+        </div>
 
-      <div class="home-grid">
-        <div>
-          <div class="page-section">
-            <div class="section-heading"><h2>Since Last Time</h2></div>
-            <div id="mc-since-last-time"></div>
+        <div class="page-section">
+          <div class="section-heading"><h2>What's Next</h2></div>
+          <div id="mc-todays-focus" class="card-grid-wide"></div>
+        </div>
+
+        <div class="page-section">
+          <div class="section-heading"><h2>Portfolio Ranking</h2><button type="button" class="link-btn" data-nav="dashboard">See full metrics &rarr;</button></div>
+          <div id="mc-portfolio-ranking"><p class="muted loading-pulse">Loading…</p></div>
+        </div>
+
+        <div class="home-grid">
+          <div>
+            <div class="page-section">
+              <div class="section-heading"><h2>Since Last Time</h2></div>
+              <div id="mc-since-last-time"></div>
+            </div>
+            <div class="page-section">
+              <div class="section-heading"><h2>Recent Activity</h2></div>
+              <div id="mc-recent-activity"></div>
+            </div>
           </div>
-          <div class="page-section">
-            <div class="section-heading"><h2>Needs Attention</h2></div>
-            <div id="mc-needs-attention"></div>
-          </div>
-          <div class="page-section">
-            <div class="section-heading"><h2>Recent Activity</h2></div>
-            <div id="mc-recent-activity"></div>
+          <div>
+            <div class="page-section">
+              <div class="section-heading" id="mc-value-signal-heading"><h2>Value Signal</h2></div>
+              <div id="mc-value-signal"></div>
+            </div>
+            <div class="page-section">
+              <div class="section-heading"><h2>Quick Actions</h2></div>
+              <div id="mc-quick-actions" class="mc-quick-actions"></div>
+            </div>
           </div>
         </div>
-        <div>
-          <div class="page-section">
-            <div class="section-heading"><h2>Daily Session</h2></div>
-            <div id="mc-daily-session"></div>
-          </div>
-          <div class="page-section">
-            <div class="section-heading" id="mc-value-signal-heading"><h2>Value Signal</h2></div>
-            <div id="mc-value-signal"></div>
-          </div>
-          <div class="page-section">
-            <div class="section-heading"><h2>Quick Actions</h2></div>
-            <div id="mc-quick-actions" class="mc-quick-actions"></div>
-          </div>
-        </div>
-      </div>
 
-      <div class="page-section">
-        <div class="section-heading"><h2>Portfolio</h2><button type="button" class="link-btn" data-nav="workspace">Open Workspace &rarr;</button></div>
-        <div id="mc-portfolio" class="card-grid"></div>
-      </div>
+        <div class="page-section">
+          <div class="section-heading"><h2>Portfolio</h2><button type="button" class="link-btn" data-nav="workspace">Open Workspace &rarr;</button></div>
+          <div id="mc-portfolio" class="card-grid"></div>
+        </div>
+      </details>
     `;
 
     let data;
@@ -1386,6 +1677,7 @@
     }
 
     document.getElementById("mc-freshness-banner").innerHTML = renderDashFreshnessBanner(data.data_freshness);
+    dccRenderSections(data, { bindResume: false }); // Resume buttons are bound below, once.
     document.getElementById("mc-executive-decision").innerHTML = mcExecutiveDecisionHtml(
       data.executive_decision,
       data.data_freshness

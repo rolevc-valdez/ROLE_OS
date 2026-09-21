@@ -318,6 +318,9 @@ def _assemble(
         # canonical "is this finished work?" flag. Completed if EITHER
         # status source says so -- `status` above prefers the PI project's
         # value, so checking only it would miss a completed adoption overlay.
+        # The adoption overlay's own status (what Role edits in Workspace);
+        # `status` above prefers the PI project's value, which can shadow it.
+        "adoption_status": (enriched_item or {}).get("status"),
         "domain": (enriched_item or {}).get("domain"),
         "client_name": (enriched_item or {}).get("client_name"),
         "kind": (enriched_item or {}).get("kind") or "project",

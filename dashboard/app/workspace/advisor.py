@@ -19,7 +19,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
-from app.workspace.classification import is_completed_status
+from app.workspace.classification import is_rank_excluded
 
 INACTIVE_DAYS_THRESHOLD = 90
 HIGH_VALUE_INACTIVE_DAYS_THRESHOLD = 60
@@ -299,8 +299,9 @@ def generate_recommendations(items: list[dict[str, Any]]) -> list[dict[str, Any]
     Advisor output."""
     recommendations: list[dict[str, Any]] = []
     for item in items:
-        # Phase 3 Task 2: completed work generates no recommendations.
-        if is_completed_status(item.get("status")):
+        # Phase 3 Tasks 2-3: completed work and tools generate no
+        # recommendations.
+        if is_rank_excluded(item):
             continue
         for rule in ALL_RULES:
             result = rule(item)
