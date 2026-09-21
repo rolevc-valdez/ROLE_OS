@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.workspace.advisor import last_activity_age_days
+from app.workspace.classification import is_completed_status
 
 
 def _sort_key_activity(item: dict[str, Any]) -> float:
@@ -51,6 +52,9 @@ def suggested_project_to_continue(items: list[dict[str, Any]]) -> dict[str, Any]
     scored = []
     for item in items:
         if not item.get("adopted"):
+            continue
+        # Phase 3 Task 2: completed work is never "the project to continue".
+        if is_completed_status(item.get("status")):
             continue
         next_action = item.get("next_action") or {}
         if not next_action.get("text"):

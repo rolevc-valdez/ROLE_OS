@@ -130,6 +130,9 @@ def _default_overlay(item_id: str, root_path: str) -> dict[str, Any]:
         "tags": [],
         "notes": [],
         "adopted_at": None,
+        "domain": None,
+        "client_name": None,
+        "kind": "project",
         "override_action": None,
         "override_parent_id": None,
         "canonical_project_id": None,
@@ -179,6 +182,9 @@ def _merge(project: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
         "tags": overlay["tags"],
         "notes": overlay["notes"],
         "adopted_at": overlay["adopted_at"],
+        "domain": overlay.get("domain"),
+        "client_name": overlay.get("client_name"),
+        "kind": overlay.get("kind") or "project",
         # Sprint 3: project-boundary/hierarchy fields, as computed by the
         # Discovery Engine (never altered by an override).
         "item_kind": project.get("item_kind", "unknown"),
@@ -366,6 +372,9 @@ def adopt_item(
     business_value: str = "medium",
     status: str = "active",
     tags: list[str] | None = None,
+    domain: str | None = None,
+    client_name: str | None = None,
+    kind: str | None = None,
     settings: Settings | None = None,
 ) -> dict[str, Any] | None:
     settings = settings or get_settings()
@@ -379,6 +388,9 @@ def adopt_item(
         business_value=business_value,
         status=status,
         tags=tags,
+        domain=domain,
+        client_name=client_name,
+        kind=kind,
         settings=settings,
     )
     # Sprint 5: every adopted project becomes a first-class ROLE OS

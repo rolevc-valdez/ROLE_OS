@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings, get_settings
+from app.workspace import classification
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspace_scan_cache (
@@ -79,9 +80,21 @@ _SPRINT5_COLUMNS = (
 )
 
 
+# Phase 3 Task 2 (work classification): additive, non-destructive columns.
+# `domain`/`client_name` are NULL for every existing row -- "unclassified" is
+# a real, representable state and is never guessed at migration time.
+# `kind` defaults to 'project', which is what every pre-existing adopted row
+# genuinely is. Same idempotent ADD COLUMN pattern as the sprints above.
+_PHASE3_COLUMNS = (
+    ("domain", "ALTER TABLE adopted_projects ADD COLUMN domain TEXT"),
+    ("client_name", "ALTER TABLE adopted_projects ADD COLUMN client_name TEXT"),
+    ("kind", "ALTER TABLE adopted_projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'project'"),
+)
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
-    for _column, ddl in (*_SPRINT3_COLUMNS, *_SPRINT5_COLUMNS):
+    for _column, ddl in (*_SPRINT3_COLUMNS, *_SPRINT5_COLUMNS, *_PHASE3_COLUMNS):
         try:
             conn.execute(ddl)
         except sqlite3.OperationalError:
@@ -216,8 +229,16 @@ def adopt(
     business_value: str = "medium",
     status: str = "active",
     tags: list[str] | None = None,
+    domain: str | None = None,
+    client_name: str | None = None,
+    kind: str | None = None,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
+    # Validate before touching the database.
+    domain_value = classification.normalize_domain(domain)
+    client_value = classification.normalize_client_name(client_name)
+    classification.check_client_for_domain(domain_value, client_value)
+    kind_value = classification.normalize_kind(kind)
     ts = now_iso()
     with get_connection(settings) as conn:
         _ensure_overlay_row(conn, item_id, root_path)
@@ -225,10 +246,22 @@ def adopt(
             """
             UPDATE adopted_projects
             SET adopted = 1, ignored = 0, priority = ?, business_value = ?,
-                status = ?, tags = ?, adopted_at = ?, updated_at = ?
+                status = ?, tags = ?, adopted_at = ?, updated_at = ?,
+                domain = ?, client_name = ?, kind = ?
             WHERE id = ?
             """,
-            (priority, business_value, status, json.dumps(tags or []), ts, ts, item_id),
+            (
+                priority,
+                business_value,
+                status,
+                json.dumps(tags or []),
+                ts,
+                ts,
+                domain_value,
+                client_value,
+                kind_value,
+                item_id,
+            ),
         )
         conn.commit()
     return get_overlay(item_id, settings)
@@ -266,6 +299,28 @@ def update_overlay(
     params: list[Any] = []
     with get_connection(settings) as conn:
         _ensure_overlay_row(conn, item_id, root_path)
+        # Phase 3 Task 2: classification fields. A key present with `None`
+        # clears domain/client_name (back to "unclassified"); `kind` cannot
+        # be cleared (None is ignored, like the fields above).
+        if "domain" in patch or "client_name" in patch or "kind" in patch:
+            current = conn.execute(
+                "SELECT domain, client_name FROM adopted_projects WHERE id = ?", (item_id,)
+            ).fetchone()
+            new_domain = current["domain"]
+            new_client = current["client_name"]
+            if "domain" in patch:
+                new_domain = classification.normalize_domain(patch["domain"])
+                if new_domain != classification.DOMAIN_CLIENTES:
+                    new_client = None  # a client name never outlives CLIENTES
+            if "client_name" in patch:
+                new_client = classification.normalize_client_name(patch["client_name"])
+            classification.check_client_for_domain(new_domain, new_client)
+            if "domain" in patch or "client_name" in patch:
+                set_clauses.extend(["domain = ?", "client_name = ?"])
+                params.extend([new_domain, new_client])
+            if patch.get("kind") is not None:
+                set_clauses.append("kind = ?")
+                params.append(classification.normalize_kind(patch["kind"]))
         for field in allowed:
             if field in patch and patch[field] is not None:
                 set_clauses.append(f"{field} = ?")

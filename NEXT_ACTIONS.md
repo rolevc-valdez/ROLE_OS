@@ -4,11 +4,11 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.2 — Classification & Status Semantics (design-first).**
+**Primary next action (the only one): Phase 3 — Task P3.3 — Daily Command Center UI.**
 
-**NOT STARTED. Requires Role's approval of the design before any implementation.** Scope: add validated `domain` (KONTOOR | UNGER | ROLE PERSONAL | CLIENTES), `client_name`, `kind` (project | tool) and a recognised `completed` status to the adoption overlay; exclude completed/tool items from ranking. Evidence and decisions needed: `docs/PHASE_3_TASK_1_DAILY_COMMAND_CENTER_ANALYSIS.md` ("Exact Next Task").
+**NOT STARTED. Requires Role's go-ahead.** Scope (from `docs/PHASE_3_TASK_1_DAILY_COMMAND_CENTER_ANALYSIS.md` and `docs/PHASE_3_TASK_2_CLASSIFICATION_STATUS.md`): extend Mission Control's payload/UI additively with Active / Completed / Tools groups and Domain chips, "Pending Work / Next Actions" wording, an Open Role Dashboard button (→ `#/dashboard`), reusing the existing design system. Before or during it, Role should approve real classification of the 5 adopted projects (proposal in the P3.2 doc) and decide how `tool` items should be ranked.
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 STARTED, P3.1 COMPLETE (analysis only). Do not repeat either.
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1 and P3.2 COMPLETE. Do not repeat them.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

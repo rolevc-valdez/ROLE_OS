@@ -84,6 +84,7 @@ from app.operational_intelligence.rules import ALL_RULES as NEW_RULES
 from app.project_context.builder import all_project_contexts
 from app.workspace import advisor as workspace_advisor
 from app.workspace import service as workspace_service
+from app.workspace.classification import is_completed_status
 
 
 def _normalize_discovery_rec(rec: dict[str, Any]) -> dict[str, Any]:
@@ -168,12 +169,22 @@ def generate_recommendations(
         all_contexts, enriched_items = all_project_contexts(settings=settings)
     contexts_by_canonical_id = {c["id"]: c for c in all_contexts}
 
+    # Phase 3 Task 2: completed work is excluded from every recommendation
+    # source below (Workspace Advisor, PI Advisor, the new rules). The full
+    # context lookup above is kept so a PI rec can still be resolved.
+    completed_ids = {c["id"] for c in all_contexts if c.get("is_completed")}
+    if completed_ids:
+        all_contexts = [c for c in all_contexts if not c.get("is_completed")]
+        enriched_items = [i for i in enriched_items if not is_completed_status(i.get("status"))]
+
     recs: list[dict[str, Any]] = []
 
     for rec in workspace_advisor.generate_recommendations(enriched_items):
         recs.append(_normalize_discovery_rec(rec))
 
     for rec in advisor_engine.get_recommendations(settings=settings):
+        if rec.get("project_id") in completed_ids:
+            continue
         recs.append(_normalize_pi_rec(rec, contexts_by_canonical_id))
 
     from app.project_ecosystem.detectors import detect_dependencies

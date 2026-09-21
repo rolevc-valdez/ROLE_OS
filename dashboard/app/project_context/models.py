@@ -45,6 +45,11 @@ class ProjectContext(BaseModel):
     workspace: str
 
     status: str | None = None
+    # Phase 3 Task 2: work classification + completed semantics.
+    domain: str | None = None
+    client_name: str | None = None
+    kind: str = "project"
+    is_completed: bool = False
     health: str | None = None  # "healthy" | "warning" | "critical" | None
     health_score: int | None = None
     # "discovery" (app.discovery.health, 8 signals) | "project_intelligence"

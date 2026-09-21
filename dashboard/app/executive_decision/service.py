@@ -212,7 +212,10 @@ def get_executive_decision(
 
         all_contexts, enriched_items = all_project_contexts(settings=settings)
 
-    adopted_contexts = [c for c in all_contexts if c.get("is_adopted")]
+    # Phase 3 Task 2: completed work never competes for "what to do now".
+    adopted_contexts = [
+        c for c in all_contexts if c.get("is_adopted") and not c.get("is_completed")
+    ]
 
     if operational_intelligence_recs is None:
         from app.operational_intelligence import get_operational_intelligence

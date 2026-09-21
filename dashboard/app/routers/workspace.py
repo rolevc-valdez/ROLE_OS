@@ -109,6 +109,9 @@ def adopt(item_id: str, payload: AdoptRequest = Body(default_factory=AdoptReques
         business_value=payload.business_value,
         status=payload.status,
         tags=payload.tags,
+        domain=payload.domain,
+        client_name=payload.client_name,
+        kind=payload.kind,
     )
     if item is None:
         raise HTTPException(status_code=404, detail="discovered project not found")
@@ -133,7 +136,10 @@ def unignore(item_id: str):
 
 @router.patch("/discovered/{item_id}", response_model=WorkspaceItem)
 def update(item_id: str, payload: OverlayUpdate):
-    item = service.update_item(item_id, payload.model_dump(exclude_unset=True))
+    try:
+        item = service.update_item(item_id, payload.model_dump(exclude_unset=True))
+    except ValueError as exc:  # classification rule violated (e.g. client_name w/o CLIENTES)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if item is None:
         raise HTTPException(status_code=404, detail="discovered project not found")
     return item

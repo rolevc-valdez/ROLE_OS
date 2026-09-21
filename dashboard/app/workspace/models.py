@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.workspace import classification
 
 
 class RescanRequest(BaseModel):
@@ -12,14 +14,46 @@ class RescanRequest(BaseModel):
     max_depth: int = 2
 
 
-class AdoptRequest(BaseModel):
+class _ClassificationFields(BaseModel):
+    """Phase 3 Task 2: validated at the API boundary (a bad value is a 422,
+    never a silently-stored guess). All optional, so existing clients that
+    send none of them behave exactly as before."""
+
+    domain: str | None = None
+    client_name: str | None = None
+    kind: str | None = None
+
+    @field_validator("domain")
+    @classmethod
+    def _check_domain(cls, value):
+        return classification.normalize_domain(value)
+
+    @field_validator("kind")
+    @classmethod
+    def _check_kind(cls, value):
+        return None if value is None else classification.normalize_kind(value)
+
+    @field_validator("client_name")
+    @classmethod
+    def _check_client_name(cls, value):
+        return classification.normalize_client_name(value)
+
+
+class AdoptRequest(_ClassificationFields):
     priority: str = "medium"
     business_value: str = "medium"
     status: str = "active"
     tags: list[str] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _client_needs_clientes(self):
+        classification.check_client_for_domain(self.domain, self.client_name)
+        return self
 
-class OverlayUpdate(BaseModel):
+
+class OverlayUpdate(_ClassificationFields):
+    # For a PATCH the cross-field rule (client_name vs. the *stored* domain)
+    # is enforced in `workspace.db.update_overlay`, which can see the row.
     priority: str | None = None
     business_value: str | None = None
     status: str | None = None
@@ -78,6 +112,12 @@ class WorkspaceItem(BaseModel):
     tags: list[str]
     notes: list[dict]
     adopted_at: str | None
+
+    # Phase 3 Task 2: work classification. `domain`/`client_name` are None
+    # until Role classifies the item; `kind` defaults to "project".
+    domain: str | None = None
+    client_name: str | None = None
+    kind: str = "project"
 
     # Sprint 3: project-boundary / hierarchy (§1 of the brief). Computed by
     # the Discovery Engine; never altered by a user override.

@@ -49,6 +49,7 @@ from app.project_context.health import health_tier
 from app.projects import db as projects_db
 from app.workspace import advisor as workspace_advisor
 from app.workspace import assets_index, service
+from app.workspace.classification import is_completed_status
 from app.workspace import resume as resume_workflow
 
 _EMPTY_AI_SUMMARY = {"sessions": [], "latest_session": None, "latest_snapshot": None}
@@ -313,6 +314,15 @@ def _assemble(
         "workspace": (project or {}).get("workspace")
         or ("Discovered" if enriched_item else "Products"),
         "status": (project or {}).get("status") or (enriched_item or {}).get("status"),
+        # Phase 3 Task 2: work classification (overlay-owned) and the one
+        # canonical "is this finished work?" flag. Completed if EITHER
+        # status source says so -- `status` above prefers the PI project's
+        # value, so checking only it would miss a completed adoption overlay.
+        "domain": (enriched_item or {}).get("domain"),
+        "client_name": (enriched_item or {}).get("client_name"),
+        "kind": (enriched_item or {}).get("kind") or "project",
+        "is_completed": is_completed_status((project or {}).get("status"))
+        or is_completed_status((enriched_item or {}).get("status")),
         "health": health_tier(health_score),
         "health_score": health_score,
         "health_score_source": health_score_source,
