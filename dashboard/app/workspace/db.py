@@ -1,7 +1,8 @@
 """SQLite persistence for Workspace Adoption.
 
-Two tables, both intentionally minimal -- see `app.workspace.__init__`'s
-"do not duplicate discovery metadata" rule. Schema creation is idempotent
+Three tables, all intentionally minimal -- see `app.workspace.__init__`'s
+"do not duplicate discovery metadata" rule (the scan cache, the adoption
+overlay, and -- Phase 3 Task 4 -- explicitly registered project folders). Schema creation is idempotent
 and runs on every connection, same convention as `app.projects.db`.
 """
 
@@ -42,6 +43,24 @@ CREATE TABLE IF NOT EXISTS adopted_projects (
     adopted_at TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- Phase 3 Task 4 (Explicit Project Registration): folders Role registered
+-- by path, outside every Discovery root. `path_key` is the case/slash-
+-- insensitive comparison key (one registration per real directory).
+-- `snapshot_json` caches that one folder's Discovery analysis, exactly like
+-- `workspace_scan_cache.result_json` caches a root scan; it is refreshed on
+-- every rescan. Registration never implies adoption -- that remains the
+-- `adopted_projects` overlay's job.
+CREATE TABLE IF NOT EXISTS registered_projects (
+    id TEXT PRIMARY KEY,
+    root_path TEXT NOT NULL,
+    path_key TEXT UNIQUE NOT NULL,
+    source TEXT NOT NULL DEFAULT 'explicit',
+    registered_at TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    snapshot_at TEXT NOT NULL,
+    last_error TEXT
 );
 """
 
@@ -409,3 +428,84 @@ def add_note(
         )
         conn.commit()
     return get_overlay(item_id, settings)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Task 4: explicitly registered project folders
+# ---------------------------------------------------------------------------
+
+
+def _registration_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    data = dict(row)
+    data["snapshot"] = json.loads(data.pop("snapshot_json"))
+    return data
+
+
+def list_registrations(settings: Settings | None = None) -> list[dict[str, Any]]:
+    with get_connection(settings) as conn:
+        rows = conn.execute("SELECT * FROM registered_projects ORDER BY registered_at").fetchall()
+    return [_registration_row_to_dict(row) for row in rows]
+
+
+def get_registration_by_key(path_key: str, settings: Settings | None = None) -> dict[str, Any] | None:
+    with get_connection(settings) as conn:
+        row = conn.execute(
+            "SELECT * FROM registered_projects WHERE path_key = ?", (path_key,)
+        ).fetchone()
+    return _registration_row_to_dict(row) if row else None
+
+
+def get_registration(item_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
+    with get_connection(settings) as conn:
+        row = conn.execute("SELECT * FROM registered_projects WHERE id = ?", (item_id,)).fetchone()
+    return _registration_row_to_dict(row) if row else None
+
+
+def insert_registration(
+    item_id: str,
+    root_path: str,
+    path_key: str,
+    snapshot: dict[str, Any],
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    ts = now_iso()
+    with get_connection(settings) as conn:
+        conn.execute(
+            """
+            INSERT INTO registered_projects (
+                id, root_path, path_key, source, registered_at, snapshot_json, snapshot_at, last_error
+            ) VALUES (?, ?, ?, 'explicit', ?, ?, ?, NULL)
+            """,
+            (item_id, root_path, path_key, ts, json.dumps(snapshot), ts),
+        )
+        conn.commit()
+    return get_registration(item_id, settings)
+
+
+def update_registration_snapshot(
+    item_id: str,
+    *,
+    snapshot: dict[str, Any] | None,
+    error: str | None,
+    settings: Settings | None = None,
+) -> None:
+    """A successful refresh replaces the snapshot; a failed one (folder
+    moved/unreadable) keeps the last good snapshot and records why."""
+    with get_connection(settings) as conn:
+        if snapshot is not None:
+            conn.execute(
+                "UPDATE registered_projects SET snapshot_json = ?, snapshot_at = ?, last_error = NULL WHERE id = ?",
+                (json.dumps(snapshot), now_iso(), item_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE registered_projects SET last_error = ? WHERE id = ?", (error, item_id)
+            )
+        conn.commit()
+
+
+def delete_registration(item_id: str, settings: Settings | None = None) -> bool:
+    with get_connection(settings) as conn:
+        cur = conn.execute("DELETE FROM registered_projects WHERE id = ?", (item_id,))
+        conn.commit()
+    return cur.rowcount > 0

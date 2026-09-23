@@ -14,6 +14,12 @@ class RescanRequest(BaseModel):
     max_depth: int = 2
 
 
+class RegisterPathRequest(BaseModel):
+    """Phase 3 Task 4: one explicit project folder path (inspect/register)."""
+
+    path: str = ""
+
+
 class _ClassificationFields(BaseModel):
     """Phase 3 Task 2: validated at the API boundary (a bad value is a 422,
     never a silently-stored guess). All optional, so existing clients that

@@ -18,7 +18,7 @@ from app.discovery.next_action import extract_next_action
 from app.discovery.roots import resolve_roots
 from app.discovery.service import run_audit
 from app.projects import db as projects_db
-from app.workspace import activity, advisor, assets_index, db, identity, portfolio
+from app.workspace import activity, advisor, assets_index, db, identity, portfolio, registration
 from app.workspace import resume as resume_workflow
 
 
@@ -77,6 +77,9 @@ def rescan(
 
     if len(target_roots) == 1:
         _rescan_single_root(settings, target_roots[0], max_depth)
+        # Phase 3 Task 4: explicitly registered folders are refreshed on
+        # every rescan, independently of which roots were scanned.
+        registration.refresh_all(settings)
         return get_summary(settings)
 
     resolution = resolve_roots(target_roots)
@@ -110,12 +113,22 @@ def rescan(
         projects=merged_projects,
         settings=settings,
     )
+    registration.refresh_all(settings)
     return get_summary(settings)
 
 
 def _cached_projects(settings: Settings | None = None) -> list[dict[str, Any]]:
+    """Every folder Workspace knows about: the last root scan, plus
+    (Phase 3 Task 4) each explicitly registered folder's own cached
+    analysis. A registered folder that a root scan also found (same
+    case/slash-insensitive path) appears once, as the discovered item."""
     cache = db.load_scan_cache(settings)
-    return cache["projects"] if cache else []
+    projects = list(cache["projects"]) if cache else []
+    discovered_keys = {registration.path_key(p["root_path"]) for p in projects}
+    for snapshot in registration.registered_snapshots(settings):
+        if registration.path_key(snapshot["root_path"]) not in discovered_keys:
+            projects.append(snapshot)
+    return projects
 
 
 def _default_overlay(item_id: str, root_path: str) -> dict[str, Any]:
@@ -185,6 +198,10 @@ def _merge(project: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
         "domain": overlay.get("domain"),
         "client_name": overlay.get("client_name"),
         "kind": overlay.get("kind") or "project",
+        # Phase 3 Task 4: how Role OS knows about this folder -- "discovery"
+        # (found under a configured root) or "explicit" (registered by path).
+        "registration_source": project.get("registration_source")
+        or registration.REGISTRATION_SOURCE_DISCOVERY,
         # Sprint 3: project-boundary/hierarchy fields, as computed by the
         # Discovery Engine (never altered by an override).
         "item_kind": project.get("item_kind", "unknown"),
@@ -442,7 +459,7 @@ def get_summary(settings: Settings | None = None) -> dict[str, Any]:
     settings = settings or get_settings()
     cache = db.load_scan_cache(settings)
     overlays = db.list_overlays(settings)
-    cached_ids = {discovery_id(p["root_path"]) for p in (cache["projects"] if cache else [])}
+    cached_ids = {discovery_id(p["root_path"]) for p in _cached_projects(settings)}
     adopted = sum(1 for i, o in overlays.items() if o["adopted"] and i in cached_ids)
     ignored = sum(1 for i, o in overlays.items() if o["ignored"] and i in cached_ids)
     return {
@@ -451,6 +468,7 @@ def get_summary(settings: Settings | None = None) -> dict[str, Any]:
         "projects_found": cache["project_count"] if cache else 0,
         "projects_adopted": adopted,
         "projects_ignored": ignored,
+        "projects_registered": len(db.list_registrations(settings)),
     }
 
 

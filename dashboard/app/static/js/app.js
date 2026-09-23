@@ -5584,14 +5584,18 @@
     </table>`;
   }
 
-  function renderWorkspacePageHtml(summary, items) {
+  function renderWorkspacePageHtml(summary, items, registrations) {
     return `
       <div class="section-heading">
         <h2>Workspace</h2>
-        <button type="button" class="btn btn-sm btn-primary" id="workspace-rescan-btn">Rescan Workspace</button>
+        <span>
+          <button type="button" class="btn btn-sm" id="workspace-register-btn">Register Project</button>
+          <button type="button" class="btn btn-sm btn-primary" id="workspace-rescan-btn">Rescan Workspace</button>
+        </span>
       </div>
       ${renderWorkspaceSummaryCardsHtml(summary)}
       <p id="workspace-root-line" class="card-muted u-mb-2">Scanning: ${escapeHtml(summary.root || "not configured")}</p>
+      ${renderRegisteredProjectsHtml(registrations || [])}
       <div id="workspace-status"></div>
       ${renderWorkspaceFilterTabsHtml()}
       <div id="workspace-table-container">${renderWorkspaceTableHtml(items)}</div>`;
@@ -5710,8 +5714,216 @@
     }
   }
 
+  // =======================================================================
+  // EXPLICIT PROJECT REGISTRATION (Phase 3 Task 4)
+  //
+  // REGISTER -> INSPECT -> REVIEW -> ADOPT. A plain text path input (a
+  // browser page cannot safely open a native Windows folder picker).
+  // Registering only makes Role OS know the folder; adopting it stays a
+  // separate, explicit click on the existing adopt endpoint, and no
+  // domain/kind is ever guessed.
+  // =======================================================================
+
+  async function registrationRequest(url, options) {
+    const resp = await fetch(url, options);
+    const body = await resp.json().catch(() => null);
+    if (!resp.ok) {
+      const detail = body && body.detail;
+      const message = (detail && (detail.message || (typeof detail === "string" ? detail : null))) || resp.statusText;
+      throw new Error(message);
+    }
+    return body;
+  }
+
+  function registrationJSON(url, payload) {
+    return registrationRequest(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  }
+
+  const REGISTRATION_STATUS_LABELS = {
+    not_registered: "Not registered",
+    registered: "Registered (explicit)",
+    discovered_via_root: "Already found by Discovery",
+  };
+  const ADOPTION_STATUS_LABELS = { adopted: "Adopted", not_adopted: "Not adopted", ignored: "Ignored" };
+
+  function renderRegisteredProjectsHtml(registrations) {
+    if (!registrations.length) return "";
+    const rows = registrations
+      .map(
+        (r) => `
+        <tr>
+          <td>${escapeHtml(r.name || "")}</td>
+          <td class="card-muted">${escapeHtml(r.path)}</td>
+          <td>${escapeHtml(ADOPTION_STATUS_LABELS[r.adoption_status] || r.adoption_status)}</td>
+          <td class="card-muted">${r.last_error ? `⚠ ${escapeHtml(r.last_error)}` : formatDate(r.registered_at)}</td>
+          <td>
+            <button type="button" class="link-btn" data-registration-review="${escapeHtml(r.path)}">Review</button>
+            ${
+              r.adoption_status === "adopted"
+                ? ""
+                : `<button type="button" class="link-btn" data-registration-unregister="${escapeHtml(r.item_id)}">Unregister</button>`
+            }
+          </td>
+        </tr>`
+      )
+      .join("");
+    return `
+      <div class="card u-mb-3" id="workspace-registered-projects">
+        <p class="card-muted"><strong>Registered project folders</strong> — added by path, outside the Discovery roots</p>
+        <table class="explorer-table">
+          <thead><tr><th>Name</th><th>Folder</th><th>Adoption</th><th>Registered</th><th>Actions</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function registrationReviewHtml(review) {
+    if (!review.valid) {
+      return `<p class="error-box u-mt-2">${escapeHtml(review.error ? review.error.message : "Invalid path")}</p>`;
+    }
+    const yesNo = (v) => (v ? "YES" : "NO");
+    const manifests = (review.manifests || []).length ? review.manifests.join(", ") : "none detected";
+    const identity = review.canonical_project_id
+      ? `Role OS project <code>${escapeHtml(review.canonical_project_id)}</code>`
+      : `none yet (workspace id <code>${escapeHtml(review.item_id)}</code>)`;
+    let action = "";
+    if (review.registration_status === "not_registered") {
+      action = `<button type="button" class="btn btn-sm btn-primary" id="registration-register-btn">Register</button>
+        <p class="card-muted u-mt-1">Registering only makes Role OS aware of this folder. It is not adopted and will not appear in Mission Control until you adopt it.</p>`;
+    } else if (review.registration_status === "discovered_via_root") {
+      action = '<p class="card-muted">This folder is already found by Discovery — review or adopt it from the Workspace list.</p>';
+    } else if (review.adoption_status !== "adopted") {
+      action = `
+        <p class="card-muted"><strong>Adopt</strong> (optional classification — nothing is guessed):</p>
+        <label class="card-muted">Domain
+          <select id="registration-domain">
+            <option value="">Unclassified</option>
+            ${["KONTOOR", "UNGER", "ROLE PERSONAL", "CLIENTES"].map((d) => `<option value="${d}">${d}</option>`).join("")}
+          </select>
+        </label>
+        <label class="card-muted">Kind
+          <select id="registration-kind"><option value="project">project</option><option value="tool">tool</option></select>
+        </label>
+        <label class="card-muted">Client <input type="text" id="registration-client" placeholder="only for CLIENTES" /></label>
+        <div class="u-mt-2">
+          <button type="button" class="btn btn-sm btn-primary" id="registration-adopt-btn" data-item-id="${escapeHtml(review.item_id)}">Adopt</button>
+          <button type="button" class="btn btn-sm" id="registration-unregister-btn" data-item-id="${escapeHtml(review.item_id)}">Unregister</button>
+        </div>`;
+    }
+    return `
+      <table class="kv-table u-mt-2">
+        <tr><td>Name</td><td>${escapeHtml(review.name || "")}</td></tr>
+        <tr><td>Path</td><td>${escapeHtml(review.path)}</td></tr>
+        <tr><td>Git repository</td><td>${yesNo(review.is_git_repo)}${review.git_branch ? ` (branch ${escapeHtml(review.git_branch)})` : ""}</td></tr>
+        <tr><td>Remote</td><td>${escapeHtml(review.git_remote || "—")}</td></tr>
+        <tr><td>Last commit</td><td>${review.git_last_commit_date ? `${formatDate(review.git_last_commit_date)} — ${escapeHtml(review.git_last_commit_message || "")}` : "—"}</td></tr>
+        <tr><td>Detected manifest</td><td>${escapeHtml(manifests)}</td></tr>
+        <tr><td>Existing Role OS identity</td><td>${identity}</td></tr>
+        <tr><td>Registration status</td><td>${escapeHtml(REGISTRATION_STATUS_LABELS[review.registration_status] || review.registration_status)}</td></tr>
+        <tr><td>Adoption status</td><td>${escapeHtml(ADOPTION_STATUS_LABELS[review.adoption_status] || review.adoption_status)}</td></tr>
+      </table>
+      ${review.inside_known_project ? `<p class="card-muted u-mt-1">⚠ This folder is inside a project Role OS already knows: ${escapeHtml(review.inside_known_project)}</p>` : ""}
+      <div class="u-mt-2">${action}</div>`;
+  }
+
+  function openRegisterProjectDialog(initialPath) {
+    detailOverlay.hidden = false;
+    detailBody.innerHTML = `
+      <h3>Register Project</h3>
+      <p class="card-muted">Enter the full path of one project folder. Only that folder is inspected — its parent is never scanned.</p>
+      <label class="card-muted" for="registration-path">Project folder:</label>
+      <input type="text" id="registration-path" class="u-mt-1" style="width:100%" placeholder="C:\\Users\\you\\my-project" value="${escapeHtml(initialPath || "")}" />
+      <div class="u-mt-2"><button type="button" class="btn btn-sm btn-primary" id="registration-validate-btn">Validate</button></div>
+      <div id="registration-review"></div>`;
+    const input = detailBody.querySelector("#registration-path");
+    const reviewEl = detailBody.querySelector("#registration-review");
+
+    async function validate() {
+      reviewEl.innerHTML = '<p class="muted u-mt-2">Inspecting folder…</p>';
+      try {
+        const review = await registrationJSON("/workspace/registrations/inspect", { path: input.value });
+        reviewEl.innerHTML = registrationReviewHtml(review);
+        wireReview(review);
+      } catch (err) {
+        reviewEl.innerHTML = `<p class="error-box u-mt-2">Could not inspect: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function wireReview(review) {
+      const registerBtn = reviewEl.querySelector("#registration-register-btn");
+      if (registerBtn) {
+        registerBtn.addEventListener("click", async () => {
+          registerBtn.disabled = true;
+          try {
+            await registrationJSON("/workspace/registrations", { path: review.path });
+            showToast("Project registered (not adopted)");
+            await validate();
+            renderWorkspacePage();
+          } catch (err) {
+            registerBtn.disabled = false;
+            showToast(`Could not register: ${err.message}`);
+          }
+        });
+      }
+      const adoptBtn = reviewEl.querySelector("#registration-adopt-btn");
+      if (adoptBtn) {
+        adoptBtn.addEventListener("click", async () => {
+          const domain = reviewEl.querySelector("#registration-domain").value || null;
+          const client = reviewEl.querySelector("#registration-client").value.trim();
+          const payload = { kind: reviewEl.querySelector("#registration-kind").value };
+          if (domain) payload.domain = domain;
+          if (domain === "CLIENTES" && client) payload.client_name = client;
+          try {
+            await postJSON(`/workspace/discovered/${encodeURIComponent(adoptBtn.dataset.itemId)}/adopt`, payload);
+            showToast("Project adopted");
+            await validate();
+            renderWorkspacePage();
+          } catch (err) {
+            showToast(`Could not adopt: ${err.message}`);
+          }
+        });
+      }
+      const unregisterBtn = reviewEl.querySelector("#registration-unregister-btn");
+      if (unregisterBtn) {
+        unregisterBtn.addEventListener("click", async () => {
+          detailOverlay.hidden = true;
+          await unregisterProject(unregisterBtn.dataset.itemId);
+        });
+      }
+    }
+
+    detailBody.querySelector("#registration-validate-btn").addEventListener("click", validate);
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") validate();
+    });
+    if (initialPath) validate();
+    else input.focus();
+  }
+
+  async function unregisterProject(itemId) {
+    try {
+      await registrationRequest(`/workspace/registrations/${encodeURIComponent(itemId)}`, { method: "DELETE" });
+      showToast("Registration removed — the folder itself was not touched");
+      await renderWorkspacePage();
+    } catch (err) {
+      showToast(`Could not unregister: ${err.message}`);
+    }
+  }
+
   function wireWorkspacePageActions() {
     const statusEl = document.getElementById("workspace-status");
+    const registerBtn = document.getElementById("workspace-register-btn");
+    if (registerBtn) registerBtn.addEventListener("click", () => openRegisterProjectDialog(""));
+    document.querySelectorAll("[data-registration-review]").forEach((el) => {
+      el.addEventListener("click", () => openRegisterProjectDialog(el.dataset.registrationReview));
+    });
+    document.querySelectorAll("[data-registration-unregister]").forEach((el) => {
+      el.addEventListener("click", () => unregisterProject(el.dataset.registrationUnregister));
+    });
     const rescanBtn = document.getElementById("workspace-rescan-btn");
     if (rescanBtn) {
       rescanBtn.addEventListener("click", async () => {
@@ -5797,11 +6009,12 @@
 
   async function renderWorkspacePage() {
     viewRoot.innerHTML = '<p class="muted loading-pulse">Loading…</p>';
-    const [summary, items] = await Promise.all([
+    const [summary, items, registrations] = await Promise.all([
       fetchJSON("/workspace/summary"),
       fetchWorkspaceFilterItems(workspaceActiveFilter),
+      fetchJSON("/workspace/registrations").catch(() => []),
     ]);
-    viewRoot.innerHTML = renderWorkspacePageHtml(summary, items);
+    viewRoot.innerHTML = renderWorkspacePageHtml(summary, items, registrations);
     wireWorkspacePageActions();
   }
 

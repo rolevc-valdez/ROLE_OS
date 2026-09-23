@@ -14,7 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Body, HTTPException
 
 from app.project_context.builder import build_project_context, build_project_contexts_for_workspace
-from app.workspace import service
+from app.workspace import registration, service
 from app.workspace.models import (
     AdoptRequest,
     LaunchClaudeCodeRequest,
@@ -22,6 +22,7 @@ from app.workspace.models import (
     NoteCreate,
     OverlayUpdate,
     OverrideRequest,
+    RegisterPathRequest,
     RescanRequest,
     ResumeWorkRequest,
     ResumeWorkResult,
@@ -332,3 +333,53 @@ def get_activity(limit: int = 50, project_id: str | None = None):
     scope to one project -- previously there was no server-side way to do
     this; callers fetched the entire feed and filtered client-side."""
     return service.list_activity_feed(limit=limit, project_id=project_id)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Task 4 (Explicit Project Registration): REGISTER -> INSPECT ->
+# REVIEW -> ADOPT. Registration only makes Role OS *know* one folder; the
+# existing `/discovered/{id}/adopt` endpoint remains the only way to adopt.
+# ---------------------------------------------------------------------------
+
+_REGISTRATION_CONFLICT_CODES = ("already_registered", "already_discovered", "has_workspace_data")
+
+
+def _registration_http_error(exc: registration.RegistrationError) -> HTTPException:
+    if exc.code == "not_registered":
+        status = 404
+    elif exc.code in _REGISTRATION_CONFLICT_CODES:
+        status = 409
+    else:
+        status = 400
+    return HTTPException(status_code=status, detail={"code": exc.code, "message": exc.message})
+
+
+@router.post("/registrations/inspect")
+def inspect_registration(payload: RegisterPathRequest):
+    """VALIDATE + INSPECT a folder path. Read-only -- persists nothing.
+    Always 200: an unusable path comes back as `valid: false` + `error`."""
+    return registration.inspect_path(payload.path)
+
+
+@router.get("/registrations")
+def list_registrations():
+    return registration.list_registered()
+
+
+@router.post("/registrations", status_code=201)
+def register(payload: RegisterPathRequest):
+    """REGISTER exactly this folder. Never adopts or classifies it."""
+    try:
+        return registration.register_path(payload.path)
+    except registration.RegistrationError as exc:
+        raise _registration_http_error(exc) from exc
+
+
+@router.delete("/registrations/{item_id}")
+def unregister(item_id: str):
+    """Forget the registration only -- the folder itself is never touched.
+    409 while the item is adopted or has Role OS data attached."""
+    try:
+        return registration.unregister(item_id)
+    except registration.RegistrationError as exc:
+        raise _registration_http_error(exc) from exc

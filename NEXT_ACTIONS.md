@@ -4,11 +4,13 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.4 — Explicit Project Registration.**
+**Primary next action (the only one): Phase 3 — Task P3.5 — External Project Manifest / `ROLE_PROJECT.md`.**
 
-**NOT STARTED. Requires Role's go-ahead.** Scope (see `docs/ROLE_OS_2_PHASE_3_SCOPE.md`): let isolated repositories (e.g. `C:\Users\rolev\bolsa-de-trabajo`, later FERREVOLT / Kontoor / Unger work) be intentionally registered by path — validate, review, then adopt explicitly — without widening Discovery roots to the whole user profile. Discovery and Adoption stay separate. Registered items should be able to receive `domain` / `client_name` / `kind` (P3.2) so they show up in the Daily Command Center (P3.3).
+**NOT STARTED. Requires Role's go-ahead.** P3.4 (Explicit Project Registration) is COMPLETE — see `docs/PHASE_3_TASK_4_EXPLICIT_PROJECT_REGISTRATION.md`. P3.4 only *reports* when a `ROLE_PROJECT.md` exists in a registered/inspected folder; defining its schema and ingesting it is P3.5.
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1, P3.2 and P3.3 COMPLETE. Do not repeat them.
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1, P3.2, P3.3 and P3.4 COMPLETE. Do not repeat them.
+
+**Pending Role decision (not a task):** bolsa-de-trabajo is registered but NOT adopted. Adopt it (Workspace → Registered project folders → Review → Adopt, choosing a domain or leaving it Unclassified) only when Role decides. Registering FERREVOLT / Kontoor / Unger / tools uses the same Register Project flow — only on Role's instruction.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 
@@ -16,7 +18,7 @@ Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1, P3.2 and P3.
 - Whether to actually set `ROLE_OS_DISCOVERY_ROOTS` in any real running configuration, which of the 6 real, un-adopted projects (5 of which are now confirmed discoverable once it is set) to include, and whether to adopt any of them — **DO NOT ADOPT YET**; Task 2.1 only built and validated the capability, it did not enable it or adopt anything.
 - The Advisor vs. Operational Intelligence/Executive Decision overlap — **DEFER**; do not redesign or remove Advisor in Phase 2.
 - `pi_ai_workspace` — review complete (`docs/PHASE_2_PI_AI_WORKSPACE_REVIEW.md`): Legacy + Current, recommended for future deprecation. **Deprecation marking and removal are both a separate, not-yet-approved task** — no action taken here beyond the analysis itself.
-- Whether to design/implement an explicit-project-registration Discovery mechanism (for isolated repositories like `bolsa-de-trabajo` that sit directly under a broad, mixed-use parent like the user home directory) — **NOT SCOPED**, noted as a future Discovery enhancement only (`docs/PHASE_2_MISSION_CONTROL_DAILY_USE_REVIEW.md`, "Discovery / Isolated Repository Note"); not part of Phase 2.
+- ~~Explicit project registration mechanism~~ — **DONE in P3.4.** Adopting bolsa-de-trabajo, and registering any other project, remain Role's decisions.
 
 ## Do Not Do Yet
 
