@@ -4,13 +4,18 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding.**
+**Primary next action (the only one): finish Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding. IN PROGRESS — WAITING FOR ROLE INPUT.**
 
-**NOT STARTED. Requires Role's go-ahead.** Purpose: with Role, add a SMALL number of Role's real external projects/tools (Workspace → **Add External Work**; local folders via **Register Project**) and validate the complete daily experience in the Daily Command Center before any Windows autostart work. Candidates only on Role's explicit approval, item by item: yt-dlp, Cobalt, a Kontoor Chrome bookmarklet, a Claude Web or ChatGPT project, and the decision whether to adopt bolsa-de-trabajo.
+Done: bolsa-de-trabajo adopted (ROLE PERSONAL / project / active); yt-dlp onboarded as a tool (source `other`); Daily Command Center validated with real data; friction logged (`docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`).
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1–P3.5 COMPLETE (P3.5: `docs/PHASE_3_TASK_5_UNIVERSAL_INGESTION.md`). Do not repeat them. Windows startup comes only after P3.6.
+**Role, please add (Workspace → Add External Work → Review → Save):**
 
-**Pending Role decisions (not tasks):** adopt bolsa-de-trabajo or not (it is registered, not adopted); which real external items to add first. `ROLE_PROJECT.md` import remains deferred (schema designed in the P3.5 doc).
+1. **One real KONTOOR project that lives in Claude Web** — Name; Kind `project`; Domain `KONTOOR`; Source `Claude Web`; URL of the Claude project/conversation (if any); Status; Priority; Purpose/notes; Next action.
+2. **One real KONTOOR reusable script/bookmarklet/tool** — Name; Kind `tool`; Domain `KONTOOR`; Source that matches reality (`Chrome bookmark` / `Claude Web` / `Web` / `Other`); URL if it has a normal http(s) link, otherwise a Reference saying where it lives; Status; Priority; Purpose/notes. Never paste bookmarklet code or credentials.
+
+Then: re-run the 30-second test with KONTOOR data and close P3.6. Status: Phase 3 IN PROGRESS — P3.1–P3.5 COMPLETE. Windows startup only after P3.6 closes (and after Role decides on the HIGH VALUE friction items).
+
+**Role decisions pending (not tasks):** "Role Test Project" test data shown in Needs Attention (clean up or keep?); the role-ecosystem snapshot that describes ROLE Commerce Factory (re-snapshot or correct?); whether to rescan the Workspace (scan is 344 h old); whether to approve a small follow-up for the HIGH VALUE friction items.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 
