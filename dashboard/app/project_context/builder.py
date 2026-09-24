@@ -324,6 +324,12 @@ def _assemble(
         "domain": (enriched_item or {}).get("domain"),
         "client_name": (enriched_item or {}).get("client_name"),
         "kind": (enriched_item or {}).get("kind") or "project",
+        # Phase 3 Task 5: where the work lives / how to open it. External
+        # URLs are user-provided pointers, never fetched.
+        "source": (enriched_item or {}).get("source") or "local",
+        "is_external": bool((enriched_item or {}).get("is_external")),
+        "external_url": (enriched_item or {}).get("external_url"),
+        "external_reference": (enriched_item or {}).get("external_reference"),
         "is_completed": is_completed_status((project or {}).get("status"))
         or is_completed_status((enriched_item or {}).get("status")),
         "health": health_tier(health_score),

@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings, get_settings
-from app.workspace import classification
+from app.workspace import classification, external
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspace_scan_cache (
@@ -110,10 +110,25 @@ _PHASE3_COLUMNS = (
     ("kind", "ALTER TABLE adopted_projects ADD COLUMN kind TEXT NOT NULL DEFAULT 'project'"),
 )
 
+# Phase 3 Task 5 (universal ingestion): additive, all NULL for every
+# existing row. `source` NULL = legacy local folder (resolved to "local" at
+# read time, never back-filled). `display_name`/`external_url`/
+# `external_reference` are only set for external managed work (rows whose
+# `root_path` is an `external:` identity key, see `app.workspace.external`).
+# `next_action` is Role's own recorded next step -- the only next-action
+# source that exists for work with no folder to read NEXT_ACTION.md from.
+_PHASE3_5_COLUMNS = (
+    ("source", "ALTER TABLE adopted_projects ADD COLUMN source TEXT"),
+    ("display_name", "ALTER TABLE adopted_projects ADD COLUMN display_name TEXT"),
+    ("external_url", "ALTER TABLE adopted_projects ADD COLUMN external_url TEXT"),
+    ("external_reference", "ALTER TABLE adopted_projects ADD COLUMN external_reference TEXT"),
+    ("next_action", "ALTER TABLE adopted_projects ADD COLUMN next_action TEXT"),
+)
+
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
-    for _column, ddl in (*_SPRINT3_COLUMNS, *_SPRINT5_COLUMNS, *_PHASE3_COLUMNS):
+    for _column, ddl in (*_SPRINT3_COLUMNS, *_SPRINT5_COLUMNS, *_PHASE3_COLUMNS, *_PHASE3_5_COLUMNS):
         try:
             conn.execute(ddl)
         except sqlite3.OperationalError:
@@ -316,6 +331,25 @@ def update_overlay(
     allowed = {"priority", "business_value", "status"}
     set_clauses = []
     params: list[Any] = []
+    # Phase 3 Task 5: text/reference fields, validated before any write.
+    # A key present with `None`/blank clears it. Name/URL/reference only
+    # exist for external work -- a local folder's name comes from disk.
+    if "next_action" in patch:
+        set_clauses.append("next_action = ?")
+        params.append(external.normalize_text(patch["next_action"], "next action"))
+    external_fields = {"display_name", "external_url", "external_reference"} & set(patch)
+    if external_fields:
+        if not external.is_external_key(root_path):
+            raise ValueError("name/URL/reference can only be edited on external work")
+        if "display_name" in patch and patch["display_name"] is not None:
+            set_clauses.append("display_name = ?")
+            params.append(external.normalize_name(patch["display_name"]))
+        if "external_url" in patch:
+            set_clauses.append("external_url = ?")
+            params.append(external.normalize_url(patch["external_url"]))
+        if "external_reference" in patch:
+            set_clauses.append("external_reference = ?")
+            params.append(external.normalize_reference(patch["external_reference"]))
     with get_connection(settings) as conn:
         _ensure_overlay_row(conn, item_id, root_path)
         # Phase 3 Task 2: classification fields. A key present with `None`
@@ -509,3 +543,63 @@ def delete_registration(item_id: str, settings: Settings | None = None) -> bool:
         cur = conn.execute("DELETE FROM registered_projects WHERE id = ?", (item_id,))
         conn.commit()
     return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Task 5: external managed work (no local folder)
+# ---------------------------------------------------------------------------
+
+
+def create_external(
+    item_id: str,
+    key: str,
+    record: dict[str, Any],
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    """One explicit, already-validated Add External Work submission ->
+    one adopted overlay row. `record` comes from
+    `external.validate_external_work`; `key` is its `external:` identity."""
+    ts = now_iso()
+    notes = (
+        [{"id": new_id(), "text": record["purpose"], "created_at": ts}] if record.get("purpose") else []
+    )
+    with get_connection(settings) as conn:
+        conn.execute(
+            """
+            INSERT INTO adopted_projects (
+                id, root_path, adopted, ignored, priority, business_value, status,
+                tags, notes, adopted_at, created_at, updated_at,
+                domain, client_name, kind,
+                source, display_name, external_url, external_reference, next_action
+            ) VALUES (?, ?, 1, 0, ?, 'medium', ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                item_id,
+                key,
+                record["priority"],
+                record["status"],
+                json.dumps(notes),
+                ts,
+                ts,
+                ts,
+                record["domain"],
+                record["client_name"],
+                record["kind"],
+                record["source"],
+                record["name"],
+                record["external_url"],
+                record["external_reference"],
+                record["next_action"],
+            ),
+        )
+        conn.commit()
+    return get_overlay(item_id, settings)
+
+
+def list_external_overlays(settings: Settings | None = None) -> list[dict[str, Any]]:
+    with get_connection(settings) as conn:
+        rows = conn.execute(
+            "SELECT * FROM adopted_projects WHERE root_path LIKE ? ORDER BY created_at",
+            (external.EXTERNAL_KEY_PREFIX + "%",),
+        ).fetchall()
+    return [_overlay_row_to_dict(row) for row in rows]

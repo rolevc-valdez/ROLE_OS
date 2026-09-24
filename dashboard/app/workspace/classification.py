@@ -30,6 +30,27 @@ DEFAULT_KIND = "project"
 
 STATUS_COMPLETED = "completed"
 
+# Phase 3 Task 5 (universal ingestion): WHERE managed work primarily lives.
+# Orthogonal to `kind` (what it is) and `domain` (whose work it is) -- a
+# provider is never a domain. Stored lower-case, like `kind`. `local` is
+# only ever set for a real folder (Discovery or explicit registration); a
+# legacy row with no stored source resolves to `local` at read time.
+SOURCE_LOCAL = "local"
+SOURCES = ("local", "claude_web", "chatgpt", "chrome_bookmark", "github", "web", "other")
+EXTERNAL_SOURCES = tuple(s for s in SOURCES if s != SOURCE_LOCAL)
+
+
+def normalize_source(value: str | None, *, allow_local: bool = True) -> str:
+    """Case-insensitive match against `SOURCES` (hyphens/spaces tolerated);
+    unknown or blank values raise -- never coerced to a guess."""
+    cleaned = "_".join(str(value or "").strip().lower().replace("-", " ").split())
+    if not cleaned:
+        raise ValueError("source is required")
+    allowed = SOURCES if allow_local else EXTERNAL_SOURCES
+    if cleaned not in allowed:
+        raise ValueError(f"source must be one of {', '.join(allowed)} (got {value!r})")
+    return cleaned
+
 
 def normalize_domain(value: str | None) -> str | None:
     """`None`/blank -> `None` (unclassified). Otherwise a case-insensitive

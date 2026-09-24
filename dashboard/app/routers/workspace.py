@@ -17,6 +17,7 @@ from app.project_context.builder import build_project_context, build_project_con
 from app.workspace import registration, service
 from app.workspace.models import (
     AdoptRequest,
+    ExternalWorkCreate,
     LaunchClaudeCodeRequest,
     LaunchClaudeCodeResult,
     NoteCreate,
@@ -383,3 +384,21 @@ def unregister(item_id: str):
         return registration.unregister(item_id)
     except registration.RegistrationError as exc:
         raise _registration_http_error(exc) from exc
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 Task 5 (Universal Project & Tool Ingestion): ADD EXTERNAL WORK --
+# managed work with no local folder (Claude Web, ChatGPT, Chrome bookmark,
+# GitHub, web, other). `dry_run=true` is the review step (nothing saved).
+# The result is an ordinary adopted Workspace item: edit it with PATCH
+# /discovered/{id}, add notes, hide it with /ignore.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/external-work")
+def create_external_work(payload: ExternalWorkCreate, dry_run: bool = False):
+    try:
+        result = service.create_external_work(payload.model_dump(), dry_run=dry_run)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return result

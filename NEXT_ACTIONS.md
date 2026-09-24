@@ -4,13 +4,13 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.5 — External Project Manifest / `ROLE_PROJECT.md`.**
+**Primary next action (the only one): Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding.**
 
-**NOT STARTED. Requires Role's go-ahead.** P3.4 (Explicit Project Registration) is COMPLETE — see `docs/PHASE_3_TASK_4_EXPLICIT_PROJECT_REGISTRATION.md`. P3.4 only *reports* when a `ROLE_PROJECT.md` exists in a registered/inspected folder; defining its schema and ingesting it is P3.5.
+**NOT STARTED. Requires Role's go-ahead.** Purpose: with Role, add a SMALL number of Role's real external projects/tools (Workspace → **Add External Work**; local folders via **Register Project**) and validate the complete daily experience in the Daily Command Center before any Windows autostart work. Candidates only on Role's explicit approval, item by item: yt-dlp, Cobalt, a Kontoor Chrome bookmarklet, a Claude Web or ChatGPT project, and the decision whether to adopt bolsa-de-trabajo.
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1, P3.2, P3.3 and P3.4 COMPLETE. Do not repeat them.
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1–P3.5 COMPLETE (P3.5: `docs/PHASE_3_TASK_5_UNIVERSAL_INGESTION.md`). Do not repeat them. Windows startup comes only after P3.6.
 
-**Pending Role decision (not a task):** bolsa-de-trabajo is registered but NOT adopted. Adopt it (Workspace → Registered project folders → Review → Adopt, choosing a domain or leaving it Unclassified) only when Role decides. Registering FERREVOLT / Kontoor / Unger / tools uses the same Register Project flow — only on Role's instruction.
+**Pending Role decisions (not tasks):** adopt bolsa-de-trabajo or not (it is registered, not adopted); which real external items to add first. `ROLE_PROJECT.md` import remains deferred (schema designed in the P3.5 doc).
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

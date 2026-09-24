@@ -64,6 +64,30 @@ class OverlayUpdate(_ClassificationFields):
     business_value: str | None = None
     status: str | None = None
     tags: list[str] | None = None
+    # Phase 3 Task 5: validated in `workspace.db.update_overlay`
+    # (name/URL/reference only on external work; `null` clears).
+    next_action: str | None = None
+    display_name: str | None = None
+    external_url: str | None = None
+    external_reference: str | None = None
+
+
+class ExternalWorkCreate(BaseModel):
+    """Phase 3 Task 5: ADD EXTERNAL WORK. Validated by
+    `app.workspace.external.validate_external_work` (a bad value is a 422,
+    never a guess); only `name` and `source` are required."""
+
+    name: str = ""
+    kind: str | None = None
+    domain: str | None = None
+    client_name: str | None = None
+    source: str = ""
+    external_url: str | None = None
+    external_reference: str | None = None
+    status: str | None = None
+    priority: str | None = None
+    purpose: str | None = None
+    next_action: str | None = None
 
 
 class NoteCreate(BaseModel):
@@ -94,7 +118,8 @@ class WorkspaceItem(BaseModel):
 
     id: str
     name: str
-    root_path: str
+    # None for external managed work (Phase 3 Task 5) -- no local folder.
+    root_path: str | None
     parent_path: str | None
     depth: int
     classification: str

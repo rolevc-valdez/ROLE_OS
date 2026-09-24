@@ -249,6 +249,9 @@
     // #view-root is replaced on every navigation, so [data-nav] elements
     // inside it (e.g. a discovered-project card linking to the Workspace
     // page) are handled here via delegation instead.
+    // Phase 3 Task 5: an external work item's "Open" link (a user-provided
+    // URL, new tab) must open normally even inside a clickable card.
+    if (e.target.closest("a[data-external-link]")) return;
     const navLink = e.target.closest("[data-nav]");
     if (navLink) {
       e.preventDefault();
@@ -1300,6 +1303,32 @@
     return `<span class="dcc-domain-tag dcc-domain-${dccDomainSlug(item.domain)}">${escapeHtml(label)}${client}</span>`;
   }
 
+  // Phase 3 Task 5: WHERE external work lives (never a domain) and how to
+  // open it. The URL is a user-provided pointer, opened in a new tab --
+  // Role OS never fetches or reads it.
+  const SOURCE_LABELS = {
+    local: "Local",
+    claude_web: "Claude Web",
+    chatgpt: "ChatGPT",
+    chrome_bookmark: "Chrome bookmark",
+    github: "GitHub",
+    web: "Web",
+    other: "Other",
+  };
+
+  function externalOpenLinkHtml(item) {
+    if (!item.external_url) return "";
+    return `<a class="link-btn" data-external-link href="${escapeHtml(item.external_url)}" target="_blank" rel="noopener noreferrer">Open &#8599;</a>`;
+  }
+
+  function dccSourceHtml(item) {
+    if (!item.is_external) return "";
+    const reference = !item.external_url && item.external_reference
+      ? ` <span class="card-muted u-fs-12">${escapeHtml(item.external_reference)}</span>`
+      : "";
+    return `${badgeHtml(SOURCE_LABELS[item.source] || item.source)} ${externalOpenLinkHtml(item)}${reference}`;
+  }
+
   const DCC_BADGE_VARIANTS = {
     BLOCKED: "critical",
     PAUSED: "warning",
@@ -1372,7 +1401,7 @@
             <p class="card-muted">Recommended</p>
             <p class="card-title u-fs-20 u-clickable" ${mcProjectRef(top)}>${escapeHtml(top.display_name)}</p>
           </div>
-          <div class="dcc-badges">${dccDomainTagHtml(top)} ${dccBadgesHtml(top)}</div>
+          <div class="dcc-badges">${dccDomainTagHtml(top)} ${dccSourceHtml(top)} ${dccBadgesHtml(top)}</div>
         </div>
         ${dccStalenessNoteHtml(data.data_freshness)}
         <p class="card-muted u-mt-2">Next action</p>
@@ -1392,7 +1421,7 @@
         <div class="card">
           <p class="card-muted">Then</p>
           <p class="card-title u-clickable" ${mcProjectRef(o)}>${escapeHtml(o.display_name)}</p>
-          <div class="dcc-badges u-mt-1">${dccDomainTagHtml(o)} ${dccBadgesHtml(o)}</div>
+          <div class="dcc-badges u-mt-1">${dccDomainTagHtml(o)} ${dccSourceHtml(o)} ${dccBadgesHtml(o)}</div>
           <ul class="dcc-why u-mt-1">${(o.why || []).slice(0, 2).map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>
         </div>`
               )
@@ -1410,7 +1439,7 @@
       <div class="card">
         <div class="u-flex-between">
           <p class="card-title u-clickable" ${mcProjectRef(i)}>${escapeHtml(i.display_name)}</p>
-          ${dccDomainTagHtml(i)}
+          <span>${dccDomainTagHtml(i)} ${dccSourceHtml(i)}</span>
         </div>
         <p class="card-muted u-mt-2">Next action</p>
         <p>${dccNextActionHtml(i)}</p>
@@ -1439,7 +1468,7 @@
           <p class="card-title">${escapeHtml(i.display_name)}</p>
           ${i.health ? healthBadge(null, i.health) : ""}
         </div>
-        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)}</div>
+        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)} ${dccSourceHtml(i)}</div>
         <p class="card-muted u-fs-12 u-mt-1">${escapeHtml(fmtText(i.status))} &middot; ${formatDate(i.latest_activity)}</p>
         <div class="dcc-badges u-mt-1">${dccBadgesHtml(i)}</div>
       </div>`
@@ -1457,7 +1486,7 @@
     return `<ul class="activity-list">${rows
       .map(
         (i) =>
-          `<li><span class="u-clickable" ${mcProjectRef(i)}>${escapeHtml(i.display_name)}</span> ${dccDomainTagHtml(i)}${
+          `<li><span class="u-clickable" ${mcProjectRef(i)}>${escapeHtml(i.display_name)}</span> ${dccDomainTagHtml(i)} ${dccSourceHtml(i)}${
             i.kind === "tool" ? " " + badgeHtml("tool") : ""
           } <span class="card-muted u-fs-12">— last activity ${formatDate(i.latest_activity)}</span></li>`
       )
@@ -1476,7 +1505,7 @@
         (i) => `
       <div class="card u-clickable" ${mcProjectRef(i)}>
         <p class="card-title">${escapeHtml(i.display_name)}</p>
-        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)} ${badgeHtml("tool")}</div>
+        <div class="dcc-badges u-mt-1">${dccDomainTagHtml(i)} ${badgeHtml("tool")} ${dccSourceHtml(i)}</div>
         <p class="card-muted u-fs-12 u-mt-1">${escapeHtml(fmtText(i.status))}</p>
       </div>`
       )
@@ -5477,6 +5506,16 @@
       <button type="button" class="link-btn" data-workspace-review="${escapeHtml(item.id)}">Review</button>`;
   }
 
+  // Phase 3 Task 5: a folder path for local work; source + reference/Open
+  // link for external work (which has no folder).
+  function workspaceLocationHtml(item) {
+    if (!item.is_external) return escapeHtml(item.root_path || "");
+    const where = item.external_url
+      ? externalOpenLinkHtml(item)
+      : escapeHtml(item.external_reference || "no reference recorded");
+    return `${badgeHtml(SOURCE_LABELS[item.source] || item.source)} ${where}`;
+  }
+
   function renderWorkspaceChildRowHtml(child, parentId) {
     return `
       <tr data-workspace-row="${escapeHtml(child.id)}" data-workspace-child-of="${escapeHtml(parentId)}" class="workspace-child-row" hidden>
@@ -5511,7 +5550,7 @@
     const rows = [
       `<tr data-workspace-row="${escapeHtml(item.id)}">
         <td>${escapeHtml(item.name)}</td>
-        <td class="card-muted">${escapeHtml(item.root_path)}</td>
+        <td class="card-muted">${workspaceLocationHtml(item)}</td>
         <td>${escapeHtml(item.classification)}</td>
         <td>${workspaceGitLabel(item)}</td>
         <td>${item.health_score != null ? healthBadge(item.health_score, item.project_context && item.project_context.health) : "—"}</td>
@@ -5539,7 +5578,7 @@
     return `
       <tr data-workspace-row="${escapeHtml(item.id)}">
         <td>${escapeHtml(item.name)} <span class="badge">${escapeHtml(item.item_kind)}</span></td>
-        <td class="card-muted">${escapeHtml(item.root_path)}</td>
+        <td class="card-muted">${workspaceLocationHtml(item)}</td>
         <td class="card-muted">${escapeHtml(extraLabel(item))}</td>
         <td>${workspaceStatusBadge(item)}</td>
         <td>${workspaceActionsHtml(item)}</td>
@@ -5589,6 +5628,7 @@
       <div class="section-heading">
         <h2>Workspace</h2>
         <span>
+          <button type="button" class="btn btn-sm" id="workspace-external-btn">Add External Work</button>
           <button type="button" class="btn btn-sm" id="workspace-register-btn">Register Project</button>
           <button type="button" class="btn btn-sm btn-primary" id="workspace-rescan-btn">Rescan Workspace</button>
         </span>
@@ -5619,7 +5659,7 @@
       : "";
     return `
       <h3>${escapeHtml(item.name)} ${workspaceStatusBadge(item)}</h3>
-      <p class="card-muted">${escapeHtml(item.root_path)}</p>
+      <p class="card-muted">${workspaceLocationHtml(item)}</p>
       <div class="rec-card-meta u-mt-2">
         <span class="badge">boundary: ${escapeHtml(item.item_kind)}</span>
         <span class="badge">classification: ${escapeHtml(item.classification)}</span>
@@ -5904,6 +5944,133 @@
     else input.focus();
   }
 
+  // =======================================================================
+  // ADD EXTERNAL WORK (Phase 3 Task 5)
+  //
+  // Managed work with no local folder: a Claude Web / ChatGPT project, a
+  // Chrome bookmarklet, a GitHub-only repo, a web tool. FORM -> REVIEW
+  // (server dry run, nothing saved) -> SAVE. Role chooses kind, domain,
+  // client, source, status and priority; nothing is guessed. Role OS never
+  // reads the URL -- it is only a pointer Role can open.
+  // =======================================================================
+
+  const EXTERNAL_SOURCES = ["claude_web", "chatgpt", "chrome_bookmark", "github", "web", "other"];
+  const WORK_STATUSES = ["active", "paused", "blocked", "completed", "archived"];
+  const WORK_PRIORITIES = ["low", "medium", "high", "critical"];
+
+  function externalWorkFormHtml() {
+    const options = (values, labels) => values.map((v) => `<option value="${v}">${escapeHtml(labels ? labels[v] : v)}</option>`).join("");
+    return `
+      <h3>Add External Work</h3>
+      <p class="card-muted">For work that has no local folder — a Claude Web or ChatGPT project, a Chrome bookmarklet, a web tool. Local folders use <strong>Register Project</strong> instead.</p>
+      <table class="kv-table u-mt-2">
+        <tr><td><label for="ext-name">Name</label></td><td><input type="text" id="ext-name" style="width:100%" maxlength="200" /></td></tr>
+        <tr><td><label for="ext-kind">Kind</label></td><td><select id="ext-kind"><option value="project">project — goal / lifecycle work</option><option value="tool">tool — reusable capability</option></select></td></tr>
+        <tr><td><label for="ext-domain">Domain</label></td><td><select id="ext-domain"><option value="">Unclassified</option>${options(["KONTOOR", "UNGER", "ROLE PERSONAL", "CLIENTES"])}</select></td></tr>
+        <tr id="ext-client-row" hidden><td><label for="ext-client">Client</label></td><td><input type="text" id="ext-client" style="width:100%" /></td></tr>
+        <tr><td><label for="ext-source">Source</label></td><td><select id="ext-source"><option value="">Choose where it lives…</option>${options(EXTERNAL_SOURCES, SOURCE_LABELS)}</select></td></tr>
+        <tr><td><label for="ext-url">URL</label></td><td><input type="text" id="ext-url" style="width:100%" placeholder="https://… (optional)" /></td></tr>
+        <tr><td><label for="ext-reference">Reference</label></td><td><input type="text" id="ext-reference" style="width:100%" placeholder="Where to find it, e.g. Chrome bookmarks bar › Kontoor (optional)" /></td></tr>
+        <tr><td><label for="ext-status">Status</label></td><td><select id="ext-status">${options(WORK_STATUSES)}</select></td></tr>
+        <tr><td><label for="ext-priority">Priority</label></td><td><select id="ext-priority">${options(WORK_PRIORITIES)}</select></td></tr>
+        <tr><td><label for="ext-purpose">Purpose / notes</label></td><td><textarea id="ext-purpose" rows="2" style="width:100%" placeholder="What is this and why does it exist? (optional)"></textarea></td></tr>
+        <tr><td><label for="ext-next">Next action</label></td><td><input type="text" id="ext-next" style="width:100%" placeholder="Where did I leave off / what next? (optional)" /></td></tr>
+      </table>
+      <p class="card-muted u-fs-12 u-mt-1">Do not paste passwords, tokens or bookmarklet code. The URL is only a link for you to open — Role OS does not read its content.</p>
+      <div class="u-mt-2"><button type="button" class="btn btn-sm btn-primary" id="ext-review-btn">Review</button></div>
+      <div id="ext-review"></div>`;
+  }
+
+  function externalWorkPayload() {
+    const v = (id) => detailBody.querySelector(`#${id}`).value;
+    const domain = v("ext-domain") || null;
+    return {
+      name: v("ext-name"),
+      kind: v("ext-kind"),
+      domain,
+      client_name: domain === "CLIENTES" ? v("ext-client").trim() || null : null,
+      source: v("ext-source"),
+      external_url: v("ext-url").trim() || null,
+      external_reference: v("ext-reference").trim() || null,
+      status: v("ext-status"),
+      priority: v("ext-priority"),
+      purpose: v("ext-purpose").trim() || null,
+      next_action: v("ext-next").trim() || null,
+    };
+  }
+
+  function externalWorkReviewHtml(record) {
+    const row = (label, value) => `<tr><td>${escapeHtml(label)}</td><td>${value ? escapeHtml(value) : '<span class="muted">—</span>'}</td></tr>`;
+    return `
+      <p class="card-muted u-mt-2"><strong>Review before saving</strong></p>
+      <table class="kv-table">
+        ${row("Name", record.name)}
+        ${row("Kind", record.kind)}
+        ${row("Domain", record.domain || "Unclassified")}
+        ${record.domain === "CLIENTES" ? row("Client", record.client_name) : ""}
+        ${row("Source", SOURCE_LABELS[record.source] || record.source)}
+        ${row("URL", record.external_url)}
+        ${row("Reference", record.external_reference)}
+        ${row("Status", record.status)}
+        ${row("Priority", record.priority)}
+        ${row("Purpose / notes", record.purpose)}
+        ${row("Next action", record.next_action)}
+      </table>
+      <p class="card-muted u-fs-12 u-mt-1">${
+        record.kind === "tool"
+          ? "Tools appear under Tools and never compete in “What should I do now?”."
+          : "Projects appear in the Daily Command Center like any adopted project."
+      }</p>
+      <div class="u-mt-2">
+        <button type="button" class="btn btn-sm btn-primary" id="ext-save-btn">Save</button>
+        <button type="button" class="btn btn-sm" id="ext-edit-btn">Edit</button>
+      </div>`;
+  }
+
+  function openAddExternalWorkDialog() {
+    detailOverlay.hidden = false;
+    detailBody.innerHTML = externalWorkFormHtml();
+    const reviewEl = detailBody.querySelector("#ext-review");
+    const domainSel = detailBody.querySelector("#ext-domain");
+    domainSel.addEventListener("change", () => {
+      detailBody.querySelector("#ext-client-row").hidden = domainSel.value !== "CLIENTES";
+    });
+    // Any edit after a review invalidates it -- Save always saves what was reviewed.
+    detailBody.querySelectorAll("input, select, textarea").forEach((el) =>
+      el.addEventListener("input", () => {
+        reviewEl.innerHTML = "";
+      })
+    );
+
+    detailBody.querySelector("#ext-review-btn").addEventListener("click", async () => {
+      const payload = externalWorkPayload();
+      reviewEl.innerHTML = '<p class="muted u-mt-2">Checking…</p>';
+      try {
+        const preview = await registrationJSON("/workspace/external-work?dry_run=true", payload);
+        reviewEl.innerHTML = externalWorkReviewHtml(preview.record);
+        reviewEl.querySelector("#ext-edit-btn").addEventListener("click", () => {
+          reviewEl.innerHTML = "";
+        });
+        const saveBtn = reviewEl.querySelector("#ext-save-btn");
+        saveBtn.addEventListener("click", async () => {
+          saveBtn.disabled = true;
+          try {
+            await registrationJSON("/workspace/external-work", payload);
+            showToast(`Added ${preview.record.kind}: ${preview.record.name}`);
+            detailOverlay.hidden = true;
+            await renderWorkspacePage();
+          } catch (err) {
+            saveBtn.disabled = false;
+            reviewEl.innerHTML = `<p class="error-box u-mt-2">Could not save: ${escapeHtml(err.message)}</p>`;
+          }
+        });
+      } catch (err) {
+        reviewEl.innerHTML = `<p class="error-box u-mt-2">${escapeHtml(err.message)}</p>`;
+      }
+    });
+    detailBody.querySelector("#ext-name").focus();
+  }
+
   async function unregisterProject(itemId) {
     try {
       await registrationRequest(`/workspace/registrations/${encodeURIComponent(itemId)}`, { method: "DELETE" });
@@ -5918,6 +6085,8 @@
     const statusEl = document.getElementById("workspace-status");
     const registerBtn = document.getElementById("workspace-register-btn");
     if (registerBtn) registerBtn.addEventListener("click", () => openRegisterProjectDialog(""));
+    const externalBtn = document.getElementById("workspace-external-btn");
+    if (externalBtn) externalBtn.addEventListener("click", openAddExternalWorkDialog);
     document.querySelectorAll("[data-registration-review]").forEach((el) => {
       el.addEventListener("click", () => openRegisterProjectDialog(el.dataset.registrationReview));
     });
@@ -6035,7 +6204,9 @@
     const d = item.discovery_detail || {};
     return `
       <table class="kv-table">
-        <tr><td>Root folder</td><td>${escapeHtml(item.root_path)}</td></tr>
+        <tr><td>${item.is_external ? "Location" : "Root folder"}</td><td>${workspaceLocationHtml(item)}${
+          item.is_external && item.external_reference && item.external_url ? ` <span class="card-muted u-fs-12">${escapeHtml(item.external_reference)}</span>` : ""
+        }</td></tr>
         <tr><td>Status</td><td>${workspaceStatusBadge(item)}</td></tr>
         <tr><td>Project type</td><td>${escapeHtml(item.classification)}</td></tr>
         <tr><td>Technology stack</td><td>${escapeHtml(Object.keys(d.languages || {}).join(", ")) || NOT_YET_DEFINED}</td></tr>

@@ -2,7 +2,7 @@
 
 ## Status
 
-**PLANNED — NOT STARTED.** Documentation / scope definition only. No application code, tests, runtime databases, Discovery roots, adoptions, `var/role_os_alpha/`, or `pi_ai_workspace` were touched in writing this document. Implementation waits for Role's explicit authorization.
+**IN PROGRESS** (updated at P3.5 close — see *Executed Task Sequence* below; the rest of this document is the original scope, kept as written). Originally: documentation / scope definition only. No application code, tests, runtime databases, Discovery roots, adoptions, `var/role_os_alpha/`, or `pi_ai_workspace` were touched in writing this document. Implementation waits for Role's explicit authorization.
 
 Baseline verified before writing: Phase 2 COMPLETE (checkpoint `20b80df`, see `docs/PHASE_2_COMPLETION.md`); `1546177` (pre-travel control-file checkpoint) is the only commit after it; `main` == `origin/main`, tree clean. Commits `229c1a7` / `e46c93d` (Cobalt / yt-dlp registry work) are parallel, out-of-scope, untouched. Phase 1 and Phase 2 must NOT be repeated.
 
@@ -77,6 +77,8 @@ AI-provider independent: Claude, ChatGPT, Codex, or manual development must be r
 
 ## ROLE_PROJECT.md Concept
 
+*Update (P3.5):* re-scoped as an **optional** manifest for local folders only; the minimal schema is designed in `docs/PHASE_3_TASK_5_UNIVERSAL_INGESTION.md`, parser/import deferred. Work with no local folder is handled by P3.5's external managed work instead.
+
 A lightweight manifest living inside an external project. **Schema is NOT finalized here.** Candidate sections: Project (Name, Domain, Client, Type, Status, Priority), Purpose, Current State, Pending, Next Action, Tools, AI Context, Notes. P3.3 designs the smallest useful version after inspecting existing models, and defines its relationship to Discovery, Project Context and Workspace.
 
 ## Explicit Project Registration
@@ -100,6 +102,18 @@ Final objective: Windows login → Role OS backend starts safely → interface o
 | **P3.7** | Windows Startup — only after daily-use validation |
 
 Order is proposed, not approved; each task needs Role's authorization.
+
+### Executed Task Sequence (authoritative — supersedes the proposed table above)
+
+| Task | Title | State |
+|---|---|---|
+| **P3.1** | Daily Command Center requirements / data gap analysis | COMPLETE (`2b7e83f`) |
+| **P3.2** | Work classification (domain / client / kind) + `completed` semantics | COMPLETE (`62be54c`) |
+| **P3.3** | Daily Command Center UI on Mission Control + Role Dashboard access | COMPLETE (`4822221`) |
+| **P3.4** | Explicit Project Registration (isolated local folders, e.g. bolsa-de-trabajo) | COMPLETE (`2057ca5`) |
+| **P3.5** | **Universal Project & Tool Ingestion** — evolved from "`ROLE_PROJECT.md` only": managed work may be local, Claude Web, ChatGPT, Chrome bookmark, GitHub, web or other; `source` (where it lives) is separate from `kind` (what it is) and `domain` (whose work). `ROLE_PROJECT.md` designed as optional, local-only; import deferred. See `docs/PHASE_3_TASK_5_UNIVERSAL_INGESTION.md` | COMPLETE |
+| **P3.6** | Daily Use Validation & Real Work Onboarding — add a SMALL number of Role's real external projects/tools and validate the full daily experience | NEXT — not started |
+| later | Windows Startup — only after P3.6 validates daily use | not scheduled |
 
 ## Success Criteria
 

@@ -18,7 +18,7 @@ from app.discovery.next_action import extract_next_action
 from app.discovery.roots import resolve_roots
 from app.discovery.service import run_audit
 from app.projects import db as projects_db
-from app.workspace import activity, advisor, assets_index, db, identity, portfolio, registration
+from app.workspace import activity, advisor, assets_index, classification, db, external, identity, portfolio, registration
 from app.workspace import resume as resume_workflow
 
 
@@ -118,9 +118,10 @@ def rescan(
 
 
 def _cached_projects(settings: Settings | None = None) -> list[dict[str, Any]]:
-    """Every folder Workspace knows about: the last root scan, plus
+    """Every item Workspace knows about: the last root scan, plus
     (Phase 3 Task 4) each explicitly registered folder's own cached
-    analysis. A registered folder that a root scan also found (same
+    analysis, plus (Phase 3 Task 5) each external managed-work row (no
+    folder). A registered folder that a root scan also found (same
     case/slash-insensitive path) appears once, as the discovered item."""
     cache = db.load_scan_cache(settings)
     projects = list(cache["projects"]) if cache else []
@@ -128,6 +129,7 @@ def _cached_projects(settings: Settings | None = None) -> list[dict[str, Any]]:
     for snapshot in registration.registered_snapshots(settings):
         if registration.path_key(snapshot["root_path"]) not in discovered_keys:
             projects.append(snapshot)
+    projects.extend(external.as_workspace_project(o) for o in db.list_external_overlays(settings))
     return projects
 
 
@@ -169,10 +171,22 @@ def _merge(project: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
         effective_is_top_level = False
         effective_parent_item_id = overlay.get("override_parent_id")
 
+    # Phase 3 Task 5: external managed work has no folder. Its identity key
+    # (`external:<uuid>`) stays internal as `workspace_key`; every consumer
+    # sees `root_path = None`, which they already treat as "no local root".
+    is_external = external.is_external_key(project["root_path"])
     return {
         "id": overlay["id"],
         "name": project["name"],
-        "root_path": project["root_path"],
+        "root_path": None if is_external else project["root_path"],
+        "workspace_key": project["root_path"],
+        "is_external": is_external,
+        # WHERE it lives (never a domain). Legacy/local rows have no stored
+        # source and resolve to "local" -- no back-fill, ids unchanged.
+        "source": overlay.get("source") or classification.SOURCE_LOCAL,
+        "external_url": overlay.get("external_url"),
+        "external_reference": overlay.get("external_reference"),
+        "recorded_next_action": overlay.get("next_action"),
         "parent_path": project.get("parent_path"),
         "depth": project.get("depth", 1),
         "classification": project.get("classification", "Unknown"),
@@ -469,7 +483,30 @@ def get_summary(settings: Settings | None = None) -> dict[str, Any]:
         "projects_adopted": adopted,
         "projects_ignored": ignored,
         "projects_registered": len(db.list_registrations(settings)),
+        "projects_external": sum(
+            1 for i, o in overlays.items() if external.is_external_key(o["root_path"]) and not o["ignored"]
+        ),
     }
+
+
+def create_external_work(
+    payload: dict[str, Any], *, dry_run: bool = False, settings: Settings | None = None
+) -> dict[str, Any]:
+    """Phase 3 Task 5: ADD EXTERNAL WORK. Validates everything first
+    (`ValueError` on any bad value -- never a guess). `dry_run=True` is the
+    review step: returns the normalized record, persists nothing. A real
+    save creates one adopted overlay row (source/kind/domain exactly as
+    Role chose) and its canonical Role OS project, exactly like adopting a
+    folder does -- so notes, AI sessions and Resume Work work the same."""
+    settings = settings or get_settings()
+    record = external.validate_external_work(payload)
+    if dry_run:
+        return {"dry_run": True, "record": record}
+    key = external.new_external_key()
+    item_id = discovery_id(key)
+    db.create_external(item_id, key, record, settings=settings)
+    identity.get_or_create_canonical_project_id(item_id, key, record["name"], settings=settings)
+    return {"dry_run": False, "record": record, "item": get_item(item_id, settings)}
 
 
 def list_adopted_as_projects(settings: Settings | None = None) -> list[dict[str, Any]]:
@@ -487,7 +524,7 @@ def list_adopted_as_projects(settings: Settings | None = None) -> list[dict[str,
                 "id": item["id"],
                 "name": item["name"],
                 "workspace": "Discovered",
-                "description": item["root_path"],
+                "description": item["root_path"] or item["external_url"] or item["external_reference"] or "",
                 "status": item["status"],
                 "health_score": item["health_score"] if item["health_score"] is not None else 0,
                 "priority": item["priority"],
@@ -561,6 +598,20 @@ def get_next_action_for_item(
     item: dict[str, Any], ai_summary: dict[str, Any], settings: Settings | None = None
 ) -> dict[str, Any]:
     settings = settings or get_settings()
+    # Phase 3 Task 5: a next action Role recorded by hand is the most
+    # authoritative signal there is -- and for external work the only one.
+    recorded = (item.get("recorded_next_action") or "").strip()
+    if recorded:
+        return {
+            "text": recorded,
+            "source": "manual entry",
+            "source_path": None,
+            "confidence": 1.0,
+            "extracted_at": item.get("adopted_at") or "",
+        }
+    if not item.get("root_path"):
+        # Never let `Path("")` resolve to the server's working directory.
+        return {"text": None, "source": "none", "source_path": None, "confidence": 0.0, "extracted_at": ""}
     snapshot = ai_summary["latest_snapshot"] or {}
     detail = item.get("discovery_detail") or {}
     git = detail.get("git") or {}
@@ -601,7 +652,7 @@ def enrich_project_item(
 
     if item.get("adopted"):
         canonical_project_id = identity.get_or_create_canonical_project_id(
-            item["id"], item["root_path"], item["name"], settings=settings
+            item["id"], item["workspace_key"], item["name"], settings=settings
         )
     else:
         canonical_project_id = identity.get_canonical_project_id(item["id"], settings=settings)
@@ -666,6 +717,8 @@ def list_project_assets(
         items = [i for i in items if i["adopted"]]
     if project_id:
         items = [i for i in items if i["id"] == project_id]
+    # External work has no folder to walk.
+    items = [i for i in items if i["root_path"]]
     return {
         item["id"]: [
             assets_index.asset_record_to_dict(r)
@@ -784,7 +837,7 @@ def get_enriched_item(item_id: str, settings: Settings | None = None) -> dict[st
 
     if item.get("adopted"):
         canonical_project_id = identity.get_or_create_canonical_project_id(
-            item["id"], item["root_path"], item["name"], settings=settings
+            item["id"], item["workspace_key"], item["name"], settings=settings
         )
     else:
         canonical_project_id = identity.get_canonical_project_id(item["id"], settings=settings)
@@ -849,6 +902,15 @@ def launch_claude_code_for_item(
     overlay = db.get_overlay(item_id, settings)
     if not overlay or not overlay.get("adopted"):
         return None
+    if external.is_external_key(project["root_path"]):
+        return {
+            "launched": False,
+            "working_directory": "",
+            "executable": None,
+            "cli_available": False,
+            "prompt_copied": False,
+            "message": f"{project['name']} is external work with no local folder -- Claude Code will not be launched.",
+        }
     if project.get("is_excluded"):
         return {
             "launched": False,
