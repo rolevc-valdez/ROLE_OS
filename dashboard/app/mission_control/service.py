@@ -440,6 +440,11 @@ _QUICK_ACTIONS = [
 # `discovery/next_action.py: _CONFIDENCE_BY_SOURCE`): shown as inferred,
 # never as something Role recorded.
 _INFERRED_NEXT_ACTION_SOURCES = frozenset({"latest git commit", "CHANGELOG unreleased", "none"})
+# Phase 3 Task 6B: sources that describe work already DONE. A commit message
+# (or a CHANGELOG "unreleased" entry) is history / last activity, never a
+# next action -- the Daily Command Center shows it as "Last activity" and
+# says "No next action recorded." instead of turning the past into a to-do.
+_HISTORICAL_NEXT_ACTION_SOURCES = frozenset({"latest git commit", "CHANGELOG unreleased", "none"})
 _PAUSED_STATUSES = ("paused", "on_hold", "archived")
 _BLOCKED_STATUSES = ("blocked", "at_risk")
 
@@ -481,28 +486,36 @@ def _work_item(
     if needs_attention:
         badges.append("NEEDS ATTENTION")
 
-    # Human-readable "why" -- only facts the existing signals support.
-    why: list[str] = []
-    if top_rec:
-        why.append(f"Suggested: {top_rec['suggested_action']}")
-    if next_action.get("text"):
-        source = next_action.get("source")
-        why.append(
-            "Has a next action"
-            + (f" (inferred from {source})" if source in _INFERRED_NEXT_ACTION_SOURCES else f" (from {source})")
-        )
+    # Phase 3 Task 6B: only forward-looking next actions are next actions.
+    forward = bool(next_action.get("text")) and next_action.get("source") not in _HISTORICAL_NEXT_ACTION_SOURCES
+    last_activity_note = (
+        {"text": next_action.get("text"), "source": next_action.get("source")}
+        if next_action.get("text") and not forward
+        else None
+    )
+
+    # Candidate "why" signals as (key, text) -- only facts the existing
+    # signals support. `_work_groups` keeps the ones that actually set an
+    # item apart from the other active projects (Phase 3 Task 6B).
+    signals: list[tuple[str, str]] = []
+    if forward:
+        signals.append(("next_action", f"Has a recorded next action (from {next_action.get('source')})"))
     if (snapshot.get("pending_work") or "").strip():
-        why.append("Pending work is recorded from your last session")
+        signals.append(("pending_work", "Pending work is recorded from your last session"))
     if status in _BLOCKED_STATUSES:
-        why.append(f"Marked {status.replace('_', ' ')}")
-    if days is not None:
-        why.append(
-            f"No activity in {days} days" if is_stale else f"Active {days} day{'s' if days != 1 else ''} ago"
-            if days
-            else "Active today"
-        )
+        signals.append(("blocked", f"Marked {status.replace('_', ' ')}"))
     if business_value in ("high", "critical"):
-        why.append(f"{business_value.capitalize()} business value")
+        signals.append(("value", f"{business_value.capitalize()} business value"))
+    if top_rec:
+        reason = (top_rec.get("reason") or "").strip()
+        signals.append(
+            (
+                f"suggest:{top_rec['suggested_action']}",
+                f"Suggested: {top_rec['suggested_action']}" + (f" — {reason}" if reason else ""),
+            )
+        )
+    if is_stale:
+        signals.append(("stale", f"No activity in {days} days"))
 
     return {
         "item_id": ctx.get("item_id"),
@@ -522,19 +535,49 @@ def _work_item(
         "is_stale": is_stale,
         "rank": rank,
         "badges": badges,
-        "why": why,
+        "why": [text for _key, text in signals],
+        "_signals": signals,
         "next_action": (
             {
                 "text": next_action.get("text"),
                 "source": next_action.get("source"),
                 "inferred": next_action.get("source") in _INFERRED_NEXT_ACTION_SOURCES,
             }
-            if next_action.get("text")
+            if forward
             else None
         ),
+        # History, never a to-do: what the last commit/changelog said.
+        "last_activity_note": last_activity_note,
         "pending_work": (snapshot.get("pending_work") or "").strip() or None,
         "resume_available": bool((ctx.get("resume_state") or {}).get("available")),
     }
+
+
+def _differentiate_why(active: list[dict[str, Any]]) -> None:
+    """Phase 3 Task 6B: a reason every active project shares (e.g. all are
+    stale, all have the same suggestion) explains nothing, so it is dropped
+    from `why`. Adds "Most recently active project" only when exactly one
+    project is the most recent. If the first-ranked item is left with no
+    distinguishing reason, says so honestly instead of inventing one. No new
+    ranking: order and rank are untouched."""
+    counts: dict[str, int] = {}
+    for item in active:
+        for key in {key for key, _text in item["_signals"]}:
+            counts[key] = counts.get(key, 0) + 1
+    days = [i["days_since_activity"] for i in active if i["days_since_activity"] is not None]
+    most_recent = min(days) if days else None
+    unique_most_recent = most_recent is not None and days.count(most_recent) == 1 and len(active) > 1
+    for position, item in enumerate(active):
+        signals = item.pop("_signals")
+        if len(active) > 1:
+            signals = [(k, t) for k, t in signals if counts.get(k, 0) < len(active)]
+        why = [t for _k, t in signals]
+        if unique_most_recent and item["days_since_activity"] == most_recent:
+            ago = "today" if most_recent == 0 else f"{most_recent} day{'s' if most_recent != 1 else ''} ago"
+            why.insert(0, f"Most recently active project ({ago})")
+        if not why and position == 0 and len(active) > 1:
+            why = ["No single signal clearly sets it apart — it is first in the existing Executive Decision ranking."]
+        item["why"] = why
 
 
 def _work_groups(
@@ -576,6 +619,9 @@ def _work_groups(
             active.append(item)
 
     active.sort(key=lambda i: (i["rank"] is None, i["rank"] or 0, (i["display_name"] or "").lower()))
+    _differentiate_why(active)
+    for item in (*completed, *tools):
+        item.pop("_signals", None)
     completed.sort(key=lambda i: (i["display_name"] or "").lower())
     tools.sort(key=lambda i: (i["display_name"] or "").lower())
     return {

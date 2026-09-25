@@ -319,12 +319,13 @@ def test_sections_appear_in_the_target_information_architecture_order():
     order = [
         'id="dcc-domain-filter"',
         "What should I do now?",
+        # Phase 3 Task 6B: continuity moved up, right after the recommendation.
+        "Where I Left Off",
         "Pending Work / Next Actions",
         "Active Projects",
         "Completed",
         "Tools",
         "Role Dashboard",
-        "Where I Left Off",
     ]
     positions = [sk.index(marker) for marker in order]
     assert positions == sorted(positions)
@@ -349,7 +350,7 @@ def test_all_sections_have_honest_empty_states():
         "No completed projects yet.",
         "No tools registered yet.",
         "No projects in this domain.",
-        "No next action available.",
+        "No next action recorded.",  # Phase 3 Task 6B wording
         "No resumable session available.",
         "No active projects yet.",
     ):

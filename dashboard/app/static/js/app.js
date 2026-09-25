@@ -215,7 +215,7 @@
   // disconnected from the page the user is actually on. This only
   // changes which existing nav-item is highlighted; it adds no new route
   // and no new nav concept.
-  const DRILLDOWN_PARENT_NAV = { project: "projects", dproject: "projects", phub: "projects" };
+  const DRILLDOWN_PARENT_NAV = { project: "projects", dproject: "projects", phub: "projects", dashboard: "home" };
 
   function updateActiveNav(view) {
     const effectiveView = DRILLDOWN_PARENT_NAV[view] || view;
@@ -227,6 +227,10 @@
   async function route() {
     const { view, param } = parseHash();
     updateActiveNav(view);
+    // Phase 3 Task 6B: every navigation starts at the top of the new view
+    // (Role Dashboard used to open ~2,000 px down, keeping the previous
+    // page's scroll position).
+    window.scrollTo(0, 0);
     const renderFn = routes[view] || renderMissionControlPage;
     viewRoot.innerHTML = '<p class="muted loading-pulse">Loading...</p>';
     try {
@@ -1062,6 +1066,10 @@
     return "";
   }
 
+  // Sources that describe work already done (see mission_control/service.py
+  // `_HISTORICAL_NEXT_ACTION_SOURCES`).
+  const HISTORICAL_NEXT_ACTION_SOURCES = ["latest git commit", "CHANGELOG unreleased", "none"];
+
   function mcPrimaryFocusHtml(focus) {
     if (!focus || !focus.available) {
       const action = focus && focus.best_action;
@@ -1079,7 +1087,8 @@
         </div>`;
     }
     const ctx = focus.project_context || {};
-    const na = ctx.next_action || {};
+    const rawNa = ctx.next_action || {};
+    const na = HISTORICAL_NEXT_ACTION_SOURCES.includes(rawNa.source) ? {} : rawNa;
     const snapshot = ctx.latest_snapshot;
     const session = ctx.latest_ai_session;
     const resumeAvailable = ctx.resume_state && ctx.resume_state.available;
@@ -1096,9 +1105,9 @@
         <p class="card-muted u-mt-2">Status</p>
         <p>${escapeHtml(fmtText(ctx.status))}</p>
         <p class="card-muted u-mt-2">Next Action</p>
-        <p>${escapeHtml(na.text || "Not yet defined")}</p>
+        <p>${na.text ? `${escapeHtml(na.text)} <span class="card-muted u-fs-12">from ${escapeHtml(na.source || "")}</span>` : '<span class="muted">No next action recorded.</span>'}</p>
         <p class="card-muted u-mt-2">Latest Snapshot</p>
-        <p>${snapshot ? escapeHtml(snapshot.summary || snapshot.pending_work || "") : "Not yet defined"}</p>
+        <p>${snapshot ? escapeHtml(snapshot.summary || snapshot.pending_work || "") : '<span class="muted">No current snapshot.</span>'}</p>
         <p class="card-muted u-mt-2">Latest AI Session</p>
         <p>${session ? `${escapeHtml(session.title || "(untitled session)")} ${assistantBadge(session.assistant)}` : '<span class="muted">Not yet defined</span>'}</p>
         <p class="card-muted u-mt-2">Last Activity</p>
@@ -1323,7 +1332,7 @@
 
   function dccSourceHtml(item) {
     if (!item.is_external) return "";
-    const reference = !item.external_url && item.external_reference
+    const reference = item.external_reference
       ? ` <span class="card-muted u-fs-12">${escapeHtml(item.external_reference)}</span>`
       : "";
     return `${badgeHtml(SOURCE_LABELS[item.source] || item.source)} ${externalOpenLinkHtml(item)}${reference}`;
@@ -1362,9 +1371,17 @@
       .join("");
   }
 
+  // Phase 3 Task 6B: a commit message is history, never a next action --
+  // shown as "Last activity" under an honest "No next action recorded.".
+  function dccLastActivityNoteHtml(item) {
+    const note = item.last_activity_note;
+    if (!note || !note.text) return "";
+    return `<br><span class="card-muted u-fs-12">Last activity: ${escapeHtml(note.text)} (from ${escapeHtml(note.source)})</span>`;
+  }
+
   function dccNextActionHtml(item) {
     const na = item.next_action;
-    if (!na) return '<span class="muted">No next action available.</span>';
+    if (!na) return `<span class="muted">No next action recorded.</span>${dccLastActivityNoteHtml(item)}`;
     const provenance = na.inferred
       ? `${badgeHtml("inferred", "warning")} <span class="card-muted u-fs-12">from ${escapeHtml(na.source)}</span>`
       : `<span class="card-muted u-fs-12">from ${escapeHtml(na.source)}</span>`;
@@ -1432,7 +1449,7 @@
 
   function dccPendingHtml(work) {
     const rows = (work.active_projects || []).filter(dccMatchesFilter).filter((i) => i.next_action || i.pending_work);
-    if (!rows.length) return '<p class="muted">No next action available.</p>';
+    if (!rows.length) return '<p class="muted">No next action recorded.</p>';
     return `<div class="card-grid-wide">${rows
       .map(
         (i) => `
@@ -1607,13 +1624,18 @@
       </div>
 
       <div class="page-section">
-        <div class="section-heading"><h2>Needs Attention</h2></div>
-        <div id="mc-needs-attention"></div>
+        <div class="section-heading"><h2>Where I Left Off</h2></div>
+        <div id="mc-primary-focus" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
       </div>
 
       <div class="page-section">
         <div class="section-heading"><h2>Pending Work / Next Actions</h2></div>
         <div id="dcc-pending"></div>
+      </div>
+
+      <div class="page-section">
+        <div class="section-heading"><h2>Needs Attention</h2></div>
+        <div id="mc-needs-attention"></div>
       </div>
 
       <div class="home-grid dcc-two-col">
@@ -1636,11 +1658,6 @@
           <div class="section-heading"><h2>Role Dashboard</h2></div>
           <div id="dcc-role-dashboard"></div>
         </div>
-      </div>
-
-      <div class="page-section">
-        <div class="section-heading"><h2>Where I Left Off</h2></div>
-        <div id="mc-primary-focus" class="u-mb-4"><p class="muted loading-pulse">Loading…</p></div>
       </div>
 
       <div class="page-section">
@@ -1734,7 +1751,7 @@
 
   async function renderDashboardPage() {
     viewRoot.innerHTML = `
-      <div class="section-heading"><h2>Dashboard</h2></div>
+      <div class="section-heading"><h2>Dashboard</h2><button type="button" class="link-btn" data-nav="home">&larr; Daily Command Center</button></div>
       <div id="dash-freshness-banner"></div>
       <div id="dash-cards" class="health-dashboard-grid u-mb-4"><p class="muted loading-pulse">Loading metrics…</p></div>
 
@@ -6342,6 +6359,25 @@
       .join("")}</ul>`;
   }
 
+  // Phase 3 Task 6B: a tool's primary action is OPEN (its stored URL) --
+  // Resume Work is offered for a tool only when a real AI session exists,
+  // and then only as a secondary action. Projects keep Resume Work first.
+  function dprojectPrimaryActionsHtml(item) {
+    if (!item.adopted) {
+      return '<span class="card-muted">Adopt this project on the Workspace page to enable Resume Work</span>';
+    }
+    const resumeBtn = (primary) =>
+      `<button type="button" class="${primary ? "btn btn-primary" : "link-btn"}" id="dproject-resume-work-btn">&#9654; Resume Work</button>`;
+    const openBtn = item.external_url
+      ? `<a class="btn btn-primary" data-external-link href="${escapeHtml(item.external_url)}" target="_blank" rel="noopener noreferrer">Open &#8599;</a>`
+      : "";
+    if (item.kind === "tool") {
+      const hasSession = !!((item.ai_sessions || {}).latest_session);
+      return `${openBtn} ${hasSession ? resumeBtn(false) : ""}`;
+    }
+    return `${resumeBtn(true)} ${openBtn ? openBtn.replace("btn btn-primary", "link-btn") : ""}`;
+  }
+
   async function renderDiscoveredProjectDetail(itemId) {
     viewRoot.innerHTML = '<p class="muted loading-pulse">Loading…</p>';
     let item;
@@ -6372,20 +6408,22 @@
       <div class="section-heading">
         <h2>${escapeHtml(item.name)} ${workspaceStatusBadge(item)}</h2>
         <div>
-          ${
-            item.adopted
-              ? `<button type="button" class="btn btn-primary" id="dproject-resume-work-btn">&#9654; Resume Work</button>`
-              : `<span class="card-muted">Adopt this project on the Workspace page to enable Resume Work</span>`
-          }
-          <button type="button" class="link-btn" data-workspace-review="${escapeHtml(item.id)}">Full boundary review</button>
+          ${dprojectPrimaryActionsHtml(item)}
+          ${item.is_external ? "" : `<button type="button" class="link-btn" data-workspace-review="${escapeHtml(item.id)}">Full boundary review</button>`}
         </div>
       </div>
       ${dprojectSectionHtml("Overview", dprojectOverviewHtml(item))}
-      ${dprojectSectionHtml("Git", dprojectGitHtml(item))}
+      ${
+        // Phase 3 Task 6B: external work has no folder -- no Git,
+        // documentation, sub-repositories, assets or tests to show.
+        item.is_external
+          ? ""
+          : `${dprojectSectionHtml("Git", dprojectGitHtml(item))}
       ${dprojectSectionHtml("Documentation", dprojectDocumentationHtml(item))}
       ${dprojectSectionHtml("Repositories / Components", dprojectChildrenHtml(item))}
       ${dprojectSectionHtml("Assets", dprojectAssetsHtml(assets))}
-      ${dprojectSectionHtml("Tests", dprojectTestsHtml(item))}
+      ${dprojectSectionHtml("Tests", dprojectTestsHtml(item))}`
+      }
       ${dprojectSectionHtml(
         "Recent Activity",
         activityForProject.length

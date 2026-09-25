@@ -295,6 +295,14 @@ class AISessionSnapshot(BaseModel):
     decisions: str
     summary: str
     created_at: str
+    # Phase 3 Task 6B: set when the snapshot was invalidated (kept, but no
+    # longer used as current continuity).
+    invalidated_at: str | None = None
+    invalidated_reason: str | None = None
+
+
+class SnapshotInvalidate(BaseModel):
+    reason: str
 
 
 class AISessionResumeResult(BaseModel):

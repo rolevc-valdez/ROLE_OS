@@ -244,8 +244,25 @@ _SPRINT_C2_1_COLUMNS = (
 )
 
 
+# Phase 3 Task 6B: a snapshot shown to be corrupted or attached to the
+# wrong project can be *invalidated* -- never deleted or rewritten. It stays
+# in history (`list_ai_session_snapshots`, the timeline) with its reason,
+# but `get_latest_snapshot` -- the one source of "current" continuity for
+# Where I Left Off, Project Memory and Resume Work -- skips it. No current
+# snapshot is better than a wrong one. Same idempotent ADD COLUMN pattern.
+_P3_6B_SNAPSHOT_COLUMNS = (
+    ("invalidated_at", "ALTER TABLE ai_session_snapshots ADD COLUMN invalidated_at TEXT"),
+    ("invalidated_reason", "ALTER TABLE ai_session_snapshots ADD COLUMN invalidated_reason TEXT"),
+)
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
+    for _column, ddl in _P3_6B_SNAPSHOT_COLUMNS:
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass  # column already exists
     for _column, ddl in _SPRINT5_COLUMNS:
         try:
             conn.execute(ddl)
@@ -1544,10 +1561,37 @@ def list_ai_session_snapshots(
 def get_latest_snapshot(session_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     with get_connection(settings) as conn:
         row = conn.execute(
-            "SELECT * FROM ai_session_snapshots WHERE session_id = ? ORDER BY created_at DESC LIMIT 1",
+            "SELECT * FROM ai_session_snapshots WHERE session_id = ? AND invalidated_at IS NULL "
+            "ORDER BY created_at DESC LIMIT 1",
             (session_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+def invalidate_snapshot(
+    session_id: str, snapshot_id: str, reason: str, settings: Settings | None = None
+) -> dict[str, Any] | None:
+    """Phase 3 Task 6B: marks one snapshot as no longer valid continuity
+    (content kept verbatim). Returns None if it doesn't belong to the
+    session. Idempotent -- the first reason/timestamp is preserved."""
+    reason = " ".join(str(reason or "").split())
+    if not reason:
+        raise ValueError("a reason is required to invalidate a snapshot")
+    with get_connection(settings) as conn:
+        row = conn.execute(
+            "SELECT * FROM ai_session_snapshots WHERE id = ? AND session_id = ?",
+            (snapshot_id, session_id),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["invalidated_at"] is None:
+            conn.execute(
+                "UPDATE ai_session_snapshots SET invalidated_at = ?, invalidated_reason = ? WHERE id = ?",
+                (now_iso(), reason, snapshot_id),
+            )
+            conn.commit()
+        row = conn.execute("SELECT * FROM ai_session_snapshots WHERE id = ?", (snapshot_id,)).fetchone()
+    return dict(row)
 
 
 # ---------------------------------------------------------------------------
@@ -1599,9 +1643,12 @@ def list_project_timeline(
                         "session_id": snap["session_id"],
                         "session_title": s["title"],
                         "assistant": s["assistant"],
-                        "excerpt": snap["summary"]
-                        or snap["accomplishments"]
-                        or "(snapshot recorded)",
+                        "excerpt": (
+                            f"[invalidated: {snap['invalidated_reason']}] "
+                            if snap["invalidated_at"]
+                            else ""
+                        )
+                        + (snap["summary"] or snap["accomplishments"] or "(snapshot recorded)"),
                     }
                 )
 

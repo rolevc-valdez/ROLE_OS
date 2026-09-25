@@ -4,18 +4,18 @@
 
 ## Now
 
-**Primary next action (the only one): finish Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding. IN PROGRESS — WAITING FOR ROLE INPUT.**
+**Primary next action (the only one): finish Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding. IN PROGRESS — WAITING FOR REAL KONTOOR ITEMS.**
 
-Done: bolsa-de-trabajo adopted (ROLE PERSONAL / project / active); yt-dlp onboarded as a tool (source `other`); Daily Command Center validated with real data; friction logged (`docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`).
+Done: bolsa-de-trabajo adopted; yt-dlp onboarded as a tool; P3.6B Daily Command Center polish (test data removed + test guard, misattributed snapshot invalidated, rescan, next-action honesty, differentiating Why, Where I Left Off moved up, Dashboard scroll/back, tool Open, "Daily Command Center" label). See `docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`.
 
 **Role, please add (Workspace → Add External Work → Review → Save):**
 
 1. **One real KONTOOR project that lives in Claude Web** — Name; Kind `project`; Domain `KONTOOR`; Source `Claude Web`; URL of the Claude project/conversation (if any); Status; Priority; Purpose/notes; Next action.
 2. **One real KONTOOR reusable script/bookmarklet/tool** — Name; Kind `tool`; Domain `KONTOOR`; Source that matches reality (`Chrome bookmark` / `Claude Web` / `Web` / `Other`); URL if it has a normal http(s) link, otherwise a Reference saying where it lives; Status; Priority; Purpose/notes. Never paste bookmarklet code or credentials.
 
-Then: re-run the 30-second test with KONTOOR data and close P3.6. Status: Phase 3 IN PROGRESS — P3.1–P3.5 COMPLETE. Windows startup only after P3.6 closes (and after Role decides on the HIGH VALUE friction items).
+Then: final P3.6 validation (30-second test with KONTOOR data) and close P3.6. Windows startup only after that.
 
-**Role decisions pending (not tasks):** "Role Test Project" test data shown in Needs Attention (clean up or keep?); the role-ecosystem snapshot that describes ROLE Commerce Factory (re-snapshot or correct?); whether to rescan the Workspace (scan is 344 h old); whether to approve a small follow-up for the HIGH VALUE friction items.
+**Role decisions pending (not tasks):** the second, unlinked "ROLE Commerce Factory" PI project shown in Needs Attention (keep, merge or remove?); the newly discovered, un-adopted `KONTOOR` and `FERREVOLT` folders under `1 - IA PROJECTS` (adopt later or leave).
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

@@ -47,6 +47,7 @@ from app.projects.models import (
     AISessionSnapshotCreate,
     AISessionUpdate,
     ProjectTimelineEntry,
+    SnapshotInvalidate,
 )
 from app.services import resume as resume_service
 
@@ -205,6 +206,29 @@ def list_snapshots(
     return [
         AISessionSnapshot(**s) for s in db.list_ai_session_snapshots(session_id, settings=settings)
     ]
+
+
+@router.post(
+    "/{project_id}/ai-sessions/{session_id}/snapshots/{snapshot_id}/invalidate",
+    response_model=AISessionSnapshot,
+)
+def invalidate_snapshot(
+    project_id: str,
+    session_id: str,
+    snapshot_id: str,
+    payload: SnapshotInvalidate,
+    settings: Settings = Depends(get_settings),
+) -> AISessionSnapshot:
+    """Phase 3 Task 6B: keep a corrupted/misattributed snapshot in history
+    but stop it being used as current continuity. Never edits its content."""
+    _get_session_or_404(project_id, session_id, settings)
+    try:
+        snapshot = db.invalidate_snapshot(session_id, snapshot_id, payload.reason, settings=settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="snapshot not found for this session")
+    return AISessionSnapshot(**snapshot)
 
 
 @router.get("/{project_id}/ai-sessions/{session_id}/resume", response_model=AISessionResumeResult)

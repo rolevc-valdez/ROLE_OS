@@ -108,7 +108,9 @@ def test_import_and_extraction_routes_remain_reachable_and_already_discoverable(
 def test_drilldown_routes_highlight_their_parent_cluster():
     body = client.get("/static/js/app.js").text
     assert "DRILLDOWN_PARENT_NAV" in body
-    assert '{ project: "projects", dproject: "projects", phub: "projects" }' in body
+    # Phase 3 Task 6B: Role Dashboard (reached from the Daily Command Center)
+    # highlights its parent too.
+    assert '{ project: "projects", dproject: "projects", phub: "projects", dashboard: "home" }' in body
     fn_start = body.index("function updateActiveNav(view)")
     fn_body = body[fn_start : fn_start + 300]
     assert "effectiveView" in fn_body

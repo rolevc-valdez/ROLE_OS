@@ -79,3 +79,54 @@ _ECOSYSTEM_DB_DIR = tempfile.mkdtemp(prefix="role_os_ecosystem_test_")
 os.environ.setdefault(
     "ROLE_OS_ECOSYSTEM_DB_PATH", str(Path(_ECOSYSTEM_DB_DIR) / "role_os_ecosystem.db")
 )
+
+# Role OS 2.0 Phase 3 Task 6B: `setdefault` above never overrides a value
+# already in the environment -- so a pytest run launched from a shell that
+# inherited the launcher's real ROLE_OS_*_DB_PATH values (see
+# scripts/RoleOS.Common.ps1) would write straight into canonical runtime
+# data. That is how pytest fixtures ("Active Project", "Paused Project",
+# "Quiet Project" from test_executive_decision.py) ended up in the real
+# ROLE_KNOWLEDGE_OS projects database on 2026-08-05/06. Refuse to run at all
+# if any writable runtime path resolves inside a canonical location.
+_WRITABLE_RUNTIME_PATH_VARS = (
+    "ROLE_OS_PROJECTS_DB_PATH",
+    "ROLE_OS_ADVISOR_DB_PATH",
+    "ROLE_OS_IMPORTS_DB_PATH",
+    "ROLE_OS_EXTRACTION_DB_PATH",
+    "ROLE_OS_SESSION_DB_PATH",
+    "ROLE_OS_WORKSPACE_DB_PATH",
+    "ROLE_OS_ASSETS_DB_PATH",
+    "ROLE_OS_ASSET_THUMBNAIL_CACHE_DIR",
+    "ROLE_OS_ECOSYSTEM_DB_PATH",
+)
+
+
+def canonical_runtime_roots() -> list[Path]:
+    roots = [(DASHBOARD_ROOT.parent / "var").resolve(), (DASHBOARD_ROOT / "var").resolve()]
+    workspace_dir = os.environ.get("ROLE_OS_WORKSPACE_DIR", "").strip()
+    if workspace_dir:
+        roots.append(Path(workspace_dir).resolve())
+    return roots
+
+
+def canonical_path_violations() -> list[str]:
+    roots = canonical_runtime_roots()
+    violations = []
+    for name in _WRITABLE_RUNTIME_PATH_VARS:
+        value = Path(os.environ[name]).resolve()
+        if any(value == root or root in value.parents for root in roots):
+            violations.append(f"{name}={value}")
+    return violations
+
+
+def pytest_configure(config):
+    violations = canonical_path_violations()
+    if violations:
+        import pytest
+
+        pytest.exit(
+            "Refusing to run tests against canonical Role OS runtime data: "
+            + "; ".join(violations)
+            + " -- unset these ROLE_OS_* variables in this shell and re-run.",
+            returncode=4,
+        )
