@@ -4,18 +4,13 @@
 
 ## Now
 
-**Primary next action (the only one): finish Phase 3 — Task P3.6 — Daily Use Validation & Real Work Onboarding. IN PROGRESS — WAITING FOR REAL KONTOOR ITEMS.**
+**Primary next action (the only one): Phase 3 — Task P3.7 — Windows Startup & Daily Launch.**
 
-Done: bolsa-de-trabajo adopted; yt-dlp onboarded as a tool; P3.6B Daily Command Center polish (test data removed + test guard, misattributed snapshot invalidated, rescan, next-action honesty, differentiating Why, Where I Left Off moved up, Dashboard scroll/back, tool Open, "Daily Command Center" label). See `docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`.
+**NOT STARTED. Requires Role's go-ahead.** Goal: make Role OS easy to launch automatically when Role signs into Windows, reusing the existing launcher (`Start ROLE OS.bat` / `scripts/Start-RoleOS.ps1`, which already health-checks and avoids duplicate servers) and the stable Daily Command Center. No background services unless genuinely necessary. Worth considering in its scope: refreshing the Workspace scan at daily launch (discovery freshness goes stale 24 h after a scan).
 
-**Role, please add (Workspace → Add External Work → Review → Save):**
+Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1–P3.6 COMPLETE (P3.6: `docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`). Phase 3 core product goal: PASS. Do not repeat them. Phase 3 closes after P3.7.
 
-1. **One real KONTOOR project that lives in Claude Web** — Name; Kind `project`; Domain `KONTOOR`; Source `Claude Web`; URL of the Claude project/conversation (if any); Status; Priority; Purpose/notes; Next action.
-2. **One real KONTOOR reusable script/bookmarklet/tool** — Name; Kind `tool`; Domain `KONTOOR`; Source that matches reality (`Chrome bookmark` / `Claude Web` / `Web` / `Other`); URL if it has a normal http(s) link, otherwise a Reference saying where it lives; Status; Priority; Purpose/notes. Never paste bookmarklet code or credentials.
-
-Then: final P3.6 validation (30-second test with KONTOOR data) and close P3.6. Windows startup only after that.
-
-**Role decisions pending (not tasks):** the second, unlinked "ROLE Commerce Factory" PI project shown in Needs Attention (keep, merge or remove?); the newly discovered, un-adopted `KONTOOR` and `FERREVOLT` folders under `1 - IA PROJECTS` (adopt later or leave).
+**Non-blocking backlog (from P3.6, not tasks until Role picks them):** Where I Left Off can pick a freshly added item over real last work; completed-project detail still offers Resume Work first; "No projects in this domain." wording when a domain has only completed work/tools; duplicate unlinked "ROLE Commerce Factory" PI project; OI "open next action" wording; ROLE_KNOWLEDGE_OS looks active from Role OS's own DB writes; Dashboard v2 counts tools as projects; Advisor recommendations outlive deleted PI projects; no edit UI for external items; un-adopted FERREVOLT / KONTOOR folders.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 

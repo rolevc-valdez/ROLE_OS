@@ -112,8 +112,8 @@ Order is proposed, not approved; each task needs Role's authorization.
 | **P3.3** | Daily Command Center UI on Mission Control + Role Dashboard access | COMPLETE (`4822221`) |
 | **P3.4** | Explicit Project Registration (isolated local folders, e.g. bolsa-de-trabajo) | COMPLETE (`2057ca5`) |
 | **P3.5** | **Universal Project & Tool Ingestion** — evolved from "`ROLE_PROJECT.md` only": managed work may be local, Claude Web, ChatGPT, Chrome bookmark, GitHub, web or other; `source` (where it lives) is separate from `kind` (what it is) and `domain` (whose work). `ROLE_PROJECT.md` designed as optional, local-only; import deferred. See `docs/PHASE_3_TASK_5_UNIVERSAL_INGESTION.md` | COMPLETE |
-| **P3.6** | Daily Use Validation & Real Work Onboarding — add a SMALL number of Role's real external projects/tools and validate the full daily experience | NEXT — not started |
-| later | Windows Startup — only after P3.6 validates daily use | not scheduled |
+| **P3.6** | Daily Use Validation & Real Work Onboarding — add a SMALL number of Role's real external projects/tools and validate the full daily experience | COMPLETE (incl. P3.6B polish) |
+| **P3.7** | Windows Startup & Daily Launch — only after P3.6 validated daily use | NEXT — not started |
 
 ## Success Criteria
 

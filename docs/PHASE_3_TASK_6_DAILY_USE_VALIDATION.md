@@ -1,6 +1,6 @@
 # Role OS 2.0 — P3.6 Daily Use Validation & Real Work Onboarding
 
-**Status: IN PROGRESS — WAITING FOR REAL KONTOOR ITEMS** (the two KONTOOR real-data examples must come from Role; nothing was invented). P3.6B polish applied — see the end of this document.
+**Status: COMPLETE (2026-09-28)** — the two real KONTOOR items were added by Role and validated; see *P3.6 — Final Real-Data Validation & Close* at the end. P3.6B polish is recorded before it.
 
 *Validation record. The original P3.6 pass changed no production code (P3.6B, at the end, did). Real onboarding was done only through the existing application API/UI.*
 
@@ -180,3 +180,92 @@ New `dashboard/tests/test_daily_command_center_polish.py` (17 tests): canonical-
 - `ROLE_KNOWLEDGE_OS\00_SYSTEM\role_os_advisor.db`: 4 orphaned recommendations dismissed (plus the Advisor's normal health refresh); ok.
 - `var/role_os_dashboard/role_os_workspace.db`: rescan cache (25 folders, 2026-09-25 08:46 UTC); adopted/registration rows unchanged; ok.
 - Nothing else: no folders touched, Discovery roots unchanged, Resume Work not clicked.
+
+---
+
+# P3.6 — Final Real-Data Validation & Close (2026-09-28)
+
+**Status: P3.6 COMPLETE.** Validation + documentation only: no production code changed, no runtime record created or modified. Baseline `7419191` (P3.6B), `main == origin/main`. The only working-tree deviation was an untracked personal file Role placed at the repo root (`Prompt add to workspace en Role OS.txt`, Role's own helper prompt for describing work to register) — left untouched, not committed.
+
+## Real KONTOOR records (added by Role through Add External Work — read-only verification)
+
+| | Completed project | Reusable tool |
+|---|---|---|
+| Name | Kontoor New App ID Assignment — Lee Separation Batch | kontoor-fs-new-app-id |
+| Domain / Kind | KONTOOR / project | KONTOOR / tool |
+| Status | completed | active |
+| Source | claude_web (URL: the Claude conversation; reference "Claude \ Kontoor") | other |
+| Priority | low | **low** (the brief expected medium — Role's own choice, accepted) |
+| Reference | — | "Claude user-level synced skill Identifier: anthropic-skills:kontoor-fs-new-app-id" (no temporary cache path) |
+| Next action | empty | **"None required. Reuse when a new Request Application ID ticket is received."** (the brief expected empty; semantically "no next action" — tools never feed Pending Work, so it is not presented as pending) |
+| Purpose note | Lee separation App ID assignment, Freshservice + SharePoint records, tracker, Notes standardization | Processes "Request Application ID" tickets end-to-end (next App ID, FS New Software record, SharePoint mirror with duplicate/retired validation, change log) |
+
+Role also added, the same day, a third real item not requested by the brief: **"Desierto Creativo — Website (desiertocreativo.com)"** — CLIENTES / project / active / claude_web / low, manual next action "Review todo.md in Google Drive → DesiertoCreativo/docs and pick the next site improvement." (no `client_name` set — allowed).
+
+## Current real managed work (runtime data)
+
+**Total 10** — ROLE PERSONAL 7 (6 projects + yt-dlp) · KONTOOR 2 (1 completed project + 1 tool) · CLIENTES 1 (Desierto Creativo) · UNGER 0.
+**Projects 8** (7 active, 1 completed) · **Tools 2** (kontoor-fs-new-app-id, yt-dlp). Explicit registrations: 1 (bolsa-de-trabajo). `integrity_check` ok.
+
+## Daily Command Center (real UI)
+
+- **Chips:** All 10 · KONTOOR 2 · UNGER 0 · ROLE PERSONAL 7 · CLIENTES 1.
+- **What should I do now?** ROLE Commerce Factory — "No next action recorded." + "Last activity: milestone … (from latest git commit)"; Why: "Suggested: Consider shipping/launching — Health score 82 with commercial readiness 'client-ready'", "No activity in 37 days"; **Continue Working →**.
+- **Where I Left Off** (right after the recommendation): Desierto Creativo — manual next action, "No current snapshot."
+- **Pending Work:** only genuine next actions — Desierto Creativo (manual entry), role-ecosystem (ROADMAP.md), ROLE MASTER (TODO.md).
+- **Active Projects:** 7 (6 ROLE PERSONAL + Desierto Creativo). **Completed:** the KONTOOR batch (Claude Web, Open ↗, reference). **Tools:** kontoor-fs-new-app-id (skill reference visible), yt-dlp (Open ↗ + how to run).
+- **KONTOOR filter:** What should I do now "No projects in this domain."; Active "No projects in this domain."; Pending "No next action recorded."; Completed = the batch; Tools = kontoor-fs-new-app-id. Neither KONTOOR item is ranked, in the Executive Decision, Primary Focus or Today's Focus.
+- **ALL filter:** batch stays under Completed; both tools under Tools; the 7 active projects are the only ranked items; recommendation unaffected by completed work or tools.
+- **Role Dashboard:** opens `#/dashboard` at the top (3,092 px → 0), no errors; **← Daily Command Center** returns to `#/home`.
+- **Detail pages:** kontoor-fs-new-app-id — no action buttons (no URL, no session), Location shows the skill reference, no Git/Docs sections; completed batch — Open ↗ present (see friction for Resume Work).
+
+## Next-action semantics
+
+No commit/history is shown as a next action anywhere (Commerce Factory, ROLE_OS, bolsa show "No next action recorded." with "Last activity"). The completed batch has none and needs none. The tool's "None required…" text is not pending work (tools are excluded from Pending Work and the ranking; it appears only in the tool's own detail page). Nothing like "use when needed" was fabricated.
+
+## P3.6B regression check (no cleanup redone)
+
+Role Test Project / Active / Paused / Quiet Project: 0 mentions in Mission Control. Misattributed snapshot ("l estado…"): 0 mentions, not current. Old commits never a next action. Freshness is meaningful — it honestly reports the scan age again (79 h since the approved 2026-09-25 rescan, above the 24 h threshold). Where I Left Off right under the recommendation. Dashboard at top. Tool detail: Open-first / no Resume without a session. Tool references visible. Sidebar "Daily Command Center" highlighted on `#/home` and while on the Dashboard.
+
+## Final 30-second test
+
+| # | Question | Result |
+|---|---|---|
+| 1 | What to work on first? | **PASS** |
+| 2 | Why? | **PASS** — specific, evidence-backed suggestion |
+| 3 | What else is genuinely pending? | **PASS** — only three real next actions |
+| 4 | Active vs completed? | **PASS** |
+| 5 | Reusable tools separately? | **PASS** |
+| 6 | Which domain owns the work? | **PASS** |
+| 7 | Where did I leave off? | **PARTIAL** — visible early and honest, but it resolves to the most recently *added* item (Desierto Creativo, created today) rather than the last thing actually worked on; not blocking |
+| 8 | How to continue/open? | **PASS** — Continue Working, Open ↗, references |
+| 9 | Reach Role Dashboard? | **PASS** |
+
+## Remaining friction (all NON-BLOCKING → backlog)
+
+- Discovery freshness goes stale 24 h after a scan; nothing refreshes it at daily launch (natural fit for P3.7).
+- Where I Left Off can pick a freshly added item over real last work.
+- Completed project detail keeps **Resume Work** as its primary button.
+- KONTOOR filter's empty "What should I do now?" / Active say "No projects in this domain." although the domain has a completed project and a tool ("No active projects…" would be more precise).
+- Next-action text stored on a tool shows as "Next Action" on its detail page.
+- Desierto Creativo's why repeats its manual next action twice ("Has a recorded next action" + "Suggested: Continue: …").
+- CLIENTES item has no client name (allowed; Role's choice).
+- From P3.6B, still open: duplicate unlinked "ROLE Commerce Factory" PI project; OI's "open next action" wording for ROLE_OS; ROLE_KNOWLEDGE_OS looks active because Role OS writes its DBs there; Dashboard v2 counts tools as projects; deleting a PI project leaves Advisor recommendations; no edit UI for external items; un-adopted FERREVOLT / KONTOOR folders discovered.
+
+**BLOCKING:** none.
+
+## Phase 3 core product goal — PASS
+
+Role OS now represents and organizes local projects (Discovery), explicitly registered isolated projects (bolsa-de-trabajo), external/web projects (Desierto Creativo, the KONTOOR batch), completed projects, reusable tools (yt-dlp, kontoor-fs-new-app-id), Claude Web work, account-level Claude skills through external references, and three of the four domains with real data (UNGER honestly empty) — and the Daily Command Center answers the core daily questions (8 PASS, 1 PARTIAL). Phase 3 is **not** marked complete: Windows startup remains its final authorized task.
+
+## Tests
+
+No production code changed → smoke/regression only: P3.6B polish, P3.3 Daily Command Center, P3.5 ingestion, P3.4 registration, classification, Mission Control API, navigation → **150 passed**. All 15 runtime DB checksums identical before/after.
+
+## Runtime / user data modified
+
+**NONE** by this task (the three new records were created by Role before it).
+
+## Next task
+
+**P3.7 — Windows Startup & Daily Launch** — make Role OS easy to launch automatically when Role signs into Windows, using the existing launcher and the stable Daily Command Center; no background services unless genuinely necessary. NOT STARTED — requires Role's authorization.
