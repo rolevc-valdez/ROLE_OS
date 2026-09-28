@@ -16,10 +16,24 @@
        separate, minimized process from the dashboard directory, waits
        for it to become healthy, then opens the browser.
 
+    6. After the browser opens, asks the server to rescan the Workspace
+       only if the last scan is older than 24 hours (configured Discovery
+       roots only, never adopting anything) -- so the Daily Command Center
+       never waits for a scan (Phase 3 Task 7).
+
     Intended to be run via "Start ROLE OS.bat" (a thin double-click
     wrapper), but works standalone:
       powershell -ExecutionPolicy Bypass -File scripts\Start-RoleOS.ps1
+
+.PARAMETER Startup
+    Windows sign-in mode, used by the Startup-folder shortcut created by
+    Enable-RoleOSStartup.ps1: the server runs with no visible window, the
+    readiness wait is longer (the machine is busy right after sign-in), and
+    a failure is shown once as a message box pointing at the log instead of
+    a console nobody sees. Same health check, same single server.
 #>
+
+param([switch]$Startup)
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -49,10 +63,13 @@ New-Item -ItemType Directory -Path $paths.VarDir -Force | Out-Null
 
 function Fail([string]$Message) {
     Write-RoleOSLog -Level ERROR -LogFile $paths.LauncherLog -Message $Message
+    if ($Startup) {
+        Show-RoleOSStartupError -Message $Message -LogFile $paths.LauncherLog
+    }
     exit 1
 }
 
-Write-RoleOSLog -LogFile $paths.LauncherLog -Message "---- Start ROLE OS ----"
+Write-RoleOSLog -LogFile $paths.LauncherLog -Message ("---- Start ROLE OS ----" + $(if ($Startup) { " (Windows sign-in startup)" } else { "" }))
 Write-RoleOSLog -LogFile $paths.LauncherLog -Message "Repository root: $($paths.RepoRoot)"
 
 # ---------------------------------------------------------------------
@@ -64,6 +81,7 @@ $health = Test-RoleOSHealth
 if ($health.Responding -and $health.IsRoleOS) {
     Write-RoleOSLog -LogFile $paths.LauncherLog -Message "ROLE OS is already running (version $($health.Version)). Opening browser without starting a second server."
     Start-Process $RoleOSBaseUrl
+    $null = Invoke-RoleOSFreshnessCheck -LogFile $paths.LauncherLog
     exit 0
 }
 
@@ -166,7 +184,7 @@ try {
     $proc = Start-Process -FilePath $python.Path `
         -ArgumentList $uvicornArgs `
         -WorkingDirectory $paths.DashboardDir `
-        -WindowStyle Minimized `
+        -WindowStyle $(if ($Startup) { "Hidden" } else { "Minimized" }) `
         -RedirectStandardOutput $paths.UvicornLog `
         -RedirectStandardError $paths.UvicornErrLog `
         -PassThru
@@ -178,24 +196,15 @@ Set-Content -LiteralPath $paths.PidFile -Value $proc.Id -Encoding ASCII
 Write-RoleOSLog -LogFile $paths.LauncherLog -Message "Server process started (PID $($proc.Id)). Waiting for it to become healthy..."
 
 # ---------------------------------------------------------------------
-# 7. Wait for /health, with a reasonable timeout
+# 7. Wait for /health, with a reasonable timeout (longer right after
+#    Windows sign-in, when the machine is still busy)
 # ---------------------------------------------------------------------
-$timeoutSeconds = 30
-$intervalMs = 500
-$elapsedMs = 0
-$healthy = $false
+$timeoutSeconds = if ($Startup) { 90 } else { 30 }
+$check = Wait-RoleOSHealthy -TimeoutSeconds $timeoutSeconds -Process $proc
+$healthy = $null -ne $check
 
-while ($elapsedMs -lt ($timeoutSeconds * 1000)) {
-    if ($proc.HasExited) {
-        Fail "The server process exited immediately (exit code $($proc.ExitCode)) before becoming healthy. Check the log for details: $($paths.UvicornErrLog)`n`nLast lines:`n$((Get-Content -LiteralPath $paths.UvicornErrLog -Tail 15 -ErrorAction SilentlyContinue) -join [Environment]::NewLine)"
-    }
-    $check = Test-RoleOSHealth -TimeoutSec 1
-    if ($check.Responding -and $check.IsRoleOS) {
-        $healthy = $true
-        break
-    }
-    Start-Sleep -Milliseconds $intervalMs
-    $elapsedMs += $intervalMs
+if (-not $healthy -and $proc.HasExited) {
+    Fail "The server process exited immediately (exit code $($proc.ExitCode)) before becoming healthy. Check the log for details: $($paths.UvicornErrLog)`n`nLast lines:`n$((Get-Content -LiteralPath $paths.UvicornErrLog -Tail 15 -ErrorAction SilentlyContinue) -join [Environment]::NewLine)"
 }
 
 if (-not $healthy) {
@@ -207,4 +216,10 @@ if (-not $healthy) {
 
 Write-RoleOSLog -LogFile $paths.LauncherLog -Message "ROLE OS is healthy (version $($check.Version)). Opening browser at $RoleOSBaseUrl"
 Start-Process $RoleOSBaseUrl
+
+# ---------------------------------------------------------------------
+# 8. Launch-time freshness (Phase 3 Task 7): only after the Daily Command
+#    Center is already open, and only if the last scan is > 24 h old.
+# ---------------------------------------------------------------------
+$null = Invoke-RoleOSFreshnessCheck -LogFile $paths.LauncherLog
 exit 0

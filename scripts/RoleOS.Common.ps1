@@ -1,6 +1,8 @@
 ﻿<#
 .SYNOPSIS
-    Shared helpers for Start-RoleOS.ps1 and Stop-RoleOS.ps1.
+    Shared helpers for Start-RoleOS.ps1, Stop-RoleOS.ps1 and the sign-in
+    startup scripts (Enable-/Disable-RoleOSStartup.ps1,
+    Get-RoleOSStartupStatus.ps1).
 
 .DESCRIPTION
     Single source of truth for: resolving repository-relative paths, the
@@ -384,4 +386,198 @@ sys.exit(1 if missing else 0)
         $missingPackages = @("(unable to verify -- interpreter output: $($missingImportNames -join ' '))")
     }
     return @{ Success = $false; Missing = $missingPackages }
+}
+
+# ---------------------------------------------------------------------
+# Role OS 2.0 Phase 3 Task 7: readiness, launch-time freshness, and
+# Windows sign-in startup (current user only). The startup mechanism is a
+# single shortcut in the current user's Startup folder that runs the SAME
+# canonical launcher (Start-RoleOS.ps1) in -Startup mode -- no service, no
+# scheduled task, no registry edits, no administrator rights.
+# ---------------------------------------------------------------------
+
+$RoleOSStartupShortcutName = "ROLE OS.lnk"
+
+function Wait-RoleOSHealthy {
+    <#
+    .SYNOPSIS
+        Polls the real /health endpoint until ROLE OS answers, the given
+        process exits, or the timeout elapses. Returns the last health
+        probe when healthy, $null otherwise -- never loops forever.
+    #>
+    param(
+        [int]$TimeoutSeconds = 30,
+        [int]$IntervalMs = 500,
+        [System.Diagnostics.Process]$Process = $null
+    )
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        if ($Process -and $Process.HasExited) {
+            return $null
+        }
+        $check = Test-RoleOSHealth -TimeoutSec 1
+        if ($check.Responding -and $check.IsRoleOS) {
+            return $check
+        }
+        Start-Sleep -Milliseconds $IntervalMs
+    }
+    return $null
+}
+
+function Invoke-RoleOSFreshnessCheck {
+    <#
+    .SYNOPSIS
+        Asks the running server to rescan the Workspace only if the last
+        scan is older than 24 hours (POST /workspace/rescan-if-stale). The
+        server uses its configured Discovery roots only and never adopts
+        anything. Called AFTER the browser is opened, so the Daily Command
+        Center never waits for a scan. Never throws -- a failed or slow
+        refresh is logged, not fatal.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$LogFile,
+        [int]$TimeoutSec = 600
+    )
+    try {
+        $result = Invoke-RestMethod -Method Post -Uri "$RoleOSBaseUrl/workspace/rescan-if-stale" -TimeoutSec $TimeoutSec -ErrorAction Stop
+        if ($result.rescanned) {
+            Write-RoleOSLog -LogFile $LogFile -Message "Workspace scan was stale ($($result.reason)); rescanned the configured Discovery roots. Last scan now: $($result.freshness.last_scan)"
+        } elseif ($result.error) {
+            Write-RoleOSLog -Level WARN -LogFile $LogFile -Message "Workspace scan is stale but the rescan failed: $($result.error)"
+        } else {
+            Write-RoleOSLog -LogFile $LogFile -Message "Workspace scan is fresh ($($result.freshness.hours_since_scan) h old); no rescan needed."
+        }
+        return $result
+    } catch {
+        Write-RoleOSLog -Level WARN -LogFile $LogFile -Message "Workspace freshness check did not complete: $($_.Exception.Message)"
+        return $null
+    }
+}
+
+function Get-RoleOSStartupFolder {
+    <#
+    .SYNOPSIS
+        The CURRENT USER's Startup folder (shell:startup). Never the
+        machine-wide "All Users" folder.
+    #>
+    return [Environment]::GetFolderPath([Environment+SpecialFolder]::Startup)
+}
+
+function Get-RoleOSStartupShortcutPath {
+    param([string]$StartupFolder = (Get-RoleOSStartupFolder))
+    return Join-Path $StartupFolder $RoleOSStartupShortcutName
+}
+
+function Get-RoleOSStartupCommand {
+    <#
+    .SYNOPSIS
+        The exact command the sign-in shortcut runs: the canonical launcher
+        in -Startup mode, hidden console, no profile.
+    #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+    $launcher = Join-Path $RepoRoot "scripts\Start-RoleOS.ps1"
+    $powershell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    [PSCustomObject]@{
+        FilePath  = $powershell
+        Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcher`" -Startup"
+        Launcher  = $launcher
+    }
+}
+
+function Get-RoleOSStartupStatus {
+    <#
+    .SYNOPSIS
+        Reports whether sign-in startup is enabled, and whether the
+        shortcut still points at THIS repository's canonical launcher.
+    .OUTPUTS
+        PSCustomObject: Enabled, ShortcutPath, Target, Arguments,
+        PointsToThisRepo, Launcher.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$StartupFolder = (Get-RoleOSStartupFolder)
+    )
+    $shortcutPath = Get-RoleOSStartupShortcutPath -StartupFolder $StartupFolder
+    $expected = Get-RoleOSStartupCommand -RepoRoot $RepoRoot
+    if (-not (Test-Path -LiteralPath $shortcutPath -PathType Leaf)) {
+        return [PSCustomObject]@{
+            Enabled = $false; ShortcutPath = $shortcutPath; Target = $null; Arguments = $null
+            PointsToThisRepo = $false; Launcher = $expected.Launcher
+        }
+    }
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut($shortcutPath)
+    [PSCustomObject]@{
+        Enabled          = $true
+        ShortcutPath     = $shortcutPath
+        Target           = $link.TargetPath
+        Arguments        = $link.Arguments
+        PointsToThisRepo = ($link.Arguments -eq $expected.Arguments)
+        Launcher         = $expected.Launcher
+    }
+}
+
+function Enable-RoleOSStartup {
+    <#
+    .SYNOPSIS
+        Creates (or refreshes) the current user's Startup-folder shortcut.
+        Idempotent: running it again just rewrites the same single shortcut.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$StartupFolder = (Get-RoleOSStartupFolder)
+    )
+    $command = Get-RoleOSStartupCommand -RepoRoot $RepoRoot
+    if (-not (Test-Path -LiteralPath $command.Launcher -PathType Leaf)) {
+        throw "Canonical launcher not found at '$($command.Launcher)'."
+    }
+    if (-not (Test-Path -LiteralPath $StartupFolder -PathType Container)) {
+        New-Item -ItemType Directory -Path $StartupFolder -Force | Out-Null
+    }
+    $shortcutPath = Get-RoleOSStartupShortcutPath -StartupFolder $StartupFolder
+    $shell = New-Object -ComObject WScript.Shell
+    $link = $shell.CreateShortcut($shortcutPath)
+    $link.TargetPath = $command.FilePath
+    $link.Arguments = $command.Arguments
+    $link.WorkingDirectory = $RepoRoot
+    $link.WindowStyle = 7  # minimized
+    $link.Description = "Start ROLE OS at Windows sign-in and open the Daily Command Center"
+    $link.Save()
+    return Get-RoleOSStartupStatus -RepoRoot $RepoRoot -StartupFolder $StartupFolder
+}
+
+function Disable-RoleOSStartup {
+    <#
+    .SYNOPSIS
+        Removes ONLY the Role OS Startup-folder shortcut. Never touches the
+        running server, the repository, or anything else in the folder.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [string]$StartupFolder = (Get-RoleOSStartupFolder)
+    )
+    $shortcutPath = Get-RoleOSStartupShortcutPath -StartupFolder $StartupFolder
+    if (Test-Path -LiteralPath $shortcutPath -PathType Leaf) {
+        Remove-Item -LiteralPath $shortcutPath -Force
+    }
+    return Get-RoleOSStartupStatus -RepoRoot $RepoRoot -StartupFolder $StartupFolder
+}
+
+function Show-RoleOSStartupError {
+    <#
+    .SYNOPSIS
+        In -Startup mode there is no console to read, so a failure is shown
+        once as a Windows message box pointing at the log. Best-effort.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Message,
+        [Parameter(Mandatory)][string]$LogFile
+    )
+    try {
+        $shell = New-Object -ComObject WScript.Shell
+        $text = "ROLE OS could not start at sign-in.`n`n$Message`n`nLog: $LogFile`n`nYou can start it manually with 'Start ROLE OS.bat'."
+        $null = $shell.Popup($text, 0, "ROLE OS", 0x10)
+    } catch {
+        # No desktop session (e.g. automated run) -- the log already has it.
+    }
 }

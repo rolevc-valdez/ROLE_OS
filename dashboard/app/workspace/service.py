@@ -815,6 +815,31 @@ def get_freshness(settings: Settings | None = None) -> dict[str, Any]:
     }
 
 
+def rescan_if_stale(settings: Settings | None = None) -> dict[str, Any]:
+    """Phase 3 Task 7 (daily launch): the launcher's one freshness hook.
+
+    Runs the existing, safe `rescan()` -- configured Discovery roots only
+    (`root=None`), never adopting anything; explicit registrations and
+    external work are untouched by design -- but ONLY when the last scan is
+    missing or older than `STALE_THRESHOLD_HOURS`. Otherwise it does
+    nothing. Never raises: a scan failure is reported, so a launcher can
+    log it without treating Role OS itself as down."""
+    settings = settings or get_settings()
+    before = get_freshness(settings=settings)
+    if not before["is_stale"]:
+        return {"rescanned": False, "reason": "fresh", "error": None, "freshness": before}
+    try:
+        rescan(settings=settings, root=None)
+    except (FileNotFoundError, NotADirectoryError, ValueError, OSError) as exc:
+        return {"rescanned": False, "reason": "rescan_failed", "error": str(exc), "freshness": before}
+    return {
+        "rescanned": True,
+        "reason": "stale" if before["last_scan"] else "never_scanned",
+        "error": None,
+        "freshness": get_freshness(settings=settings),
+    }
+
+
 def get_enriched_item(item_id: str, settings: Settings | None = None) -> dict[str, Any] | None:
     """Project Detail's data source: the full merged item (including
     non-top-level ones, e.g. a repository/component being reviewed

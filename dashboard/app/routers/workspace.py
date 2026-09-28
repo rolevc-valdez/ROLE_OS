@@ -103,6 +103,15 @@ def rescan(payload: RescanRequest = Body(default_factory=RescanRequest)):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+@router.post("/rescan-if-stale")
+def rescan_if_stale():
+    """Phase 3 Task 7: called by the launcher right AFTER it opens the Daily
+    Command Center, so the page never waits for a scan. Rescans the
+    configured Discovery roots only when the last scan is older than 24 h
+    (or missing); otherwise a no-op. Always 200 -- see `rescanned`/`error`."""
+    return service.rescan_if_stale()
+
+
 @router.post("/discovered/{item_id}/adopt", response_model=WorkspaceItem)
 def adopt(item_id: str, payload: AdoptRequest = Body(default_factory=AdoptRequest)):
     item = service.adopt_item(

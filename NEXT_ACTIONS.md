@@ -4,13 +4,11 @@
 
 ## Now
 
-**Primary next action (the only one): Phase 3 — Task P3.7 — Windows Startup & Daily Launch.**
+**Mode: REAL DAILY USE / STABILIZATION.** Phase 3 is COMPLETE (`docs/PHASE_3_COMPLETION.md`). No development phase is open — do not start one without Role's explicit direction.
 
-**NOT STARTED. Requires Role's go-ahead.** Goal: make Role OS easy to launch automatically when Role signs into Windows, reusing the existing launcher (`Start ROLE OS.bat` / `scripts/Start-RoleOS.ps1`, which already health-checks and avoids duplicate servers) and the stable Daily Command Center. No background services unless genuinely necessary. Worth considering in its scope: refreshing the Workspace scan at daily launch (discovery freshness goes stale 24 h after a scan).
+**First confirmation for Role:** at the next Windows sign-in, Role OS should open the Daily Command Center by itself (one tab). If not: `powershell -ExecutionPolicy Bypass -File scripts\Get-RoleOSStartupStatus.ps1` and `dashboard\var\role_os_dashboard\launcher.log` (see `docs/PHASE_3_TASK_7_WINDOWS_STARTUP.md` → Troubleshooting). Disable any time with `scripts\Disable-RoleOSStartup.ps1`.
 
-Status: Phase 2 COMPLETE (`20b80df`); Phase 3 IN PROGRESS — P3.1–P3.6 COMPLETE (P3.6: `docs/PHASE_3_TASK_6_DAILY_USE_VALIDATION.md`). Phase 3 core product goal: PASS. Do not repeat them. Phase 3 closes after P3.7.
-
-**Non-blocking backlog (from P3.6, not tasks until Role picks them):** Where I Left Off can pick a freshly added item over real last work; completed-project detail still offers Resume Work first; "No projects in this domain." wording when a domain has only completed work/tools; duplicate unlinked "ROLE Commerce Factory" PI project; OI "open next action" wording; ROLE_KNOWLEDGE_OS looks active from Role OS's own DB writes; Dashboard v2 counts tools as projects; Advisor recommendations outlive deleted PI projects; no edit UI for external items; un-adopted FERREVOLT / KONTOOR folders.
+**Non-blocking backlog (from P3.6/P3.6B; each needs Role's pick before work starts):** Where I Left Off can pick a freshly added item over real last work; completed-project detail still offers Resume Work first; "No projects in this domain." wording when a domain has only completed work/tools; tool next-action text shown on its detail page; Desierto Creativo's Why repeats its next action; duplicate unlinked "ROLE Commerce Factory" PI project; OI "open next action" wording for ROLE_OS; ROLE_KNOWLEDGE_OS looks active from Role OS's own DB writes; Dashboard v2 counts tools as projects; Advisor recommendations outlive deleted PI projects; no edit UI for external items; un-adopted FERREVOLT / KONTOOR folders; `ROLE_PROJECT.md` import (designed, deferred). From P3.7: a manual re-launch opens another tab; stale-scan refresh is visible only after a page refresh.
 
 ## Blocked / Requires Role Decision (all DEFERRED, none approved)
 
